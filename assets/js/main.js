@@ -2,9 +2,10 @@ import './styles.css'
 import { validCPF as validateCPF, maskCPF as formatCPF } from './validation.js'
 import { filterAthletes } from './filters.js'
 import { toggleFavorite, registerVote } from './feed.js'
-import { saveMessage } from './messages.js'
+import { saveMessage, searchConversations } from './messages.js'
 
 const app = document.querySelector('#app')
+let activeThread = null
 
 const INITIAL = {
   user: JSON.parse(localStorage.getItem('ap_user') || 'null'),
@@ -184,12 +185,13 @@ function tryoutCard(t){ return `<article class="panel flex flex-col"><div class=
 function messagesPage() {
   const staff = state.user?.role==='staff'
   const conversations = staff ? state.athletes.slice(0,4).map(a=>({name:a.name, subtitle:`${a.pos} • ${a.city}`, avatar:a.name, id:`a${a.id}`})) : [{name:'Bruno Martins',subtitle:'Treinador • Academia Pelé',avatar:'Bruno',id:'staff1'},{name:'Marina Lopes',subtitle:'Olheira • São Paulo',avatar:'Marina',id:'staff2'}]
-  const selected = conversations[0]
+  const selected = conversations.find(c=>c.id===activeThread) || conversations[0]
+  activeThread = selected.id
   const history = state.messages.filter(m=>m.thread===selected.id)
   return shell(`
     <div><span class="eyebrow">Comunicação</span><h1 class="page-title">Conversas</h1><p class="page-subtitle">Atletas e profissionais podem se encontrar pelo banco de dados e conversar por aqui.</p></div>
     <section class="mt-6 grid min-h-[620px] overflow-hidden rounded-[28px] border border-white/10 bg-white/[.025] md:grid-cols-[300px_1fr]">
-      <aside class="border-b border-white/8 bg-black/20 md:border-b-0 md:border-r"><div class="p-4"><label class="field-label">Pesquisar ${staff?'atleta':'profissional'}<input id="conversation-search" class="field mt-2" placeholder="Digite um nome..." /></label></div><div id="conversation-list" class="space-y-1 p-2">${conversations.map((c,i)=>`<button class="conversation-item ${i===0?'selected':''}" data-thread="${c.id}" data-name="${c.name}"><span class="avatar">${avatar(c.avatar)}</span><span class="min-w-0 text-left"><strong class="block truncate">${c.name}</strong><small class="block truncate text-white/35">${c.subtitle}</small></span></button>`).join('')}</div></aside>
+      <aside class="border-b border-white/8 bg-black/20 md:border-b-0 md:border-r"><div class="p-4"><label class="field-label">Pesquisar ${staff?'atleta':'profissional'}<input id="conversation-search" class="field mt-2" placeholder="Digite um nome..." /></label></div><div id="conversation-list" class="space-y-1 p-2">${conversations.map(c=>`<button class="conversation-item ${c.id===selected.id?'selected':''}" data-thread="${c.id}" data-name="${c.name}"><span class="avatar">${avatar(c.avatar)}</span><span class="min-w-0 text-left"><strong class="block truncate">${c.name}</strong><small class="block truncate text-white/35">${c.subtitle}</small></span></button>`).join('')}</div></aside>
       <div class="flex min-w-0 flex-col"><header class="flex items-center justify-between border-b border-white/8 px-5 py-4"><div class="flex items-center gap-3"><span class="avatar">${avatar(selected.avatar)}</span><div><p class="font-bold">${selected.name}</p><p class="text-xs text-emerald-300">Disponível para conversar</p></div></div><span class="tag green">Canal seguro</span></header><div id="chat-messages" class="flex-1 space-y-3 overflow-y-auto p-5">${(history.length?history:[{from:'them',text: staff ? 'Olá! Vi seu perfil e gostaria de conversar sobre sua disponibilidade para uma avaliação.' : 'Olá! Vi suas oportunidades e quero saber mais sobre a próxima peneira.'}]).map(messageBubble).join('')}</div><form id="message-form" class="border-t border-white/8 p-4"><div class="flex gap-2"><input id="message-input" class="field" placeholder="Escreva sua mensagem..." autocomplete="off"/><button class="btn-primary shrink-0" aria-label="Enviar mensagem">${icon('arrow','size-4')}</button></div></form></div>
     </section>
   `,{active:'messages',role:staff?'staff':'player'})
@@ -245,8 +247,15 @@ function bind(){
   const login=document.querySelector('#login-form'); if(login) login.addEventListener('submit',e=>{e.preventDefault(); const email=document.querySelector('#login-email').value.trim(); if(!email.includes('@')){const er=document.querySelector('#login-error'); er.textContent='Informe um e-mail válido.'; er.classList.remove('hidden'); return} const role=document.querySelector('.role-tab.active')?.dataset.role || 'player'; state.user={name:role==='staff'?'Marina Lopes':'Gabriel Martins',email,role}; state.profile ||= {name:'Gabriel Martins',birth:'14/03/2008',email,phone:'(11) 99872-1122',pos:'Atacante',secondary:'Ponta',city:'São Paulo',state:'SP',address:'Av. Ipiranga, 1200',number:'1200',district:'República',zip:'01046-010'}; persist(); go('dashboard'); toast(`Login realizado como ${role==='staff'?'funcionário':'jogador'}.`) })
   document.querySelectorAll('[data-action="demo"]').forEach(b=>b.addEventListener('click',()=>{const role=document.querySelector('.role-tab.active')?.dataset.role || 'player';state.user={name:role==='staff'?'Marina Lopes':'Gabriel Martins',email:'demo@academiapelé.com',role};state.profile ||= {name:'Gabriel Martins',birth:'14/03/2008',email:'demo@academiapelé.com',phone:'(11) 99872-1122',pos:'Atacante',secondary:'Ponta',city:'São Paulo',state:'SP',address:'Av. Ipiranga, 1200',number:'1200',district:'República',zip:'01046-010'};persist();go('dashboard');toast('Conta demo carregada.') }))
   const pf=document.querySelector('#profile-form'); if(pf) pf.addEventListener('submit',e=>{e.preventDefault(); const p=state.profile||{}; Object.assign(p,{name:document.querySelector('#profile-name').value,birth:document.querySelector('#profile-birth').value,email:document.querySelector('#profile-email').value,phone:document.querySelector('#profile-phone').value,pos:document.querySelector('#profile-pos').value,secondary:document.querySelector('#profile-secondary').value,zip:document.querySelector('#profile-zip').value,city:document.querySelector('#profile-city').value,state:document.querySelector('#profile-state').value,district:document.querySelector('#profile-district').value,address:document.querySelector('#profile-address').value}); state.profile=p; if(state.user)state.user.name=p.name; persist(); render(); toast('Dados do jogador atualizados.') })
-  const mf=document.querySelector('#message-form'); if(mf) mf.addEventListener('submit',e=>{e.preventDefault(); const inp=document.querySelector('#message-input'); const text=inp.value.trim(); if(!text)return; const first=document.querySelector('[data-thread].selected')||document.querySelector('[data-thread]'); const thread=first?.dataset.thread||'a1'; if(!saveMessage(state,thread,text)) return; persist(); inp.value=''; render(); setTimeout(()=>{toast('Mensagem enviada com sucesso.')},100)})
-  document.querySelectorAll('[data-thread]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('[data-thread]').forEach(x=>x.classList.remove('selected'));b.classList.add('selected')}))
+  const mf=document.querySelector('#message-form'); if(mf) mf.addEventListener('submit',e=>{e.preventDefault(); const inp=document.querySelector('#message-input'); const text=inp.value.trim(); if(!text)return; const thread=activeThread || document.querySelector('[data-thread]')?.dataset.thread || 'a1'; if(!saveMessage(state,thread,text)) return; persist(); inp.value=''; render(); setTimeout(()=>{toast('Mensagem enviada com sucesso.')},100)})
+  document.querySelectorAll('[data-thread]').forEach(b=>b.addEventListener('click',()=>{activeThread=b.dataset.thread;render()}))
+  const conversationSearch=document.querySelector('#conversation-search')
+  if(conversationSearch) conversationSearch.addEventListener('input',()=>{
+    const items=[...document.querySelectorAll('[data-thread]')].map(el=>({name:el.dataset.name,subtitle:el.textContent,el}))
+    const visible=searchConversations(items.map(x=>({name:x.name,subtitle:x.subtitle,el:x.el})),conversationSearch.value)
+    const visibleSet=new Set(visible.map(x=>x.el))
+    items.forEach(x=>x.el.classList.toggle('hidden',!visibleSet.has(x.el)))
+  })
 }
 function showReg(text,error){const f=document.querySelector('#reg-feedback'); if(!f)return;f.textContent=text;f.classList.remove('hidden');f.className=`sm:col-span-2 rounded-2xl border px-4 py-3 text-sm ${error?'border-rose-400/20 bg-rose-500/10 text-rose-200':'border-emerald-400/20 bg-emerald-500/10 text-emerald-200'}`}
 function openTryoutModal(){
