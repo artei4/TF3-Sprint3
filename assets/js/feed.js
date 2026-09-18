@@ -1,4 +1,4 @@
-export function toggleFavorite(state, athleteId){
+function toggleFavorite(state, athleteId){
   state.favorites=state.favorites.includes(athleteId)
     ? state.favorites.filter(x=>x!==athleteId)
     : [...state.favorites,athleteId]
@@ -6,7 +6,7 @@ export function toggleFavorite(state, athleteId){
   return state.favorites.includes(athleteId)
 }
 
-export function registerVote(state, athleteId){
+function registerVote(state, athleteId){
   state.votes[athleteId]=(state.votes[athleteId]||0)+1
   localStorage.setItem('ap_votes', JSON.stringify(state.votes))
   return state.votes[athleteId]
