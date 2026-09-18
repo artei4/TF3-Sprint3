@@ -50,6 +50,8 @@ const defaultTryouts = [
 ]
 
 const state = {
+  athletes: defaultAthletes,
+  filteredAthletes: defaultAthletes,
   user: readStorage('ap_user', null),
   accounts: readStorage('ap_accounts', []),
   favorites: readStorage('ap_favorites', []),
@@ -146,12 +148,12 @@ function avatar(name = 'Atleta') {
 }
 
 function go(route) {
-  const normalized = String(route || 'dashboard').replace(/^#\\/?/, '')
+  const normalized = String(route || 'dashboard').replace(/^#\/?/, '')
   location.hash = '/' + normalized
 }
 
 function currentRoute() {
-  const raw = location.hash.replace(/^#\\/?/, '')
+  const raw = location.hash.replace(/^#\/?/, '')
   return raw || (state.user ? 'dashboard' : 'login')
 }
 
@@ -331,7 +333,7 @@ function profilePage() {
     '<div class="sm:col-span-2 mt-2 border-t border-white/8 pt-5"><p class="text-sm font-bold">Endereço</p></div>' +
     input('CEP', 'profile-zip', p.zip, 'text', true) + input('Cidade', 'profile-city', p.city, 'text', true) + input('Estado', 'profile-state', p.state, 'text', true) + input('Bairro', 'profile-district', p.district, 'text', true) +
     input('Endereço', 'profile-address', p.address, 'text', true) + input('Número', 'profile-number', p.number, 'text', true) +
-    '<div class="sm:col-span-2 flex justify-end"><button class="btn-primary" type="submit">Salvar alterações ' + icon('check', 'size-4') + '</button></div></form></div></section>' +
+    '<div id="profile-feedback" class="sm:col-span-2 hidden" role="alert"></div><div class="sm:col-span-2 flex justify-end"><button class="btn-primary" type="submit">Salvar alterações ' + icon('check', 'size-4') + '</button></div></form></div></section>' +
     '<section class="mt-6 panel"><div class="flex items-center justify-between"><div><span class="eyebrow">Olheiros</span><h2 class="section-title">Comentários e notas</h2></div><span class="tag">' + getPlayerReviewCount() + ' registro(s)</span></div><div class="mt-5 grid gap-4 md:grid-cols-2">' + renderPlayerReviews() + '</div></section>',
     { active: 'profile', role: 'player' },
   )
@@ -758,7 +760,7 @@ function openMobileMenu() {
 
 function exportSelection() {
   const rows = [['Nome', 'Idade', 'Categoria', 'Gênero', 'Posição principal', 'Posição secundária', 'Cidade', 'Estado', 'Nota']]
-  state.filteredAthletes.forEach((a) => rows.push([a.name, a.age, getCategoryFromAge(a.age), a.gender || '', a.pos, a.secondary, a.city, a.state, a.rating]))
+  (state.filteredAthletes || state.athletes).forEach((a) => rows.push([a.name, a.age, getCategoryFromAge(a.age), a.gender || '', a.pos, a.secondary, a.city, a.state, a.rating]))
   const csv = rows.map((row) => row.map((cell) => '"' + String(cell).replaceAll('"', '""') + '"').join(';')).join('\\n')
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
@@ -872,7 +874,7 @@ function registerAccount() {
   if (password.length < 6) return showFeedback('reg-feedback', 'A senha precisa ter pelo menos 6 caracteres.', true)
   if (password !== confirm) return showFeedback('reg-feedback', 'As senhas não coincidem.', true)
   if (state.accounts.some((account) => account.email === email)) return showFeedback('reg-feedback', 'Já existe uma conta com esse e-mail.', true)
-  if (state.accounts.some((account) => account.cpf && account.cpf === cpf.replace(/\\D/g, ''))) return showFeedback('reg-feedback', 'Já existe uma conta com esse CPF.', true)
+  if (state.accounts.some((account) => account.cpf && account.cpf === cpf.replace(/\D/g, ''))) return showFeedback('reg-feedback', 'Já existe uma conta com esse CPF.', true)
 
   const profile = {
     name,
