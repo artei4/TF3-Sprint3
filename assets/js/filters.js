@@ -1,6 +1,4 @@
-import { getCategoryFromAge } from './validation.js'
-
-export function filterAthletes(athletes, {name='', pos='', city='', age='', category='', gender=''}={}){
+function filterAthletes(athletes, {name='', pos='', city='', age='', category='', gender=''}={}){
   const search=String(name).trim().toLowerCase()
   const normalizedCity=String(city).trim().toLowerCase()
   return athletes.filter((a)=>{
