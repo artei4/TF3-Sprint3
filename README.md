@@ -10,7 +10,13 @@ Aplicação front-end da Sprint 3 do Challenge Academia Pelé.
 - HTML semântico
 - LocalStorage para persistência local da experiência demonstrativa
 
-## Executar
+## Executar pelo navegador — sem npm
+
+A aplicação também funciona como site estático. Para abrir no endereço `http://127.0.0.1:5500/index.html`, use a extensão **Live Server** do VS Code e abra `index.html` com **Open with Live Server**. Não é necessário executar nenhum comando no terminal.
+
+> O modo Live Server carrega o Tailwind pelo CDN e mantém toda a interatividade em JavaScript Vanilla.
+
+## Executar com Vite (opcional)
 
 ```bash
 npm install
