@@ -1,5 +1,3 @@
-
-import './styles.css'
 import {
   validCPF as validateCPF,
   maskCPF as formatCPF,
@@ -9,20 +7,29 @@ import {
   normalizeEmail,
 } from './validation.js'
 import { filterAthletes } from './filters.js'
-import { toggleFavorite, registerVote } from './feed.js'
-import { saveMessage, searchConversations } from './messages.js'
+import { toggleFavorite, registerVote, hasVoted } from './feed.js'
+import { threadKey, searchConversations } from './messages.js'
 
 const app = document.querySelector('#app')
 
 const POSITIONS = ['Goleiro', 'Zagueiro', 'Lateral', 'Volante', 'Meia', 'Ponta', 'Atacante']
 const GENDERS = ['Masculino', 'Feminino', 'Prefiro não informar']
+const AVATAR_COLORS = [
+  'from-amber-400 to-yellow-200', 'from-sky-400 to-cyan-200', 'from-violet-400 to-fuchsia-200',
+  'from-emerald-400 to-lime-200', 'from-orange-400 to-amber-200', 'from-rose-400 to-pink-200',
+]
+const LEGACY_EMAIL_DOMAIN = 'academiapelé.com'
+const DEMO_STAFF = [
+  { email: 'funcionario@academiapele.com', name: 'Marina Lopes', position: 'Olheira', phone: '(11) 99999-0000' },
+  { email: 'treinador@academiapele.com', name: 'Bruno Martins', position: 'Treinador', phone: '(11) 99999-1111' },
+]
 
 const defaultProfile = {
   name: 'Gabriel Martins',
   cpf: '',
   birth: '2008-03-14',
   gender: 'Masculino',
-  email: 'gabriel@academiapelé.com',
+  email: 'gabriel@academiapele.com',
   phone: '(11) 99872-1122',
   pos: 'Atacante',
   secondary: 'Ponta',
@@ -35,7 +42,7 @@ const defaultProfile = {
 }
 
 const defaultAthletes = [
-  { id: 1, name: 'Gabriel Martins', age: 18, birth: '2008-03-14', gender: 'Masculino', city: 'São Paulo', state: 'SP', pos: 'Atacante', secondary: 'Ponta', rating: 8.8, votes: 128, status: 'Em observação', color: 'from-amber-400 to-yellow-200', tags: ['Finalização', 'Velocidade', 'Drible'] },
+  { id: 1, email: 'gabriel@academiapele.com', name: 'Gabriel Martins', age: 18, birth: '2008-03-14', gender: 'Masculino', city: 'São Paulo', state: 'SP', pos: 'Atacante', secondary: 'Ponta', rating: 8.8, votes: 128, status: 'Em observação', color: 'from-amber-400 to-yellow-200', tags: ['Finalização', 'Velocidade', 'Drible'] },
   { id: 2, name: 'Lucas Ferreira', age: 19, birth: '2007-07-20', gender: 'Masculino', city: 'Osasco', state: 'SP', pos: 'Meia', secondary: 'Volante', rating: 8.4, votes: 94, status: 'Disponível', color: 'from-sky-400 to-cyan-200', tags: ['Passe', 'Visão de jogo', 'Resistência'] },
   { id: 3, name: 'Rafael Souza', age: 17, birth: '2009-01-22', gender: 'Masculino', city: 'Guarulhos', state: 'SP', pos: 'Zagueiro', secondary: 'Lateral', rating: 8.1, votes: 76, status: 'Em avaliação', color: 'from-violet-400 to-fuchsia-200', tags: ['Marcação', 'Força', 'Cabeceio'] },
   { id: 4, name: 'João Vitor', age: 18, birth: '2008-10-11', gender: 'Masculino', city: 'Campinas', state: 'SP', pos: 'Volante', secondary: 'Meia', rating: 8.6, votes: 111, status: 'Destaque', color: 'from-emerald-400 to-lime-200', tags: ['Desarme', 'Passe', 'Leitura'] },
@@ -44,7 +51,7 @@ const defaultAthletes = [
 ]
 
 const defaultTryouts = [
-  { id: 1, title: 'Peneira Sub-20 — Atacantes', date: '2026-09-24', time: '14:00', city: 'São Paulo', state: 'SP', location: 'Centro de Treinamento Pelé', category: 'Sub-20', positions: ['Atacante', 'Ponta'], seats: 12, enrolled: ['gabriel@academiapelé.com'] },
+  { id: 1, title: 'Peneira Sub-20 — Atacantes', date: '2026-09-24', time: '14:00', city: 'São Paulo', state: 'SP', location: 'Centro de Treinamento Pelé', category: 'Sub-20', positions: ['Atacante', 'Ponta'], seats: 12, enrolled: ['gabriel@academiapele.com'] },
   { id: 2, title: 'Avaliação Sub-20 — Meio-campo', date: '2026-09-28', time: '09:00', city: 'Osasco', state: 'SP', location: 'Arena Oeste', category: 'Sub-20', positions: ['Meia', 'Volante'], seats: 18, enrolled: [] },
   { id: 3, title: 'Goleiros em Destaque', date: '2026-10-04', time: '10:30', city: 'Barueri', state: 'SP', location: 'Centro de Treinamento Oeste', category: 'Sub-20', positions: ['Goleiro'], seats: 8, enrolled: [] },
 ]
@@ -56,6 +63,7 @@ const state = {
   accounts: readStorage('ap_accounts', []),
   favorites: readStorage('ap_favorites', []),
   votes: readStorage('ap_votes', {}),
+  voted: readStorage('ap_voted', {}),
   messages: readStorage('ap_messages', []),
   profile: readStorage('ap_profile', null),
   tryouts: readStorage('ap_tryouts', defaultTryouts),
@@ -67,9 +75,11 @@ const state = {
 }
 
 let activeThread = null
+let activeThreadKey = null
 
 migrateLegacyStorage()
-seedDemoAccount()
+seedDemoAccounts()
+syncAthletes()
 
 function readStorage(key, fallback) {
   try {
@@ -81,13 +91,32 @@ function readStorage(key, fallback) {
 }
 
 function migrateLegacyStorage(){
+  // e-mails antigos com acento (academiapelé.com) -> ASCII
+  const fixEmail = (email) => (typeof email === 'string' ? email.replace(LEGACY_EMAIL_DOMAIN, 'academiapele.com') : email)
+  if (state.user) state.user.email = fixEmail(state.user.email)
+  state.accounts = (Array.isArray(state.accounts) ? state.accounts : []).map((account) => ({
+    ...account,
+    email: fixEmail(account.email),
+    profile: account.profile ? { ...account.profile, email: fixEmail(account.profile.email) } : account.profile,
+  }))
+  if (state.profile) state.profile.email = fixEmail(state.profile.email)
+  // cada conta de jogador precisa de um athleteId para aparecer no banco de atletas
+  let seq = Date.now()
+  state.accounts.forEach((account) => {
+    if (account.role === 'player' && !account.athleteId) {
+      account.athleteId = account.email === 'gabriel@academiapele.com' ? 1 : ++seq
+    }
+  })
+  // mensagens antigas não tinham remetente definido por papel
+  state.messages = (Array.isArray(state.messages) ? state.messages : []).filter((m) => m.senderRole)
+
   if(state.profile?.birth && /^\d{2}\/\d{2}\/\d{4}$/.test(state.profile.birth)){
     const parts=state.profile.birth.split('/')
     state.profile.birth=parts[2]+'-'+parts[1]+'-'+parts[0]
   }
   state.tryouts=(state.tryouts || defaultTryouts).map((tryout)=>({
     ...tryout,
-    enrolled:Array.isArray(tryout.enrolled) ? tryout.enrolled : [],
+    enrolled:Array.isArray(tryout.enrolled) ? tryout.enrolled.map(fixEmail) : [],
     positions:Array.isArray(tryout.positions) ? tryout.positions : POSITIONS.slice(-1),
     category:tryout.category || 'Sub-20',
     location:tryout.location || String(tryout.city || 'Local não informado').split(' - ')[0],
@@ -100,6 +129,7 @@ function persist() {
   localStorage.setItem('ap_accounts', JSON.stringify(state.accounts))
   localStorage.setItem('ap_favorites', JSON.stringify(state.favorites))
   localStorage.setItem('ap_votes', JSON.stringify(state.votes))
+  localStorage.setItem('ap_voted', JSON.stringify(state.voted))
   localStorage.setItem('ap_messages', JSON.stringify(state.messages))
   localStorage.setItem('ap_profile', JSON.stringify(state.profile))
   localStorage.setItem('ap_tryouts', JSON.stringify(state.tryouts))
@@ -107,23 +137,65 @@ function persist() {
   localStorage.setItem('ap_notifications', JSON.stringify(state.notifications))
 }
 
-function seedDemoAccount() {
-  if (!state.accounts.some((account) => account.email === 'funcionario@academiapelé.com')) {
-    state.accounts.push({
-      email: 'funcionario@academiapelé.com',
-      password: 'Academia123!',
-      role: 'staff',
-      profile: {
-        name: 'Marina Lopes',
-        email: 'funcionario@academiapelé.com',
-        phone: '(11) 99999-0000',
-        position: 'Olheira',
-        city: 'São Paulo',
-        state: 'SP',
-      },
-    })
-    persist()
+function seedDemoAccounts() {
+  DEMO_STAFF.forEach((demo) => {
+    if (!state.accounts.some((account) => account.email === demo.email)) {
+      state.accounts.push({
+        email: demo.email,
+        password: 'Academia123!',
+        role: 'staff',
+        profile: { name: demo.name, email: demo.email, phone: demo.phone, position: demo.position, city: 'São Paulo', state: 'SP' },
+      })
+    }
+  })
+  if (!state.accounts.some((account) => account.email === 'gabriel@academiapele.com')) {
+    const profile = { ...defaultProfile, email: 'gabriel@academiapele.com', cpf: '11144477735' }
+    state.accounts.push({ email: profile.email, password: 'Demo123!', role: 'player', cpf: profile.cpf, athleteId: 1, profile })
   }
+  persist()
+}
+
+function athleteFieldsFromProfile(profile = {}) {
+  const age = getAgeFromBirth(profile.birth)
+  return {
+    name: profile.name,
+    birth: profile.birth,
+    gender: profile.gender,
+    city: profile.city,
+    state: profile.state,
+    pos: profile.pos,
+    secondary: profile.secondary || '—',
+    age: Number.isFinite(age) ? age : 0,
+  }
+}
+
+// Banco de atletas = atletas de exemplo + todas as contas de jogador cadastradas.
+function syncAthletes() {
+  const players = state.accounts.filter((account) => account.role === 'player' && account.athleteId && account.profile)
+  const byId = new Map(players.map((account) => [account.athleteId, account]))
+  const base = defaultAthletes.map((athlete) => {
+    const account = byId.get(athlete.id)
+    return account ? { ...athlete, ...athleteFieldsFromProfile(account.profile) } : { ...athlete }
+  })
+  const registered = players
+    .filter((account) => !defaultAthletes.some((athlete) => athlete.id === account.athleteId))
+    .map((account, index) => ({
+      id: account.athleteId,
+      email: account.email,
+      ...athleteFieldsFromProfile(account.profile),
+      rating: 0,
+      votes: 0,
+      status: 'Novo cadastro',
+      color: AVATAR_COLORS[index % AVATAR_COLORS.length],
+      tags: [account.profile.pos, account.profile.secondary].filter((item) => item && item !== '—'),
+    }))
+  state.athletes = base.concat(registered)
+  state.filteredAthletes = state.athletes
+}
+
+function formatRating(value) {
+  const number = Number(value)
+  return Number.isFinite(number) && number > 0 ? number.toFixed(1) : '—'
 }
 
 function escapeHtml(value = '') {
@@ -174,8 +246,13 @@ function currentRoute() {
 }
 
 function toast(message, type = 'success') {
-  const root = document.querySelector('#toast-root')
-  if (!root) return
+  let root = document.querySelector('#toast-root')
+  if (!root) {
+    root = document.createElement('div')
+    root.id = 'toast-root'
+    root.className = 'fixed bottom-5 right-5 z-[120] flex w-[min(92vw,380px)] flex-col gap-2'
+    document.body.appendChild(root)
+  }
   const el = document.createElement('div')
   el.className = 'pointer-events-auto flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm shadow-2xl backdrop-blur-xl ' +
     (type === 'error'
@@ -195,7 +272,7 @@ function shell(content, options = {}) {
 
   return '<div class="min-h-screen bg-[radial-gradient(circle_at_top_right,_rgba(208,169,72,.12),_transparent_26%),#090909] text-white">' +
     '<header class="sticky top-0 z-40 border-b border-white/8 bg-[#090909]/90 backdrop-blur-xl">' +
-    '<div class="mx-auto flex min-h-18 max-w-[1440px] items-center justify-between gap-3 px-4 py-2 sm:px-6 lg:px-10">' +
+    '<div class="mx-auto flex min-h-[4.5rem] max-w-[1440px] items-center justify-between gap-3 px-4 py-2 sm:px-6 lg:px-10">' +
     '<button class="flex items-center gap-3" data-route="dashboard" aria-label="Ir para o início">' +
     '<img src="./assets/brand/simbolo.jpg" alt="Academia Pelé" class="h-11 w-11 rounded-xl object-contain bg-black ring-1 ring-white/10" />' +
     '<div class="hidden sm:block text-left"><p class="text-sm font-black uppercase tracking-[.28em] text-[#e1bb62]">Academia Pelé</p><p class="text-[11px] text-white/40">Plataforma de talentos</p></div></button>' +
@@ -210,7 +287,6 @@ function shell(content, options = {}) {
     '</div></div></header>' +
     '<main class="mx-auto max-w-[1440px] px-4 py-5 sm:px-6 lg:px-10 lg:py-8">' + content + '</main>' +
     '<div id="mobile-menu"></div>' +
-    '<div id="toast-root" class="fixed bottom-5 right-5 z-[80] flex w-[min(92vw,380px)] flex-col gap-2"></div>' +
     '</div>'
 }
 
@@ -232,7 +308,7 @@ function playerDashboard() {
   const next = state.tryouts.find((t) => {
     const enrolled = Array.isArray(t.enrolled) && t.enrolled.includes(state.user?.email)
     return enrolled
-  }) || state.tryouts[0]
+  }) || state.tryouts[0] || { title: 'Nenhuma peneira aberta', category: '—', date: '', time: '', location: '—', city: '—', state: '', positions: [] }
 
   return shell(
     '<section class="grid gap-6 xl:grid-cols-[1.55fr_.8fr]">' +
@@ -281,13 +357,14 @@ function athleteCard(a, staff = false) {
   const fav = state.favorites.includes(a.id)
   const count = a.votes + (state.votes[a.id] || 0)
   const reviewCount = (state.reviews[a.id] || []).length
+  const voted = hasVoted(state, a.id, state.user?.email || 'anon')
 
   return '<article class="group rounded-2xl border border-white/8 bg-white/[.03] p-4 transition hover:-translate-y-0.5 hover:border-[#d4ad59]/30 hover:bg-white/[.045]">' +
     '<div class="flex gap-3"><div class="avatar-lg bg-gradient-to-br ' + a.color + '">' + avatar(a.name) + '</div><div class="min-w-0 flex-1"><div class="flex items-start justify-between gap-2"><button type="button" class="min-w-0 text-left" data-open-athlete="' + a.id + '"><h3 class="truncate font-bold">' + escapeHtml(a.name) + '</h3><p class="text-xs text-white/40">' + a.age + ' anos • ' + escapeHtml(a.city) + '/' + escapeHtml(a.state) + '</p></button>' +
     '<button type="button" class="icon-button sm" data-favorite="' + a.id + '" aria-label="' + (fav ? 'Remover dos favoritos' : 'Favoritar') + '">' + icon('heart', 'size-4 ' + (fav ? 'fill-[#e2bb62] text-[#e2bb62]' : '')) + '</button></div>' +
     '<div class="mt-3 flex flex-wrap gap-1.5">' + tag(a.pos) + tag(a.secondary, true) + tag(getCategoryFromAge(a.age)) + '</div></div></div>' +
-    '<div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/7 pt-3"><div class="flex items-center gap-2 text-xs text-white/45">' + icon('star', 'size-4 text-[#e2bb62]') + '<strong class="text-white">' + a.rating.toFixed(1) + '</strong> média <span>•</span> ' + count + ' votos <span>•</span> ' + reviewCount + ' avaliação(ões)</div>' +
-    '<div class="flex gap-2"><button type="button" class="vote-button" data-vote="' + a.id + '">Votar</button>' +
+    '<div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/7 pt-3"><div class="flex items-center gap-2 text-xs text-white/45">' + icon('star', 'size-4 text-[#e2bb62]') + '<strong class="text-white">' + formatRating(a.rating) + '</strong> média <span>•</span> ' + count + ' votos <span>•</span> ' + reviewCount + ' avaliação(ões)</div>' +
+    '<div class="flex gap-2"><button type="button" class="vote-button" data-vote="' + a.id + '"' + (voted ? ' disabled' : '') + '>' + (voted ? 'Votado ✓' : 'Votar') + '</button>' +
     (staff ? '<button type="button" class="btn-secondary px-3 py-2 text-xs" data-message-athlete="' + a.id + '">Mensagem</button>' : '') +
     '<button type="button" class="btn-ghost px-2" data-open-athlete="' + a.id + '" aria-label="Abrir perfil de ' + escapeHtml(a.name) + '">Ver perfil</button></div></div></article>'
 }
@@ -322,7 +399,7 @@ function profilePage() {
     const profile = account?.profile || { name: state.user.name, email: state.user.email, phone: '', position: 'Funcionário', city: 'São Paulo', state: 'SP' }
     return shell(
       '<div class="flex flex-wrap items-end justify-between gap-4"><div><span class="eyebrow">Meu perfil</span><h1 class="page-title">' + escapeHtml(profile.name) + '</h1><p class="page-subtitle">Dados do funcionário que está conectado.</p></div><button type="button" class="btn-secondary" data-action="logout">' + icon('logout', 'size-4') + ' Sair</button></div>' +
-      '<section class="mt-6 grid gap-5 md:grid-cols-2"><aside class="panel"><div class="flex items-center gap-4"><div class="avatar-xl">' + avatar(profile.name) + '</div><div><p class="text-xs uppercase tracking-[.2em] text-white/35">Funcionário</p><h2 class="mt-1 text-2xl font-black">' + escapeHtml(profile.position || 'Profissional') + '</h2><p class="text-sm text-white/45">' + escapeHtml(profile.city) + '/' + escapeHtml(profile.state) + '</p></div></div></aside><div class="panel"><span class="eyebrow">Acesso demo</span><h2 class="section-title">Credenciais de teste</h2><p class="mt-4 text-sm leading-6 text-white/55">E-mail: funcionario@academiapelé.com<br/>Senha: Academia123!</p><button type="button" class="btn-primary mt-5" data-route="athletes">Ir para o banco de atletas ' + icon('arrow', 'size-4') + '</button></div></section>',
+      '<section class="mt-6 grid gap-5 md:grid-cols-2"><aside class="panel"><div class="flex items-center gap-4"><div class="avatar-xl">' + avatar(profile.name) + '</div><div><p class="text-xs uppercase tracking-[.2em] text-white/35">Funcionário</p><h2 class="mt-1 text-2xl font-black">' + escapeHtml(profile.position || 'Profissional') + '</h2><p class="text-sm text-white/45">' + escapeHtml(profile.city) + '/' + escapeHtml(profile.state) + '</p></div></div></aside><div class="panel"><span class="eyebrow">Acesso demo</span><h2 class="section-title">Credenciais de teste</h2><p class="mt-4 text-sm leading-6 text-white/55">E-mail: funcionario@academiapele.com<br/>Senha: Academia123!</p><button type="button" class="btn-primary mt-5" data-route="athletes">Ir para o banco de atletas ' + icon('arrow', 'size-4') + '</button></div></section>',
       { active: 'dashboard', role: 'staff' },
     )
   }
@@ -399,39 +476,50 @@ function tryoutCard(t) {
 
 function messagesPage() {
   const staff = state.user?.role === 'staff'
+  const me = staff ? null : getCurrentAthlete()
   const conversations = staff
-    ? state.athletes.map((a) => ({ name: a.name, subtitle: a.pos + ' • ' + a.city, avatar: a.name, id: 'a' + a.id, athleteId: a.id }))
-    : [
-      { name: 'Bruno Martins', subtitle: 'Treinador • Academia Pelé', avatar: 'Bruno Martins', id: 'staff1' },
-      { name: 'Marina Lopes', subtitle: 'Olheira • São Paulo', avatar: 'Marina Lopes', id: 'staff2' },
-    ]
+    ? state.athletes.map((a) => ({ id: String(a.id), name: a.name, subtitle: a.pos + ' • ' + a.city, avatar: a.name }))
+    : state.accounts.filter((a) => a.role === 'staff').map((a) => ({
+      id: a.email,
+      name: a.profile?.name || a.email,
+      subtitle: (a.profile?.position || 'Profissional') + ' • ' + (a.profile?.city || 'Academia Pelé'),
+      avatar: a.profile?.name || a.email,
+    }))
 
   const selected = conversations.find((c) => c.id === activeThread) || conversations[0]
+  if (!selected || (!staff && !me)) {
+    activeThreadKey = null
+    return shell(
+      '<div><span class="eyebrow">Comunicação</span><h1 class="page-title">Conversas</h1></div><div class="mt-6 rounded-2xl border border-dashed border-white/10 p-10 text-center text-white/40">Nenhuma conversa disponível no momento.</div>',
+      { active: 'messages', role: staff ? 'staff' : 'player' },
+    )
+  }
   activeThread = selected.id
-  const history = state.messages.filter((m) => m.thread === selected.id)
+  activeThreadKey = staff ? threadKey(selected.id, state.user.email) : threadKey(me.id, selected.id)
+  const history = state.messages.filter((m) => m.thread === activeThreadKey)
+  const myRole = staff ? 'staff' : 'player'
 
   return shell(
     '<div><span class="eyebrow">Comunicação</span><h1 class="page-title">Conversas</h1><p class="page-subtitle">' + (staff ? 'Pesquise qualquer atleta do banco, abra a conversa e envie uma mensagem.' : 'Converse com treinadores e olheiros disponíveis.') + '</p></div>' +
     '<section class="mt-6 grid min-h-[620px] overflow-hidden rounded-[28px] border border-white/10 bg-white/[.025] md:grid-cols-[300px_1fr]">' +
     '<aside class="border-b border-white/8 bg-black/20 md:border-b-0 md:border-r"><div class="p-4"><label class="field-label">Pesquisar ' + (staff ? 'atleta' : 'profissional') + '<input id="conversation-search" class="field mt-2" placeholder="Digite um nome, posição ou cidade..." /></label></div>' +
-    '<div id="conversation-list" class="space-y-1 p-2">' + conversations.map((c) => '<button type="button" class="conversation-item ' + (c.id === selected.id ? 'selected' : '') + '" data-thread="' + c.id + '" data-name="' + escapeHtml(c.name) + '"><span class="avatar">' + avatar(c.avatar) + '</span><span class="min-w-0 text-left"><strong class="block truncate">' + escapeHtml(c.name) + '</strong><small class="block truncate text-white/35">' + escapeHtml(c.subtitle) + '</small></span></button>').join('') + '</div></aside>' +
+    '<div id="conversation-list" class="max-h-[520px] space-y-1 overflow-y-auto p-2">' + conversations.map((c) => '<button type="button" class="conversation-item ' + (c.id === selected.id ? 'selected' : '') + '" data-thread="' + escapeHtml(c.id) + '" data-name="' + escapeHtml(c.name) + '" data-subtitle="' + escapeHtml(c.subtitle) + '"><span class="avatar">' + avatar(c.avatar) + '</span><span class="min-w-0 text-left"><strong class="block truncate">' + escapeHtml(c.name) + '</strong><small class="block truncate text-white/35">' + escapeHtml(c.subtitle) + '</small></span></button>').join('') + '</div></aside>' +
     '<div class="flex min-w-0 flex-col"><header class="flex items-center justify-between gap-3 border-b border-white/8 px-5 py-4"><div class="flex items-center gap-3"><span class="avatar">' + avatar(selected.avatar) + '</span><div><p class="font-bold">' + escapeHtml(selected.name) + '</p><p class="text-xs text-emerald-300">Disponível para conversar</p></div></div>' + tag(staff ? selected.subtitle : 'Canal seguro') + '</header>' +
-    '<div id="chat-messages" class="flex-1 space-y-3 overflow-y-auto p-5">' + renderHistory(history, staff) + '</div>' +
+    '<div id="chat-messages" class="flex-1 space-y-3 overflow-y-auto p-5">' + renderHistory(history, myRole) + '</div>' +
     '<form id="message-form" class="border-t border-white/8 p-4"><div class="flex gap-2"><input id="message-input" class="field" placeholder="Escreva sua mensagem..." autocomplete="off" required/><button class="btn-primary shrink-0" aria-label="Enviar mensagem">' + icon('arrow', 'size-4') + '</button></div></form></div></section>',
-    { active: 'messages', role: staff ? 'staff' : 'player' },
+    { active: 'messages', role: myRole },
   )
 }
 
-function renderHistory(history, staff) {
-  const messages = history.length
-    ? history
-    : [{ from: 'them', text: staff ? 'Olá! Seu perfil entrou no meu radar. Podemos conversar sobre seu momento atual?' : 'Olá! Vi sua atividade na Academia Pelé e gostaria de falar sobre uma oportunidade.' }]
-
-  return messages.map(messageBubble).join('')
+function renderHistory(history, myRole) {
+  if (!history.length) {
+    return '<div class="grid h-full place-items-center rounded-2xl border border-dashed border-white/10 p-8 text-center text-sm text-white/40">Nenhuma mensagem ainda. Envie a primeira mensagem para iniciar a conversa.</div>'
+  }
+  return history.map((message) => messageBubble(message, myRole)).join('')
 }
 
-function messageBubble(message) {
-  const mine = message.from === 'me'
+function messageBubble(message, myRole) {
+  const mine = message.senderRole === myRole
   return '<div class="flex ' + (mine ? 'justify-end' : '') + '"><div class="max-w-[78%] rounded-2xl ' + (mine ? 'rounded-br-md bg-[#d8af58] text-black' : 'rounded-bl-md border border-white/8 bg-white/[.045] text-white') + ' px-4 py-3 text-sm leading-6"><p>' + escapeHtml(message.text) + '</p><p class="mt-1 text-[10px] opacity-50">' + escapeHtml(message.time || 'Agora') + '</p></div></div>'
 }
 
@@ -443,7 +531,7 @@ function loginPage() {
     '<form id="login-form" class="mt-6 space-y-4">' + input('E-mail', 'login-email', '', 'email', true) + input('Senha', 'login-password', '', 'password', true) + '<p id="login-error" class="hidden rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200"></p><button class="btn-primary w-full" type="submit">Entrar ' + icon('arrow', 'size-4') + '</button></form>' +
     '<div class="my-6 flex items-center gap-3"><span class="h-px flex-1 bg-white/8"></span><span class="text-xs text-white/25">ou</span><span class="h-px flex-1 bg-white/8"></span></div>' +
     '<button type="button" class="btn-secondary w-full" data-route="register">Criar conta de jogador</button><button type="button" class="mt-3 w-full text-center text-xs text-white/35 hover:text-white" data-action="demo">Entrar com conta demo</button>' +
-    '<p class="mt-5 text-center text-[11px] leading-5 text-white/30">Conta de funcionário para teste: funcionario@academiapelé.com / Academia123!</p></div></div></div></div>'
+    '<p class="mt-5 text-center text-[11px] leading-5 text-white/30">Funcionário (teste): funcionario@academiapele.com / Academia123!<br/>Jogador (teste): gabriel@academiapele.com / Demo123!</p></div></div></div></div>'
 }
 
 function registerPage() {
@@ -499,11 +587,10 @@ function getAgeFromProfile(birth) {
 }
 
 function getCurrentAthlete() {
-  const email = state.user?.email
-  if (email === 'funcionario@academiapelé.com' || state.user?.role === 'staff') return null
-  const profile = state.profile
-  if (profile && profile.name === 'Gabriel Martins') return state.athletes.find((a) => a.id === 1)
-  return state.athletes.find((a) => a.name === profile?.name) || null
+  if (!state.user || state.user.role === 'staff') return null
+  const account = state.accounts.find((entry) => entry.email === state.user.email)
+  if (account?.athleteId) return state.athletes.find((a) => a.id === account.athleteId) || null
+  return state.athletes.find((a) => a.name === state.profile?.name) || null
 }
 
 function getPlayerReviewCount() {
@@ -511,11 +598,11 @@ function getPlayerReviewCount() {
   return athlete ? (state.reviews[athlete.id] || []).length : 0
 }
 
-function averagePlayerRating(profile) {
-  const athlete = state.athletes.find((a) => a.name === profile?.name) || getCurrentAthlete()
+function averagePlayerRating() {
+  const athlete = getCurrentAthlete()
   if (!athlete) return '—'
   const reviews = state.reviews[athlete.id] || []
-  if (!reviews.length) return athlete.rating.toFixed(1).replace('.', ',')
+  if (!reviews.length) return formatRating(athlete.rating).replace('.', ',')
   const average = reviews.reduce((sum, review) => sum + Number(review.rating), 0) / reviews.length
   return average.toFixed(1).replace('.', ',')
 }
@@ -553,9 +640,9 @@ function openAthleteModal(athleteId) {
     '<div class="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[28px] border border-white/10 bg-[#111] p-6 shadow-2xl sm:p-8" role="dialog" aria-modal="true" aria-labelledby="athlete-modal-title">' +
     '<div class="flex items-start justify-between gap-4"><div class="flex items-center gap-4"><div class="avatar-xl bg-gradient-to-br ' + athlete.color + '">' + avatar(athlete.name) + '</div><div><span class="eyebrow">Perfil do atleta</span><h2 id="athlete-modal-title" class="mt-1 text-2xl font-black">' + escapeHtml(athlete.name) + '</h2><p class="text-sm text-white/45">' + athlete.age + ' anos • ' + escapeHtml(athlete.city) + '/' + escapeHtml(athlete.state) + '</p></div></div><button type="button" class="icon-button" data-close-modal aria-label="Fechar">' + icon('close') + '</button></div>' +
     '<div class="mt-6 flex flex-wrap gap-2">' + tag(athlete.pos) + tag(athlete.secondary, true) + tag(getCategoryFromAge(athlete.age)) + tag(athlete.gender || 'Não informado', true) + '</div>' +
-    '<div class="mt-6 grid gap-4 md:grid-cols-3"><div class="panel"><p class="text-xs text-white/35">Avaliação média</p><p class="mt-2 text-3xl font-black text-[#e6bd62]">' + athlete.rating.toFixed(1) + '</p></div><div class="panel"><p class="text-xs text-white/35">Votos</p><p class="mt-2 text-3xl font-black">' + (athlete.votes + (state.votes[athlete.id] || 0)) + '</p></div><div class="panel"><p class="text-xs text-white/35">Status</p><p class="mt-2 text-lg font-black">' + escapeHtml(athlete.status) + '</p></div></div>' +
+    '<div class="mt-6 grid gap-4 md:grid-cols-3"><div class="panel"><p class="text-xs text-white/35">Avaliação média</p><p class="mt-2 text-3xl font-black text-[#e6bd62]">' + formatRating(athlete.rating) + '</p></div><div class="panel"><p class="text-xs text-white/35">Votos</p><p id="modal-votes" class="mt-2 text-3xl font-black">' + (athlete.votes + (state.votes[athlete.id] || 0)) + '</p></div><div class="panel"><p class="text-xs text-white/35">Status</p><p class="mt-2 text-lg font-black">' + escapeHtml(athlete.status) + '</p></div></div>' +
     '<div class="mt-6"><span class="eyebrow">Atributos</span><div class="mt-3 flex flex-wrap gap-2">' + (athlete.tags || []).map((item) => tag(item)).join('') + '</div></div>' +
-    '<div class="mt-6 flex flex-wrap gap-2"><button type="button" class="btn-primary" data-message-athlete="' + athlete.id + '">' + icon('message', 'size-4') + ' Abrir conversa</button><button type="button" class="btn-secondary" data-vote="' + athlete.id + '">' + icon('star', 'size-4') + ' Votar</button>' +
+    '<div class="mt-6 flex flex-wrap gap-2"><button type="button" class="btn-primary" data-message-athlete="' + athlete.id + '">' + icon('message', 'size-4') + ' Abrir conversa</button><button type="button" class="btn-secondary" data-vote="' + athlete.id + '"' + (hasVoted(state, athlete.id, state.user?.email || 'anon') ? ' disabled' : '') + '>' + icon('star', 'size-4') + (hasVoted(state, athlete.id, state.user?.email || 'anon') ? ' Votado ✓' : ' Votar') + '</button>' +
     (state.user?.role === 'staff' ? '<button type="button" class="btn-secondary" data-review-athlete="' + athlete.id + '">' + icon('edit', 'size-4') + ' Registrar avaliação</button>' : '') + '</div>' +
     '<section class="mt-8"><div class="flex items-center justify-between gap-3"><div><span class="eyebrow">Avaliações</span><h3 class="section-title">' + reviews.length + ' registro(s)</h3></div></div><div class="mt-4 grid gap-4 md:grid-cols-2">' + (reviews.length ? reviews.map(reviewCard).join('') : '<div class="md:col-span-2 rounded-2xl border border-dashed border-white/10 p-8 text-center text-white/40">Nenhuma avaliação registrada ainda.</div>') + '</div></section>' +
     '</div>'
@@ -569,11 +656,11 @@ function openAthleteModal(athleteId) {
     startConversationForAthlete(id)
   }))
   wrapper.querySelectorAll('[data-vote]').forEach((button) => button.addEventListener('click', () => {
-    registerVote(state, Number(button.dataset.vote))
-    persist()
-    button.textContent = 'Votado ✓'
+    if (!castVote(Number(button.dataset.vote))) return
+    button.innerHTML = icon('star', 'size-4') + ' Votado ✓'
     button.disabled = true
-    toast('Voto registrado com sucesso.')
+    const counter = wrapper.querySelector('#modal-votes')
+    if (counter) counter.textContent = athlete.votes + (state.votes[athlete.id] || 0)
   }))
   wrapper.querySelectorAll('[data-review-athlete]').forEach((button) => button.addEventListener('click', () => {
     wrapper.remove()
@@ -694,7 +781,7 @@ function openTryoutModal() {
       return
     }
 
-    const match = location.match(/^(.+?) — ([A-Za-zÀ-ÿ ]+\\/\\s?[A-Z]{2})$/)
+    const match = location.match(/^(.+?) — (.+)\/([A-Za-z]{2})$/)
     const cityState = (location.split(' — ')[1] || 'São Paulo/SP').split('/')
     state.tryouts.unshift({
       id: Date.now(),
@@ -734,7 +821,8 @@ function openEnrolledModal(tryoutId) {
   wrapper.querySelectorAll('[data-message-email]').forEach((button) => button.addEventListener('click', () => {
     const profile = state.accounts.find((account) => account.email === button.dataset.messageEmail)?.profile
     if (!profile) return
-    const athlete = state.athletes.find((a) => a.name === profile.name)
+    const account = state.accounts.find((entry) => entry.email === button.dataset.messageEmail)
+    const athlete = state.athletes.find((a) => a.id === account?.athleteId) || state.athletes.find((a) => a.name === profile.name)
     wrapper.remove()
     if (athlete) startConversationForAthlete(athlete.id)
     else go('messages')
@@ -777,7 +865,7 @@ function openMobileMenu() {
 
 function exportSelection() {
   const rows = [['Nome', 'Idade', 'Categoria', 'Gênero', 'Posição principal', 'Posição secundária', 'Cidade', 'Estado', 'Nota']]
-  ;(state.filteredAthletes || state.athletes).forEach((a) => rows.push([a.name, a.age, getCategoryFromAge(a.age), a.gender || '', a.pos, a.secondary, a.city, a.state, a.rating]))
+  ;(state.filteredAthletes || state.athletes).forEach((a) => rows.push([a.name, a.age, getCategoryFromAge(a.age), a.gender || '', a.pos, a.secondary, a.city, a.state, a.rating || '']))
   const csv = rows.map((row) => row.map((cell) => '"' + String(cell).replaceAll('"', '""') + '"').join(';')).join('\n')
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
@@ -807,6 +895,7 @@ function applyFilters() {
 }
 
 function updateCategoryPreview(prefix) {
+  document.querySelector(prefix === 'reg' ? '#reg-feedback' : '#profile-feedback')?.classList.add('hidden')
   handleBirthPreview(prefix)
   const age = Number(document.querySelector('#' + prefix + '-age')?.value)
   const pos = document.querySelector('#' + prefix + '-pos')?.value
@@ -827,6 +916,9 @@ function saveProfile() {
   const secondary = document.querySelector('#profile-secondary').value
   if (!validBirthDate(birth) || age < 7 || age > 20) return showFeedback('profile-feedback', 'Informe uma data de nascimento válida para uma categoria até Sub-20.', true)
   if (pos === secondary && secondary !== '—') return showFeedback('profile-feedback', 'A posição secundária deve ser diferente da principal.', true)
+  const newEmail = normalizeEmail(document.querySelector('#profile-email').value)
+  const oldEmail = state.user.email
+  if (newEmail !== oldEmail && state.accounts.some((entry) => entry.email === newEmail)) return showFeedback('profile-feedback', 'Já existe uma conta com esse e-mail.', true)
   Object.assign(p, {
     name: document.querySelector('#profile-name').value.trim(),
     cpf: document.querySelector('#profile-cpf').value.trim(),
@@ -853,6 +945,11 @@ function saveProfile() {
     state.user.name = p.name
     state.user.email = p.email
   }
+  if (oldEmail !== p.email) {
+    state.tryouts.forEach((tryout) => { tryout.enrolled = (tryout.enrolled || []).map((email) => (email === oldEmail ? p.email : email)) })
+    if (state.voted[oldEmail]) { state.voted[p.email] = state.voted[oldEmail]; delete state.voted[oldEmail] }
+  }
+  syncAthletes()
   persist()
   render()
   toast('Dados do jogador atualizados.')
@@ -882,7 +979,7 @@ function registerAccount() {
   if (!validBirthDate(birth)) return showFeedback('reg-feedback', 'Informe uma data de nascimento válida.', true)
   if (age < 7 || age > 20) return showFeedback('reg-feedback', 'A faixa desta plataforma é de 7 a 20 anos, até Sub-20.', true)
   if (!gender) return showFeedback('reg-feedback', 'Selecione o gênero.', true)
-  if (!email || !email.includes('@')) return showFeedback('reg-feedback', 'Informe um e-mail válido.', true)
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return showFeedback('reg-feedback', 'Informe um e-mail válido.', true)
   if (!phone) return showFeedback('reg-feedback', 'Informe o telefone.', true)
   if (!pos) return showFeedback('reg-feedback', 'Selecione a posição principal.', true)
   if (!secondary) return showFeedback('reg-feedback', 'Selecione a posição secundária ou "—".', true)
@@ -895,7 +992,7 @@ function registerAccount() {
 
   const profile = {
     name,
-    cpf: cpf.replace(/\\D/g, ''),
+    cpf: cpf.replace(/\D/g, ''),
     birth,
     gender,
     email,
@@ -910,9 +1007,11 @@ function registerAccount() {
     zip,
   }
 
-  state.accounts.push({ email, password, role: 'player', cpf: profile.cpf, profile })
+  const athleteId = Date.now()
+  state.accounts.push({ email, password, role: 'player', cpf: profile.cpf, athleteId, profile })
   state.profile = profile
   state.user = { name, email, role: 'player' }
+  syncAthletes()
   state.notifications.unshift({ id: Date.now(), title: 'Conta criada', text: 'Seu cadastro foi concluído com categoria ' + getCategoryFromAge(age) + '.', time: 'Agora' })
   persist()
   go('dashboard')
@@ -927,6 +1026,10 @@ function loginAccount() {
 
   if (!email || !email.includes('@')) return showFeedback(errorId, 'Informe um e-mail válido.', true)
 
+  const anyRole = state.accounts.find((entry) => entry.email === email)
+  if (anyRole && anyRole.role !== role && anyRole.password === password) {
+    return showFeedback(errorId, 'Esta conta é de ' + (anyRole.role === 'staff' ? 'funcionário' : 'jogador') + '. Selecione a aba correta acima.', true)
+  }
   const account = state.accounts.find((entry) => entry.email === email && entry.role === role)
   if (!account || account.password !== password) {
     return showFeedback(errorId, role === 'staff'
@@ -943,24 +1046,11 @@ function loginAccount() {
 
 function loginDemo() {
   const role = document.querySelector('.role-tab.active')?.dataset.role || 'player'
-  if (role === 'staff') {
-    state.user = { name: 'Marina Lopes', email: 'funcionario@academiapelé.com', role: 'staff' }
-    state.profile = null
-  } else {
-    const demoEmail = 'gabriel@academiapelé.com'
-    let account = state.accounts.find((entry) => entry.email === demoEmail)
-    if (!account) {
-      const profile = {
-        ...defaultProfile,
-        email: demoEmail,
-        cpf: '11144477735',
-      }
-      account = { email: demoEmail, password: 'Demo123!', role: 'player', cpf: profile.cpf, profile }
-      state.accounts.push(account)
-    }
-    state.user = { name: account.profile.name, email: account.email, role: 'player' }
-    state.profile = account.profile
-  }
+  const email = role === 'staff' ? 'funcionario@academiapele.com' : 'gabriel@academiapele.com'
+  const account = state.accounts.find((entry) => entry.email === email)
+  if (!account) return
+  state.user = { name: account.profile.name, email: account.email, role }
+  state.profile = role === 'player' ? account.profile : null
   persist()
   go('dashboard')
   toast('Conta demo carregada.')
@@ -972,23 +1062,38 @@ function initLoginRoleButtons() {
   }))
 }
 
+// Atualiza as listas de atletas sem perder os filtros digitados.
+function refreshAthleteViews() {
+  if (document.querySelector('#athlete-grid')) applyFilters()
+  else render()
+}
+
+function castVote(athleteId) {
+  const voter = state.user?.email || 'anon'
+  if (!registerVote(state, athleteId, voter)) {
+    toast('Você já votou neste atleta.', 'error')
+    return false
+  }
+  persist()
+  toast('Voto registrado com sucesso.')
+  refreshAthleteViews()
+  return true
+}
+
 function bindDynamicCards() {
-  document.querySelectorAll('[data-open-athlete]').forEach((button) => button.addEventListener('click', () => openAthleteModal(Number(button.dataset.openAthlete))))
-  document.querySelectorAll('[data-message-athlete]').forEach((button) => button.addEventListener('click', () => startConversationForAthlete(Number(button.dataset.messageAthlete))))
-  document.querySelectorAll('[data-favorite]').forEach((button) => button.addEventListener('click', (event) => {
+  app.querySelectorAll('[data-open-athlete]').forEach((button) => button.addEventListener('click', () => openAthleteModal(Number(button.dataset.openAthlete))))
+  app.querySelectorAll('[data-message-athlete]').forEach((button) => button.addEventListener('click', () => startConversationForAthlete(Number(button.dataset.messageAthlete))))
+  app.querySelectorAll('[data-favorite]').forEach((button) => button.addEventListener('click', (event) => {
     event.stopPropagation()
-    toggleFavorite(state, Number(button.dataset.favorite))
+    const id = Number(button.dataset.favorite)
+    toggleFavorite(state, id)
     persist()
-    render()
-    toast(state.favorites.includes(Number(button.dataset.favorite)) ? 'Atleta adicionado aos favoritos.' : 'Atleta removido dos favoritos.')
+    refreshAthleteViews()
+    toast(state.favorites.includes(id) ? 'Atleta adicionado aos favoritos.' : 'Atleta removido dos favoritos.')
   }))
-  document.querySelectorAll('[data-vote]').forEach((button) => button.addEventListener('click', (event) => {
+  app.querySelectorAll('[data-vote]').forEach((button) => button.addEventListener('click', (event) => {
     event.stopPropagation()
-    registerVote(state, Number(button.dataset.vote))
-    persist()
-    button.textContent = 'Votado ✓'
-    button.disabled = true
-    toast('Voto registrado com sucesso.')
+    castVote(Number(button.dataset.vote))
   }))
 }
 
@@ -1064,7 +1169,7 @@ function bind() {
 
   const conversationSearch = document.querySelector('#conversation-search')
   if (conversationSearch) conversationSearch.addEventListener('input', () => {
-    const items = [...document.querySelectorAll('[data-thread]')].map((el) => ({ name: el.dataset.name, subtitle: el.textContent, el }))
+    const items = [...document.querySelectorAll('[data-thread]')].map((el) => ({ name: el.dataset.name, subtitle: el.dataset.subtitle, el }))
     const visible = searchConversations(items, conversationSearch.value)
     const visibleSet = new Set(visible.map((item) => item.el))
     items.forEach((item) => item.el.classList.toggle('hidden', !visibleSet.has(item.el)))
@@ -1075,20 +1180,25 @@ function bind() {
     render()
   }))
 
+  const chat = document.querySelector('#chat-messages')
+  if (chat) chat.scrollTop = chat.scrollHeight
+
   const messageForm = document.querySelector('#message-form')
   if (messageForm) messageForm.addEventListener('submit', (event) => {
     event.preventDefault()
     const inputField = document.querySelector('#message-input')
     const textValue = inputField.value.trim()
-    if (!textValue) return
-    const thread = activeThread || document.querySelector('[data-thread]')?.dataset.thread
-    if (!thread) return
-    state.messages.push({ id: Date.now(), thread, from: 'me', text: textValue, time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) })
-    state.notifications.unshift({ id: Date.now() + 1, title: 'Mensagem enviada', text: 'Sua mensagem foi enviada.', time: 'Agora' })
+    if (!textValue || !activeThreadKey) return
+    state.messages.push({
+      id: Date.now(),
+      thread: activeThreadKey,
+      senderRole: state.user.role === 'staff' ? 'staff' : 'player',
+      text: textValue,
+      time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+    })
     persist()
-    inputField.value = ''
     render()
-    toast('Mensagem enviada com sucesso.')
+    document.querySelector('#message-input')?.focus()
   })
 }
 
@@ -1096,6 +1206,10 @@ function render() {
   const route = currentRoute()
   if (!state.user && !['login', 'register'].includes(route)) {
     go('login')
+    return
+  }
+  if (state.user && ['login', 'register'].includes(route)) {
+    go('dashboard')
     return
   }
   if (state.user?.role === 'player' && route === 'athletes') {
@@ -1118,4 +1232,10 @@ function render() {
 }
 
 window.addEventListener('hashchange', render)
+// ESC fecha o modal aberto mais recentemente
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return
+  const modals = document.querySelectorAll('body > div.fixed.inset-0')
+  if (modals.length) modals[modals.length - 1].remove()
+})
 render()

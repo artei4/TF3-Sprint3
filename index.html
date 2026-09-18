@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Academia Pelé — plataforma para descoberta, avaliação e conexão de talentos do futebol." />
     <title>Academia Pelé | TF3-Sprint3</title>
+    <link rel="icon" href="./assets/brand/simbolo.jpg" />
 
     <!--
       Modo estático:
@@ -12,7 +13,7 @@
       O Tailwind Play CDN fornece as utilities diretamente no navegador.
     -->
     <script>
-      tailwind = {
+      window.tailwind = {
         config: {
           theme: {
             extend: {
@@ -28,6 +29,10 @@
   </head>
   <body>
     <div id="app"></div>
+    <!-- Área de avisos (toasts): fica fora do #app para sobreviver à troca de telas -->
+    <div id="toast-root" class="fixed bottom-5 right-5 z-[120] flex w-[min(92vw,380px)] flex-col gap-2"></div>
+    <link rel="stylesheet" href="./assets/js/styles.css" />
+    <!-- main.js importa validation.js, filters.js, feed.js e messages.js (ES Modules) -->
     <script type="module" src="./assets/js/main.js"></script>
   </body>
 </html>

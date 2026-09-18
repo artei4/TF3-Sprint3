@@ -1,6 +1,6 @@
 /* Compatível com abertura direta pelo Live Server / navegador.
    O Tailwind é carregado pelo CDN no index.html e estas regras cuidam dos componentes próprios. */
-:root { color-scheme: dark; font-family: var(--font-sans); background:#090909; }
+:root { color-scheme: dark; font-family: var(--font-sans, Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif); background:#090909; }
 html { scroll-behavior:smooth; }
 body { margin:0; background:#090909; color:#fff; }
 button,input,select { font:inherit; }

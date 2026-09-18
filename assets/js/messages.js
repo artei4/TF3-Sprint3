@@ -1,13 +1,11 @@
-export function saveMessage(state, thread, text, from='me'){
-  const clean=text.trim()
-  if(!clean) return false
-  state.messages.push({thread,from,text:clean})
-  localStorage.setItem('ap_messages', JSON.stringify(state.messages))
-  return true
+// Uma conversa é sempre o par (atleta, profissional). Assim as duas pontas
+// enxergam exatamente o mesmo histórico.
+export function threadKey(athleteId, staffEmail){
+  return `${athleteId}::${staffEmail}`
 }
 
 export function searchConversations(conversations, term){
-  const query=term.trim().toLowerCase()
+  const query=String(term||'').trim().toLowerCase()
   if(!query) return conversations
-  return conversations.filter(c => c.name.toLowerCase().includes(query) || c.subtitle.toLowerCase().includes(query))
+  return conversations.filter(c => String(c.name||'').toLowerCase().includes(query) || String(c.subtitle||'').toLowerCase().includes(query))
 }

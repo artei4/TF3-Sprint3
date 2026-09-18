@@ -6,8 +6,17 @@ export function toggleFavorite(state, athleteId){
   return state.favorites.includes(athleteId)
 }
 
-export function registerVote(state, athleteId){
+export function hasVoted(state, athleteId, voter){
+  return (state.voted[voter]||[]).includes(athleteId)
+}
+
+// Cada usuário pode votar uma única vez em cada atleta.
+// Retorna true se o voto foi registrado e false se já havia votado.
+export function registerVote(state, athleteId, voter){
+  if(hasVoted(state, athleteId, voter)) return false
+  state.voted[voter]=[...(state.voted[voter]||[]), athleteId]
   state.votes[athleteId]=(state.votes[athleteId]||0)+1
+  localStorage.setItem('ap_voted', JSON.stringify(state.voted))
   localStorage.setItem('ap_votes', JSON.stringify(state.votes))
-  return state.votes[athleteId]
+  return true
 }
