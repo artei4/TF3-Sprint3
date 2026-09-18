@@ -1,4 +1,4 @@
-export function validCPF(cpf){
+function validCPF(cpf){
   cpf=cpf.replace(/\D/g,'')
   if(cpf.length!==11 || /^(\d)\1{10}$/.test(cpf)) return false
   let sum=0
@@ -13,7 +13,7 @@ export function validCPF(cpf){
   return d===Number(cpf[10])
 }
 
-export function maskCPF(input){
+function maskCPF(input){
   input.value=input.value.replace(/\D/g,'').slice(0,11)
     .replace(/(\d{3})(\d)/,'$1.$2')
     .replace(/(\d{3})(\d)/,'$1.$2')
@@ -21,7 +21,7 @@ export function maskCPF(input){
 }
 
 
-export function getAgeFromBirth(birth){
+function getAgeFromBirth(birth){
   if(!birth) return NaN
   const date=new Date(birth+'T00:00:00')
   if(Number.isNaN(date.getTime())) return NaN
@@ -32,7 +32,7 @@ export function getAgeFromBirth(birth){
   return age
 }
 
-export function validBirthDate(birth){
+function validBirthDate(birth){
   if(!birth || !/^\d{4}-\d{2}-\d{2}$/.test(birth)) return false
   const date=new Date(birth+'T00:00:00')
   if(Number.isNaN(date.getTime())) return false
@@ -41,7 +41,7 @@ export function validBirthDate(birth){
   return date.getFullYear()>=1900
 }
 
-export function getCategoryFromAge(age){
+function getCategoryFromAge(age){
   if(!Number.isFinite(Number(age))) return 'Categoria não definida'
   const value=Number(age)
   if(value<=7) return 'Sub-7'
@@ -54,6 +54,6 @@ export function getCategoryFromAge(age){
   return 'Fora da faixa'
 }
 
-export function normalizeEmail(email){
+function normalizeEmail(email){
   return String(email||'').trim().toLowerCase()
 }
