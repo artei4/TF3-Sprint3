@@ -1,6 +1,4 @@
 
-import './styles.css'
-import {
   validCPF as validateCPF,
   maskCPF as formatCPF,
   getAgeFromBirth,
@@ -8,9 +6,6 @@ import {
   validBirthDate,
   normalizeEmail,
 } from './validation.js'
-import { filterAthletes } from './filters.js'
-import { toggleFavorite, registerVote } from './feed.js'
-import { saveMessage, searchConversations } from './messages.js'
 
 const app = document.querySelector('#app')
 
