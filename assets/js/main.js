@@ -68,6 +68,7 @@ const state = {
 
 let activeThread = null
 
+migrateLegacyStorage()
 seedDemoAccount()
 
 function readStorage(key, fallback) {
@@ -77,6 +78,21 @@ function readStorage(key, fallback) {
   } catch {
     return fallback
   }
+}
+
+function migrateLegacyStorage(){
+  if(state.profile?.birth && /^\d{2}\/\d{2}\/\d{4}$/.test(state.profile.birth)){
+    const parts=state.profile.birth.split('/')
+    state.profile.birth=parts[2]+'-'+parts[1]+'-'+parts[0]
+  }
+  state.tryouts=(state.tryouts || defaultTryouts).map((tryout)=>({
+    ...tryout,
+    enrolled:Array.isArray(tryout.enrolled) ? tryout.enrolled : [],
+    positions:Array.isArray(tryout.positions) ? tryout.positions : POSITIONS.slice(-1),
+    category:tryout.category || 'Sub-20',
+    location:tryout.location || String(tryout.city || 'Local não informado').split(' - ')[0],
+    state:tryout.state || 'SP',
+  }))
 }
 
 function persist() {
@@ -464,7 +480,8 @@ function input(label, id, value = '', type = 'text', required = false, disabled 
 }
 
 function selectField(label, id, options, selected = '') {
-  return '<label class="field-label">' + escapeHtml(label) + '<select id="' + id + '" class="field" required>' + options.map((option) => '<option value="' + escapeHtml(option) + '" ' + (String(option) === String(selected) ? 'selected' : '') + '>' + escapeHtml(option) + '</option>').join('') + '</select></label>'
+  const placeholder = selected ? '' : '<option value="" disabled selected>Selecione</option>'
+  return '<label class="field-label">' + escapeHtml(label) + '<select id="' + id + '" class="field" required>' + placeholder + options.map((option) => '<option value="' + escapeHtml(option) + '" ' + (String(option) === String(selected) ? 'selected' : '') + '>' + escapeHtml(option) + '</option>').join('') + '</select></label>'
 }
 
 function showFeedback(id, text, error = false) {
