@@ -760,8 +760,8 @@ function openMobileMenu() {
 
 function exportSelection() {
   const rows = [['Nome', 'Idade', 'Categoria', 'Gênero', 'Posição principal', 'Posição secundária', 'Cidade', 'Estado', 'Nota']]
-  (state.filteredAthletes || state.athletes).forEach((a) => rows.push([a.name, a.age, getCategoryFromAge(a.age), a.gender || '', a.pos, a.secondary, a.city, a.state, a.rating]))
-  const csv = rows.map((row) => row.map((cell) => '"' + String(cell).replaceAll('"', '""') + '"').join(';')).join('\\n')
+  ;(state.filteredAthletes || state.athletes).forEach((a) => rows.push([a.name, a.age, getCategoryFromAge(a.age), a.gender || '', a.pos, a.secondary, a.city, a.state, a.rating]))
+  const csv = rows.map((row) => row.map((cell) => '"' + String(cell).replaceAll('"', '""') + '"').join(';')).join('\n')
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const anchor = document.createElement('a')
