@@ -57,3 +57,12 @@ Além disso, os scripts eram carregados como scripts comuns (sem `type="module"`
 | Goleiro | Defesas/reflexos, jogo aéreo, posicionamento | Físico |
 
 Os pesos ficam na constante `WEIGHTS` em `assets/js/evaluation.js` e podem ser ajustados.
+
+## Atualização 5
+- **Estatísticas influenciam a nota (pouco)**: a nota final = nota base (características ponderadas pela posição avaliada, principal ou secundária) **+ ajuste por desempenho de no máximo ±0,6 ponto** (`performanceAdjustment` em `assets/js/evaluation.js`).
+  - Cada estatística vale conforme a posição: gols/assistências/finalizações pesam mais para atacante e ponta, quase nada para zagueiro (2 gols de um zagueiro = +0,1); desarmes pesam mais para zagueiro e volante; defesas e gols sofridos valem para goleiro.
+  - Precisão de passes só conta com pelo menos 10 passes tentados; poucos minutos em campo reduzem o efeito das estatísticas.
+  - Quem não marcou gol não é penalizado; já finalizações fora do alvo, passes errados e gols sofridos podem reduzir um pouco a nota.
+  - A avaliação mostra nota base, ajuste e as estatísticas; a nota aparece ao vivo no formulário.
+- **Privacidade**: notas, comentários e estatísticas ficam visíveis apenas para o jogador avaliado (no próprio perfil, com aviso na tela) e para a equipe (funcionários). Um jogador não vê avaliações de outro e não acessa o banco de atletas.
+- **Painel do funcionário com números reais**: "Atletas ativos" = total de atletas do banco (exemplos + todos os jogadores cadastrados), igual ao número da tela Atletas; "Perfis avaliados" só conta perfis com avaliação; "Mensagens" conta as conversas do próprio funcionário.

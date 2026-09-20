@@ -84,7 +84,7 @@ export function weightLevel(pos, key) {
   return 'baixo'
 }
 
-// Nota final = média ponderada das características avaliadas, com pesos da posição.
+// Nota base = média ponderada das características avaliadas, com os pesos da posição.
 // Retorna null se nenhuma característica foi avaliada.
 export function computeScore(pos, ratings = {}) {
   const weights = weightsForPosition(pos)
@@ -114,4 +114,77 @@ export function validateStats(stats) {
   if (has('passesCertos') && has('passesTentados') && stats.passesCertos > stats.passesTentados) return 'Passes certos não podem ser mais que os passes tentados.'
   if (has('minutos') && stats.minutos > 150) return 'Minutos jogados deve ser no máximo 150.'
   return ''
+}
+
+// ---------------------------------------------------------------------------
+// Ajuste por desempenho na partida
+// As estatísticas influenciam a nota só um pouco: no máximo ±MAX_ADJUSTMENT ponto.
+// Cada grupo de estatística é multiplicado pela relevância dele na posição
+// (gols pesam mais para o atacante; desarmes e defesas pesam mais para zagueiro/goleiro).
+// ---------------------------------------------------------------------------
+export const MAX_ADJUSTMENT = 0.6
+
+const RELEVANCE = {
+  ataque: { Atacante: 1, Ponta: 0.9, Meia: 0.7, Lateral: 0.4, Volante: 0.4, Zagueiro: 0.3, Goleiro: 0 },
+  passe: { Meia: 1, Volante: 1, Lateral: 0.8, Zagueiro: 0.8, Ponta: 0.6, Atacante: 0.5, Goleiro: 0.5 },
+  defesa: { Zagueiro: 1, Volante: 1, Goleiro: 1, Lateral: 0.8, Meia: 0.5, Ponta: 0.2, Atacante: 0.2 },
+}
+
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value))
+const round1 = (value) => Math.round(value * 10) / 10
+const num = (value) => (Number.isFinite(Number(value)) && value !== '' && value != null ? Number(value) : null)
+
+export function performanceAdjustment(pos, stats = {}) {
+  const factors = []
+  const rel = (group) => (RELEVANCE[group][pos] ?? 0.5)
+
+  // Ataque: gols, assistências e pontaria das finalizações
+  let attack = 0
+  const goals = num(stats.gols)
+  const assists = num(stats.assistencias)
+  const shots = num(stats.finalizacoes)
+  const onTarget = num(stats.finalizacoesAlvo)
+  if (goals) attack += Math.min(goals * 0.15, 0.45)
+  if (assists) attack += Math.min(assists * 0.1, 0.3)
+  if (shots !== null && onTarget !== null && shots >= 3) attack += clamp((onTarget / shots - 0.4) * 0.4, -0.1, 0.15)
+  if (attack) factors.push({ label: 'Gols, assistências e finalizações', value: attack * rel('ataque') })
+
+  // Passes: só conta com amostra mínima de 10 passes
+  const hits = num(stats.passesCertos)
+  const tries = num(stats.passesTentados)
+  if (hits !== null && tries !== null && tries >= 10) {
+    factors.push({ label: 'Precisão de passes', value: clamp((hits / tries - 0.75) * 1.2, -0.3, 0.3) * rel('passe') })
+  }
+
+  // Defesa: desarmes (linha) ou defesas e gols sofridos (goleiro)
+  if (pos === 'Goleiro') {
+    const saves = num(stats.defesas)
+    const conceded = num(stats.golsSofridos)
+    if (saves !== null || conceded !== null) {
+      factors.push({ label: 'Defesas e gols sofridos', value: clamp(Math.min((saves || 0) * 0.12, 0.6) - (conceded || 0) * 0.15, -0.5, 0.6) })
+    }
+  } else if (num(stats.desarmes)) {
+    factors.push({ label: 'Desarmes', value: Math.min(num(stats.desarmes) * 0.1, 0.4) * rel('defesa') })
+  }
+
+  // Poucos minutos em campo = estatística menos confiável
+  const minutes = num(stats.minutos)
+  const playtime = minutes === null ? 1 : clamp(minutes / 60, 0.25, 1)
+  const total = clamp(factors.reduce((sum, f) => sum + f.value, 0) * playtime, -MAX_ADJUSTMENT, MAX_ADJUSTMENT)
+  return {
+    value: round1(total),
+    factors: factors
+      .map((f) => ({ label: f.label, value: round1(f.value * playtime) }))
+      .filter((f) => f.value !== 0),
+  }
+}
+
+// Nota final = nota base (características ponderadas pela posição) + ajuste por desempenho.
+// Retorna null enquanto não houver nota base.
+export function computeFinalScore(pos, ratings = {}, stats = {}) {
+  const base = computeScore(pos, ratings)
+  if (base === null) return null
+  const { value, factors } = performanceAdjustment(pos, stats)
+  const final = round1(clamp(base + value, 0, 10))
+  return { base, adjustment: round1(final - base), final, factors }
 }

@@ -14,7 +14,8 @@ import {
   criteriaForPosition,
   statsForPosition,
   weightLevel,
-  computeScore,
+  computeFinalScore,
+  MAX_ADJUSTMENT,
   percent,
   validateStats,
 } from './evaluation.js'
@@ -394,7 +395,7 @@ function staffDashboard() {
     '<section class="grid gap-6 xl:grid-cols-[1.55fr_.8fr]">' +
     '<div class="rounded-[28px] border border-white/10 bg-[linear-gradient(135deg,#17130c,#0e0e0e_65%,#1b1408)] p-6 sm:p-8"><span class="eyebrow">Central do funcionário</span><h1 class="mt-3 text-3xl font-black sm:text-5xl">Encontre atletas, avalie perfis e <span class="text-[#e6bd62]">crie oportunidades.</span></h1><p class="mt-4 max-w-2xl text-white/55">Pesquise o banco, abra o perfil completo do atleta, envie mensagens, registre avaliações e agende peneiras.</p><div class="mt-8 flex flex-wrap gap-3"><button type="button" class="btn-primary" data-route="athletes">Pesquisar atletas ' + icon('search', 'size-4') + '</button><button type="button" class="btn-secondary" data-action="openTryout">' + icon('plus', 'size-4') + ' Criar peneira</button></div></div>' +
     '<aside class="panel"><span class="eyebrow">Hoje</span><div class="mt-3 grid grid-cols-2 gap-3">' +
-    staffStat('74', 'Atletas ativos') + staffStat(String(Object.keys(state.reviews).length).padStart(2, '0'), 'Perfis avaliados') + staffStat(String(state.tryouts.length).padStart(2, '0'), 'Peneiras') + staffStat(String(state.messages.length).padStart(2, '0'), 'Mensagens') +
+    staffStat(String(state.athletes.length).padStart(2, '0'), 'Atletas ativos') + staffStat(String(Object.values(state.reviews).filter((list) => Array.isArray(list) && list.length).length).padStart(2, '0'), 'Perfis avaliados') + staffStat(String(state.tryouts.length).padStart(2, '0'), 'Peneiras') + staffStat(String(state.messages.filter((m) => String(m.thread).endsWith('::' + state.user?.email)).length).padStart(2, '0'), 'Mensagens') +
     '</div></aside></section>' +
     '<section class="mt-8 panel"><div class="flex flex-wrap items-end justify-between gap-3"><div><span class="eyebrow">Seu radar</span><h2 class="section-title">Atletas para observar</h2></div><button type="button" class="btn-ghost" data-route="athletes">Abrir banco completo ' + icon('arrow', 'size-4') + '</button></div><div class="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">' +
     state.athletes.slice(0, 6).map((a) => athleteCard(a, true)).join('') + '</div></section>',
@@ -481,7 +482,7 @@ function profilePage() {
     input('CEP', 'profile-zip', p.zip, 'text', true) + input('Cidade', 'profile-city', p.city, 'text', true) + input('Estado', 'profile-state', p.state, 'text', true) + input('Bairro', 'profile-district', p.district, 'text', true) +
     input('Endereço', 'profile-address', p.address, 'text', true) + input('Número', 'profile-number', p.number, 'text', true) +
     '<div id="profile-feedback" class="sm:col-span-2 hidden" role="alert"></div><div class="sm:col-span-2 flex justify-end"><button class="btn-primary" type="submit">Salvar alterações ' + icon('check', 'size-4') + '</button></div></form></div></section>' +
-    '<section class="mt-6 panel"><div class="flex items-center justify-between"><div><span class="eyebrow">Olheiros</span><h2 class="section-title">Comentários e notas</h2></div><span class="tag">' + getPlayerReviewCount() + ' registro(s)</span></div><div class="mt-5 grid gap-4 md:grid-cols-2">' + renderPlayerReviews() + '</div></section>',
+    '<section class="mt-6 panel"><div class="flex items-center justify-between"><div><span class="eyebrow">Olheiros</span><h2 class="section-title">Comentários e notas</h2><p class="mt-1 text-xs text-white/35">Notas e estatísticas ficam visíveis apenas para você e para a equipe da Academia.</p></div><span class="tag">' + getPlayerReviewCount() + ' registro(s)</span></div><div class="mt-5 grid gap-4 md:grid-cols-2">' + renderPlayerReviews() + '</div></section>',
     { active: 'profile', role: 'player' },
   )
 }
@@ -529,6 +530,7 @@ function reviewCard(review, athleteId = null) {
       const value = Number(review.ratings[c.key])
       return '<div><div class="flex justify-between text-[11px] text-white/50"><span>' + escapeHtml(c.label) + '</span><strong class="text-white">' + String(value).replace('.', ',') + '</strong></div><div class="mt-1 h-1 overflow-hidden rounded-full bg-white/8"><div class="h-1 rounded-full bg-[#d4ad59]" style="width:' + Math.max(0, Math.min(100, value * 10)) + '%"></div></div></div>'
     }).join('') + '</div>' : '') +
+    (review.baseRating !== undefined && review.adjustment ? '<p class="mt-3 text-[11px] text-white/40">Nota base <strong class="text-white">' + String(review.baseRating).replace('.', ',') + '</strong> • ajuste por desempenho <strong class="' + (review.adjustment > 0 ? 'text-emerald-300' : 'text-rose-300') + '">' + (review.adjustment > 0 ? '+' : '') + String(review.adjustment).replace('.', ',') + '</strong></p>' : '') +
     (reviewStatChips(review) ? '<div class="mt-4 flex flex-wrap gap-1.5">' + reviewStatChips(review) + '</div>' : '') +
     (review.strengths && review.strengths.length ? '<div class="mt-3"><p class="text-[10px] font-bold uppercase tracking-[.16em] text-white/30">Pontos fortes</p><div class="mt-1.5 flex flex-wrap gap-1.5">' + review.strengths.map((item) => tag(item)).join('') + '</div></div>' : '') +
     '<p class="mt-4 text-sm leading-6 text-white/65">“' + escapeHtml(review.comment) + '”</p>' +
@@ -818,12 +820,12 @@ function openReviewModal(athleteId) {
   wrapper.className = 'fixed inset-0 z-[95] grid place-items-center bg-black/75 p-4 backdrop-blur-md'
   wrapper.innerHTML =
     '<div class="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[28px] border border-white/10 bg-[#111] p-6 shadow-2xl sm:p-8" role="dialog" aria-modal="true" aria-labelledby="review-modal-title">' +
-    '<div class="flex items-start justify-between gap-4"><div><span class="eyebrow">Avaliação</span><h2 id="review-modal-title" class="mt-2 text-2xl font-black">Avaliar ' + escapeHtml(athlete.name) + '</h2><p class="mt-1 text-sm text-white/45">Dê uma nota de 0 a 10 para cada característica. A nota final é uma média ponderada pela posição avaliada.</p></div><button type="button" class="icon-button" data-close aria-label="Fechar">' + icon('close') + '</button></div>' +
+    '<div class="flex items-start justify-between gap-4"><div><span class="eyebrow">Avaliação</span><h2 id="review-modal-title" class="mt-2 text-2xl font-black">Avaliar ' + escapeHtml(athlete.name) + '</h2><p class="mt-1 text-sm text-white/45">Dê uma nota de 0 a 10 para cada característica. A nota base é uma média ponderada pela posição avaliada; as estatísticas da partida ajustam a nota em até ±' + String(MAX_ADJUSTMENT).replace('.', ',') + ' ponto.</p></div><button type="button" class="icon-button" data-close aria-label="Fechar">' + icon('close') + '</button></div>' +
     '<form id="review-form" class="mt-6 space-y-6">' +
     '<label class="field-label">Posição avaliada<select id="review-position" class="field">' + positions.map((p, i) => '<option value="' + escapeHtml(p) + '">' + escapeHtml(p) + (i === 0 ? ' (principal)' : ' (secundária)') + '</option>').join('') + '</select></label>' +
     '<section><div class="flex items-center justify-between gap-3"><h3 class="font-bold">Características <span class="text-xs font-normal text-white/35">(0 a 10)</span></h3><span class="text-[11px] text-white/35">O “peso” mostra a importância na posição</span></div><div id="review-criteria" class="mt-3 grid gap-3 sm:grid-cols-2"></div>' +
     '<div class="mt-4 flex items-center justify-between gap-4 rounded-2xl border border-[#d4ad59]/20 bg-[#d4ad59]/7 p-4"><div><p class="text-sm font-bold text-[#e2bb62]">Nota final ponderada</p><p id="review-score-hint" class="mt-1 text-xs text-white/45"></p></div><p id="review-score" class="text-4xl font-black text-[#e6bd62]">—</p></div></section>' +
-    '<section><h3 class="font-bold">Estatísticas da partida <span class="text-xs font-normal text-white/35">(opcional)</span></h3><div id="review-stats" class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"></div></section>' +
+    '<section><h3 class="font-bold">Estatísticas da partida <span class="text-xs font-normal text-white/35">(opcional • visível só para o atleta e para a equipe)</span></h3><div id="review-stats" class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"></div></section>' +
     '<section><h3 class="font-bold">Pontos fortes <span class="text-xs font-normal text-white/35">(opcional)</span></h3><div class="mt-3 flex flex-wrap gap-2">' + STRENGTHS.map((item) => '<label class="check-pill"><input type="checkbox" name="strength" value="' + escapeHtml(item) + '"/><span>' + escapeHtml(item) + '</span></label>').join('') + '</div></section>' +
     '<label class="field-label">Comentário<textarea id="review-comment" class="field min-h-28 resize-y" required placeholder="Descreva o que observou no jogo, atitude, evolução..."></textarea></label>' +
     '<p id="review-error" class="hidden rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200" role="alert"></p>' +
@@ -836,16 +838,25 @@ function openReviewModal(athleteId) {
   const positionSelect = wrapper.querySelector('#review-position')
   const readValues = (attr) => Object.fromEntries([...wrapper.querySelectorAll('[' + attr + ']')].map((field) => [field.getAttribute(attr), field.value]))
 
+  const signed = (value) => (value > 0 ? '+' : '') + value.toFixed(1).replace('.', ',')
+  const readStatNumbers = () => {
+    const stats = {}
+    wrapper.querySelectorAll('[data-stat]').forEach((field) => {
+      if (field.value !== '' && Number.isFinite(Number(field.value))) stats[field.dataset.stat] = Number(field.value)
+    })
+    return stats
+  }
+
   const updateScore = () => {
     const pos = positionSelect.value
     const criteria = criteriaForPosition(pos)
     const ratings = readValues('data-criterion')
     const filled = criteria.filter((c) => ratings[c.key] !== '').length
-    const score = filled === criteria.length ? computeScore(pos, ratings) : null
-    wrapper.querySelector('#review-score').textContent = score === null ? '—' : score.toFixed(1).replace('.', ',')
-    wrapper.querySelector('#review-score-hint').textContent = score === null
+    const result = filled === criteria.length ? computeFinalScore(pos, ratings, readStatNumbers()) : null
+    wrapper.querySelector('#review-score').textContent = result === null ? '—' : result.final.toFixed(1).replace('.', ',')
+    wrapper.querySelector('#review-score-hint').textContent = result === null
       ? 'Avalie as ' + criteria.length + ' características para calcular (' + filled + '/' + criteria.length + ').'
-      : 'Calculada com os pesos da posição ' + pos + '.'
+      : 'Nota base ' + result.base.toFixed(1).replace('.', ',') + ' (pesos de ' + pos + ') • desempenho na partida ' + (result.adjustment ? signed(result.adjustment) : 'sem ajuste')
   }
 
   const paint = () => {
@@ -895,7 +906,8 @@ function openReviewModal(athleteId) {
     const comment = wrapper.querySelector('#review-comment').value.trim()
     if (comment.length < 10) return fail('Escreva um comentário com pelo menos 10 caracteres.')
 
-    const score = computeScore(pos, ratings)
+    const result = computeFinalScore(pos, ratings, stats)
+    const score = result.final
     const strengths = [...wrapper.querySelectorAll('input[name="strength"]:checked')].map((box) => box.value)
     const list = state.reviews[athleteId] || []
     list.unshift({
@@ -905,6 +917,8 @@ function openReviewModal(athleteId) {
       position: pos,
       ratings,
       rating: score.toFixed(1),
+      baseRating: result.base,
+      adjustment: result.adjustment,
       stats,
       strengths,
       comment,
