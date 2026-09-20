@@ -1,6 +1,6 @@
 import { getCategoryFromAge } from './validation.js'
 
-export function filterAthletes(athletes, {name='', pos='', city='', age='', category='', gender=''}={}){
+export function filterAthletes(athletes, {name='', pos='', city='', age='', category='', gender='', foot=''}={}){
   const search=String(name).trim().toLowerCase()
   const normalizedCity=String(city).trim().toLowerCase()
   return athletes.filter((a)=>{
@@ -12,6 +12,7 @@ export function filterAthletes(athletes, {name='', pos='', city='', age='', cate
     const ageMatch=!age || String(a.age)===String(age)
     const categoryMatch=!category || athleteCategory===category
     const genderMatch=!gender || String(a.gender||'')===String(gender)
-    return (!search || athleteName.includes(search)) && positionMatch && cityMatch && ageMatch && categoryMatch && genderMatch
+    const footMatch=!foot || a.foot===foot
+    return footMatch && (!search || athleteName.includes(search)) && positionMatch && cityMatch && ageMatch && categoryMatch && genderMatch
   })
 }

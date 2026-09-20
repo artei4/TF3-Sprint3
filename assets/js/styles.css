@@ -37,6 +37,8 @@ button { cursor:pointer; }
 .vote-button { border:1px solid rgba(216,176,88,.2); background:rgba(216,176,88,.07); color:#e1bb62; padding:.5rem .7rem; }
 .vote-button:hover { background:rgba(216,176,88,.13); }
 .vote-button:disabled { opacity:.7; }
+.vote-button.voted { border-color:rgba(244,63,94,.3); background:rgba(244,63,94,.07); color:#fca5a5; }
+.vote-button.voted:hover { background:rgba(244,63,94,.16); }
 .status-dot,.tag { display:inline-flex; align-items:center; gap:.35rem; border:1px solid rgba(216,176,88,.18); background:rgba(216,176,88,.08); color:#e2bb62; border-radius:999px; padding:.28rem .6rem; font-size:.68rem; font-weight:800; }
 .tag.ghost { color:rgba(255,255,255,.55); background:rgba(255,255,255,.03); border-color:rgba(255,255,255,.08); }
 .tag.red { color:#fca5a5; background:rgba(244,63,94,.08); border-color:rgba(244,63,94,.25); }

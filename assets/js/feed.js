@@ -20,3 +20,13 @@ export function registerVote(state, athleteId, voter){
   localStorage.setItem('ap_votes', JSON.stringify(state.votes))
   return true
 }
+
+// Retira o voto que o usuário havia dado ao atleta.
+export function removeVote(state, athleteId, voter){
+  if(!hasVoted(state, athleteId, voter)) return false
+  state.voted[voter]=(state.voted[voter]||[]).filter(id=>id!==athleteId)
+  state.votes[athleteId]=Math.max(0,(state.votes[athleteId]||0)-1)
+  localStorage.setItem('ap_voted', JSON.stringify(state.voted))
+  localStorage.setItem('ap_votes', JSON.stringify(state.votes))
+  return true
+}

@@ -7,7 +7,17 @@ import {
   normalizeEmail,
 } from './validation.js'
 import { filterAthletes } from './filters.js'
-import { toggleFavorite, registerVote, hasVoted } from './feed.js'
+import { toggleFavorite, registerVote, removeVote, hasVoted } from './feed.js'
+import {
+  FEET,
+  STRENGTHS,
+  criteriaForPosition,
+  statsForPosition,
+  weightLevel,
+  computeScore,
+  percent,
+  validateStats,
+} from './evaluation.js'
 import { threadKey, searchConversations } from './messages.js'
 
 const app = document.querySelector('#app')
@@ -29,6 +39,7 @@ const defaultProfile = {
   cpf: '',
   birth: '2008-03-14',
   gender: 'Masculino',
+  foot: 'Destro',
   email: 'gabriel@academiapele.com',
   phone: '(11) 99872-1122',
   pos: 'Atacante',
@@ -42,12 +53,12 @@ const defaultProfile = {
 }
 
 const defaultAthletes = [
-  { id: 1, email: 'gabriel@academiapele.com', name: 'Gabriel Martins', age: 18, birth: '2008-03-14', gender: 'Masculino', city: 'São Paulo', state: 'SP', pos: 'Atacante', secondary: 'Ponta', rating: 8.8, votes: 128, status: 'Em observação', color: 'from-amber-400 to-yellow-200', tags: ['Finalização', 'Velocidade', 'Drible'] },
-  { id: 2, name: 'Lucas Ferreira', age: 19, birth: '2007-07-20', gender: 'Masculino', city: 'Osasco', state: 'SP', pos: 'Meia', secondary: 'Volante', rating: 8.4, votes: 94, status: 'Disponível', color: 'from-sky-400 to-cyan-200', tags: ['Passe', 'Visão de jogo', 'Resistência'] },
-  { id: 3, name: 'Rafael Souza', age: 17, birth: '2009-01-22', gender: 'Masculino', city: 'Guarulhos', state: 'SP', pos: 'Zagueiro', secondary: 'Lateral', rating: 8.1, votes: 76, status: 'Em avaliação', color: 'from-violet-400 to-fuchsia-200', tags: ['Marcação', 'Força', 'Cabeceio'] },
-  { id: 4, name: 'João Vitor', age: 18, birth: '2008-10-11', gender: 'Masculino', city: 'Campinas', state: 'SP', pos: 'Volante', secondary: 'Meia', rating: 8.6, votes: 111, status: 'Destaque', color: 'from-emerald-400 to-lime-200', tags: ['Desarme', 'Passe', 'Leitura'] },
-  { id: 5, name: 'Pedro Henrique', age: 20, birth: '2006-05-05', gender: 'Masculino', city: 'Santos', state: 'SP', pos: 'Goleiro', secondary: '—', rating: 8.0, votes: 62, status: 'Disponível', color: 'from-slate-300 to-slate-100', tags: ['Reflexo', 'Posicionamento', 'Saída'] },
-  { id: 6, name: 'Matheus Alves', age: 18, birth: '2008-12-02', gender: 'Masculino', city: 'Sorocaba', state: 'SP', pos: 'Ponta', secondary: 'Atacante', rating: 8.7, votes: 103, status: 'Destaque', color: 'from-orange-400 to-amber-200', tags: ['Velocidade', 'Drible', 'Cruzamento'] },
+  { id: 1, foot: 'Destro', email: 'gabriel@academiapele.com', name: 'Gabriel Martins', age: 18, birth: '2008-03-14', gender: 'Masculino', city: 'São Paulo', state: 'SP', pos: 'Atacante', secondary: 'Ponta', rating: 8.8, votes: 128, status: 'Em observação', color: 'from-amber-400 to-yellow-200', tags: ['Finalização', 'Velocidade', 'Drible'] },
+  { id: 2, foot: 'Canhoto', name: 'Lucas Ferreira', age: 19, birth: '2007-07-20', gender: 'Masculino', city: 'Osasco', state: 'SP', pos: 'Meia', secondary: 'Volante', rating: 8.4, votes: 94, status: 'Disponível', color: 'from-sky-400 to-cyan-200', tags: ['Passe', 'Visão de jogo', 'Resistência'] },
+  { id: 3, foot: 'Destro', name: 'Rafael Souza', age: 17, birth: '2009-01-22', gender: 'Masculino', city: 'Guarulhos', state: 'SP', pos: 'Zagueiro', secondary: 'Lateral', rating: 8.1, votes: 76, status: 'Em avaliação', color: 'from-violet-400 to-fuchsia-200', tags: ['Marcação', 'Força', 'Cabeceio'] },
+  { id: 4, foot: 'Destro', name: 'João Vitor', age: 18, birth: '2008-10-11', gender: 'Masculino', city: 'Campinas', state: 'SP', pos: 'Volante', secondary: 'Meia', rating: 8.6, votes: 111, status: 'Destaque', color: 'from-emerald-400 to-lime-200', tags: ['Desarme', 'Passe', 'Leitura'] },
+  { id: 5, foot: 'Destro', name: 'Pedro Henrique', age: 20, birth: '2006-05-05', gender: 'Masculino', city: 'Santos', state: 'SP', pos: 'Goleiro', secondary: '—', rating: 8.0, votes: 62, status: 'Disponível', color: 'from-slate-300 to-slate-100', tags: ['Reflexo', 'Posicionamento', 'Saída'] },
+  { id: 6, foot: 'Canhoto', name: 'Matheus Alves', age: 18, birth: '2008-12-02', gender: 'Masculino', city: 'Sorocaba', state: 'SP', pos: 'Ponta', secondary: 'Atacante', rating: 8.7, votes: 103, status: 'Destaque', color: 'from-orange-400 to-amber-200', tags: ['Velocidade', 'Drible', 'Cruzamento'] },
 ]
 
 const defaultTryouts = [
@@ -72,6 +83,7 @@ const state = {
 }
 
 let activeThread = null
+let lastRoute = null
 let notificationSeq = 0
 let activeThreadKey = null
 
@@ -189,6 +201,7 @@ function athleteFieldsFromProfile(profile = {}) {
     name: profile.name,
     birth: profile.birth,
     gender: profile.gender,
+    foot: profile.foot,
     city: profile.city,
     state: profile.state,
     pos: profile.pos,
@@ -219,6 +232,18 @@ function syncAthletes() {
     }))
   state.athletes = base.concat(registered)
   state.filteredAthletes = state.athletes
+}
+
+// Nota exibida do atleta: média das avaliações registradas (se houver) ou a nota inicial.
+function ratingOf(athlete) {
+  const scores = (state.reviews[athlete.id] || []).map((review) => Number(review.rating)).filter(Number.isFinite)
+  if (scores.length) return scores.reduce((sum, value) => sum + value, 0) / scores.length
+  return Number(athlete.rating) || 0
+}
+
+function footTag(foot) {
+  if (!foot) return ''
+  return tag(foot === 'Destro' ? 'Perna direita' : foot === 'Canhoto' ? 'Perna esquerda' : 'Ambidestro', true)
 }
 
 function formatRating(value) {
@@ -301,7 +326,7 @@ function shell(content, options = {}) {
   return '<div class="min-h-screen bg-[radial-gradient(circle_at_top_right,_rgba(208,169,72,.12),_transparent_26%),#090909] text-white">' +
     '<header class="sticky top-0 z-40 border-b border-white/8 bg-[#090909]/90 backdrop-blur-xl">' +
     '<div class="mx-auto flex min-h-[4.5rem] max-w-[1440px] items-center justify-between gap-3 px-4 py-2 sm:px-6 lg:px-10">' +
-    '<button class="flex items-center gap-3" data-route="dashboard" aria-label="Ir para o início">' +
+    '<button type="button" class="flex items-center gap-3" data-action="home" aria-label="Ir para o início">' +
     '<img src="./assets/brand/simbolo.jpg" alt="Academia Pelé" class="h-11 w-11 rounded-xl object-contain bg-black ring-1 ring-white/10" />' +
     '<div class="hidden sm:block text-left"><p class="text-sm font-black uppercase tracking-[.28em] text-[#e1bb62]">Academia Pelé</p><p class="text-[11px] text-white/40">Plataforma de talentos</p></div></button>' +
     '<nav class="hidden md:flex items-center gap-1" aria-label="Navegação principal">' +
@@ -390,9 +415,9 @@ function athleteCard(a, staff = false) {
   return '<article class="group rounded-2xl border border-white/8 bg-white/[.03] p-4 transition hover:-translate-y-0.5 hover:border-[#d4ad59]/30 hover:bg-white/[.045]">' +
     '<div class="flex gap-3"><div class="avatar-lg bg-gradient-to-br ' + a.color + '">' + avatar(a.name) + '</div><div class="min-w-0 flex-1"><div class="flex items-start justify-between gap-2"><button type="button" class="min-w-0 text-left" data-open-athlete="' + a.id + '"><h3 class="truncate font-bold">' + escapeHtml(a.name) + '</h3><p class="text-xs text-white/40">' + a.age + ' anos • ' + escapeHtml(a.city) + '/' + escapeHtml(a.state) + '</p></button>' +
     '<button type="button" class="icon-button sm" data-favorite="' + a.id + '" aria-label="' + (fav ? 'Remover dos favoritos' : 'Favoritar') + '">' + icon('heart', 'size-4 ' + (fav ? 'fill-[#e2bb62] text-[#e2bb62]' : '')) + '</button></div>' +
-    '<div class="mt-3 flex flex-wrap gap-1.5">' + tag(a.pos) + tag(a.secondary, true) + tag(getCategoryFromAge(a.age)) + '</div></div></div>' +
-    '<div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/7 pt-3"><div class="flex items-center gap-2 text-xs text-white/45">' + icon('star', 'size-4 text-[#e2bb62]') + '<strong class="text-white">' + formatRating(a.rating) + '</strong> média <span>•</span> ' + count + ' votos <span>•</span> ' + reviewCount + ' avaliação(ões)</div>' +
-    '<div class="flex gap-2"><button type="button" class="vote-button" data-vote="' + a.id + '"' + (voted ? ' disabled' : '') + '>' + (voted ? 'Votado ✓' : 'Votar') + '</button>' +
+    '<div class="mt-3 flex flex-wrap gap-1.5">' + tag(a.pos) + tag(a.secondary, true) + footTag(a.foot) + tag(getCategoryFromAge(a.age)) + '</div></div></div>' +
+    '<div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/7 pt-3"><div class="flex items-center gap-2 text-xs text-white/45">' + icon('star', 'size-4 text-[#e2bb62]') + '<strong class="text-white">' + formatRating(ratingOf(a)) + '</strong> média <span>•</span> ' + count + ' votos <span>•</span> ' + reviewCount + ' avaliação(ões)</div>' +
+    '<div class="flex gap-2"><button type="button" class="vote-button ' + (voted ? 'voted' : '') + '" data-vote="' + a.id + '" title="' + (voted ? 'Clique para retirar seu voto' : 'Votar neste atleta') + '">' + (voted ? 'Retirar voto' : 'Votar') + '</button>' +
     (staff ? '<button type="button" class="btn-secondary px-3 py-2 text-xs" data-message-athlete="' + a.id + '">Mensagem</button>' : '') +
     '<button type="button" class="btn-ghost px-2" data-open-athlete="' + a.id + '" aria-label="Abrir perfil de ' + escapeHtml(a.name) + '">Ver perfil</button></div></div></article>'
 }
@@ -406,10 +431,11 @@ function athletesPage() {
   const filters = '<aside class="panel h-max"><div class="flex items-center justify-between"><h2 class="font-bold">Filtros</h2><button type="button" class="text-xs text-[#e2bb62]" data-action="clearFilters">Limpar</button></div>' +
     '<div class="mt-4 space-y-4"><label class="field-label">Buscar por nome<input id="filter-name" class="field" placeholder="Ex.: Gabriel" /></label>' +
     '<label class="field-label">Posição principal ou secundária<select id="filter-pos" class="field"><option value="">Todas</option>' + POSITIONS.map((p) => '<option>' + p + '</option>').join('') + '</select></label>' +
+    '<label class="field-label">Perna dominante<select id="filter-foot" class="field"><option value="">Todas</option>' + FEET.map((f) => '<option>' + f + '</option>').join('') + '</select></label>' +
     '<label class="field-label">Cidade/região<select id="filter-city" class="field"><option value="">Todas</option>' + [...new Set(state.athletes.map((a) => a.city))].sort().map((c) => '<option>' + escapeHtml(c) + '</option>').join('') + '</select></label>' +
     '<label class="field-label">Idade<select id="filter-age" class="field"><option value="">Todas</option>' + [...new Set(state.athletes.map((a) => a.age))].sort((a,b)=>a-b).map((age) => '<option value="' + age + '">' + age + '</option>').join('') + '</select></label>' +
     '<label class="field-label">Categoria<select id="filter-category" class="field"><option value="">Todas</option><option>Sub-7</option><option>Sub-9</option><option>Sub-11</option><option>Sub-13</option><option>Sub-15</option><option>Sub-17</option><option>Sub-20</option></select></label>' +
-    '</div><div class="mt-6 rounded-2xl border border-[#d4ad59]/15 bg-[#d4ad59]/7 p-4 text-xs leading-5 text-white/55"><strong class="text-[#e2bb62]">Filtro em tempo real</strong><br/>Nome, posição, cidade, idade e categoria alteram a lista sem recarregar.</div></aside>'
+    '</div><div class="mt-6 rounded-2xl border border-[#d4ad59]/15 bg-[#d4ad59]/7 p-4 text-xs leading-5 text-white/55"><strong class="text-[#e2bb62]">Filtro em tempo real</strong><br/>Nome, posição, perna dominante, cidade, idade e categoria alteram a lista sem recarregar.</div></aside>'
 
   return shell(
     '<div class="flex flex-wrap items-end justify-between gap-4"><div><span class="eyebrow">Banco de talentos</span><h1 class="page-title">Pesquisar atletas</h1><p class="page-subtitle">Abra o perfil completo, mande uma mensagem, vote e registre uma avaliação.</p></div><button type="button" class="btn-primary" data-action="openTryout">' + icon('plus', 'size-4') + ' Nova peneira</button></div>' +
@@ -440,7 +466,7 @@ function profilePage() {
     '<section class="mt-6 grid gap-5 xl:grid-cols-[.75fr_1.25fr]">' +
     '<aside class="panel"><div class="flex items-center gap-4"><div class="avatar-xl">' + avatar(p.name) + '</div><div><p class="text-xs uppercase tracking-[.2em] text-white/35">Atleta</p><h2 class="mt-1 text-2xl font-black">' + escapeHtml(p.pos) + '</h2><p class="text-sm text-white/45">' + age + ' anos • ' + escapeHtml(category) + '</p></div></div>' +
     '<div class="mt-6 grid grid-cols-2 gap-3">' + stat(averagePlayerRating(p), 'Avaliação', 'média atual') + stat(String(state.tryouts.filter((t) => Array.isArray(t.enrolled) && t.enrolled.includes(state.user.email)).length).padStart(2, '0'), 'Peneiras', 'inscritas') + stat(String(getPlayerReviewCount()).padStart(2, '0'), 'Avaliações', 'recebidas') + stat(String(myNotifications().length).padStart(2, '0'), 'Notificações', 'recentes') + '</div>' +
-    '<div class="mt-6 flex flex-wrap gap-2">' + tag(p.pos) + tag(p.secondary, true) + tag(category) + tag(p.city) + '</div></aside>' +
+    '<div class="mt-6 flex flex-wrap gap-2">' + tag(p.pos) + tag(p.secondary, true) + footTag(p.foot) + tag(category) + tag(p.city) + '</div></aside>' +
     '<div class="panel"><div class="flex items-center justify-between"><div><span class="eyebrow">Dados do jogador</span><h2 class="section-title">Atualizar perfil</h2></div>' + icon('edit', 'size-5 text-[#e1bb62]') + '</div>' +
     '<form id="profile-form" class="mt-5 grid gap-4 sm:grid-cols-2">' +
     input('Nome completo', 'profile-name', p.name, 'text', true) +
@@ -450,7 +476,7 @@ function profilePage() {
     '<label class="field-label">Categoria<select id="profile-category" class="field" disabled><option>' + escapeHtml(category) + '</option></select></label>' +
     selectField('Gênero', 'profile-gender', GENDERS, p.gender) +
     input('E-mail', 'profile-email', p.email, 'email', true) + input('Telefone', 'profile-phone', p.phone, 'tel', true) +
-    selectField('Posição principal', 'profile-pos', POSITIONS, p.pos) + selectField('Posição secundária', 'profile-secondary', ['—'].concat(POSITIONS), p.secondary) +
+    selectField('Posição principal', 'profile-pos', POSITIONS, p.pos) + selectField('Posição secundária', 'profile-secondary', ['—'].concat(POSITIONS), p.secondary) + selectField('Perna dominante', 'profile-foot', FEET, p.foot || '') +
     '<div class="sm:col-span-2 mt-2 border-t border-white/8 pt-5"><p class="text-sm font-bold">Endereço</p></div>' +
     input('CEP', 'profile-zip', p.zip, 'text', true) + input('Cidade', 'profile-city', p.city, 'text', true) + input('Estado', 'profile-state', p.state, 'text', true) + input('Bairro', 'profile-district', p.district, 'text', true) +
     input('Endereço', 'profile-address', p.address, 'text', true) + input('Número', 'profile-number', p.number, 'text', true) +
@@ -469,8 +495,44 @@ function renderPlayerReviews() {
   return reviews.map(reviewCard).join('')
 }
 
-function reviewCard(review) {
-  return '<article class="rounded-2xl border border-white/8 bg-white/[.025] p-5"><div class="flex items-start justify-between gap-3"><div class="flex items-center gap-3"><span class="avatar">' + avatar(review.author || 'Olheiro') + '</span><div><p class="font-semibold">' + escapeHtml(review.author || 'Olheiro') + '</p><p class="text-xs text-white/35">' + escapeHtml(review.date || 'Agora') + '</p></div></div><div class="rounded-xl border border-[#d4ad59]/20 bg-[#d4ad59]/8 px-3 py-2 text-sm font-black text-[#e2bb62]">' + escapeHtml(review.rating) + '</div></div><p class="mt-4 text-sm leading-6 text-white/65">“' + escapeHtml(review.comment) + '”</p></article>'
+function reviewStatChips(review) {
+  const stats = review.stats || {}
+  const chips = []
+  const add = (label, value) => chips.push('<span class="tag ghost">' + escapeHtml(label) + ' <strong class="text-white">' + escapeHtml(value) + '</strong></span>')
+  const has = (key) => stats[key] !== undefined
+  if (has('minutos')) add('Minutos', stats.minutos)
+  if (has('gols')) add('Gols', stats.gols)
+  if (has('assistencias')) add('Assistências', stats.assistencias)
+  if (has('finalizacoes') || has('finalizacoesAlvo')) {
+    if (has('finalizacoes') && has('finalizacoesAlvo')) add('Finalizações', stats.finalizacoesAlvo + '/' + stats.finalizacoes + ' no alvo')
+    else if (has('finalizacoes')) add('Finalizações', stats.finalizacoes)
+    else add('Finalizações no alvo', stats.finalizacoesAlvo)
+  }
+  if (has('passesCertos')) {
+    const pct = percent(stats.passesCertos, stats.passesTentados)
+    add('Passes', has('passesTentados') ? stats.passesCertos + '/' + stats.passesTentados + (pct !== null ? ' (' + pct + '%)' : '') : stats.passesCertos + ' certos')
+  }
+  if (has('desarmes')) add('Desarmes', stats.desarmes)
+  if (has('defesas')) add('Defesas', stats.defesas)
+  if (has('golsSofridos')) add('Gols sofridos', stats.golsSofridos)
+  return chips.join('')
+}
+
+function reviewCard(review, athleteId = null) {
+  const canDelete = athleteId !== null && state.user?.role === 'staff' && review.authorEmail && review.authorEmail === state.user.email
+  const criteria = review.ratings && review.position
+    ? criteriaForPosition(review.position).filter((c) => review.ratings[c.key] !== undefined && review.ratings[c.key] !== '')
+    : []
+  return '<article class="rounded-2xl border border-white/8 bg-white/[.025] p-5"><div class="flex items-start justify-between gap-3"><div class="flex items-center gap-3"><span class="avatar">' + avatar(review.author || 'Olheiro') + '</span><div><p class="font-semibold">' + escapeHtml(review.author || 'Olheiro') + '</p><p class="text-xs text-white/35">' + escapeHtml(review.date || 'Agora') + (review.position ? ' • como ' + escapeHtml(review.position) : '') + '</p></div></div>' +
+    '<div class="text-center"><div class="rounded-xl border border-[#d4ad59]/20 bg-[#d4ad59]/8 px-3 py-2 text-sm font-black text-[#e2bb62]">' + escapeHtml(String(review.rating).replace('.', ',')) + '</div>' + (criteria.length ? '<p class="mt-1 text-[10px] text-white/30">nota ponderada</p>' : '') + '</div></div>' +
+    (criteria.length ? '<div class="mt-4 grid grid-cols-2 gap-x-4 gap-y-2">' + criteria.map((c) => {
+      const value = Number(review.ratings[c.key])
+      return '<div><div class="flex justify-between text-[11px] text-white/50"><span>' + escapeHtml(c.label) + '</span><strong class="text-white">' + String(value).replace('.', ',') + '</strong></div><div class="mt-1 h-1 overflow-hidden rounded-full bg-white/8"><div class="h-1 rounded-full bg-[#d4ad59]" style="width:' + Math.max(0, Math.min(100, value * 10)) + '%"></div></div></div>'
+    }).join('') + '</div>' : '') +
+    (reviewStatChips(review) ? '<div class="mt-4 flex flex-wrap gap-1.5">' + reviewStatChips(review) + '</div>' : '') +
+    (review.strengths && review.strengths.length ? '<div class="mt-3"><p class="text-[10px] font-bold uppercase tracking-[.16em] text-white/30">Pontos fortes</p><div class="mt-1.5 flex flex-wrap gap-1.5">' + review.strengths.map((item) => tag(item)).join('') + '</div></div>' : '') +
+    '<p class="mt-4 text-sm leading-6 text-white/65">“' + escapeHtml(review.comment) + '”</p>' +
+    (canDelete ? '<button type="button" class="mt-3 text-xs font-semibold text-rose-300 hover:text-rose-200" data-delete-review="' + review.id + '">Excluir minha avaliação</button>' : '') + '</article>'
 }
 
 function tryoutsPage() {
@@ -595,6 +657,7 @@ function registerPage() {
     input('Telefone', 'reg-phone', '', 'tel', true) +
     selectField('Posição principal', 'reg-pos', POSITIONS, '') +
     selectField('Posição secundária', 'reg-secondary', ['—'].concat(POSITIONS), '—') +
+    selectField('Perna dominante', 'reg-foot', FEET, '') +
     '<div class="sm:col-span-2 mt-2 rounded-2xl border border-white/8 bg-black/15 p-4"><p class="text-sm font-bold">Endereço</p><p class="mt-1 text-xs text-white/35">A cidade informada aqui será usada também nos filtros de região.</p></div>' +
     input('CEP', 'reg-zip', '', 'text', true) +
     input('Cidade', 'reg-city', '', 'text', true) +
@@ -646,11 +709,7 @@ function getPlayerReviewCount() {
 
 function averagePlayerRating() {
   const athlete = getCurrentAthlete()
-  if (!athlete) return '—'
-  const reviews = state.reviews[athlete.id] || []
-  if (!reviews.length) return formatRating(athlete.rating).replace('.', ',')
-  const average = reviews.reduce((sum, review) => sum + Number(review.rating), 0) / reviews.length
-  return average.toFixed(1).replace('.', ',')
+  return athlete ? formatRating(ratingOf(athlete)).replace('.', ',') : '—'
 }
 
 function formatDate(date) {
@@ -685,12 +744,12 @@ function openAthleteModal(athleteId) {
   wrapper.innerHTML =
     '<div class="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[28px] border border-white/10 bg-[#111] p-6 shadow-2xl sm:p-8" role="dialog" aria-modal="true" aria-labelledby="athlete-modal-title">' +
     '<div class="flex items-start justify-between gap-4"><div class="flex items-center gap-4"><div class="avatar-xl bg-gradient-to-br ' + athlete.color + '">' + avatar(athlete.name) + '</div><div><span class="eyebrow">Perfil do atleta</span><h2 id="athlete-modal-title" class="mt-1 text-2xl font-black">' + escapeHtml(athlete.name) + '</h2><p class="text-sm text-white/45">' + athlete.age + ' anos • ' + escapeHtml(athlete.city) + '/' + escapeHtml(athlete.state) + '</p></div></div><button type="button" class="icon-button" data-close-modal aria-label="Fechar">' + icon('close') + '</button></div>' +
-    '<div class="mt-6 flex flex-wrap gap-2">' + tag(athlete.pos) + tag(athlete.secondary, true) + tag(getCategoryFromAge(athlete.age)) + tag(athlete.gender || 'Não informado', true) + '</div>' +
-    '<div class="mt-6 grid gap-4 md:grid-cols-3"><div class="panel"><p class="text-xs text-white/35">Avaliação média</p><p class="mt-2 text-3xl font-black text-[#e6bd62]">' + formatRating(athlete.rating) + '</p></div><div class="panel"><p class="text-xs text-white/35">Votos</p><p id="modal-votes" class="mt-2 text-3xl font-black">' + (athlete.votes + (state.votes[athlete.id] || 0)) + '</p></div><div class="panel"><p class="text-xs text-white/35">Status</p><p class="mt-2 text-lg font-black">' + escapeHtml(athlete.status) + '</p></div></div>' +
+    '<div class="mt-6 flex flex-wrap gap-2">' + tag(athlete.pos) + tag(athlete.secondary, true) + footTag(athlete.foot) + tag(getCategoryFromAge(athlete.age)) + tag(athlete.gender || 'Não informado', true) + '</div>' +
+    '<div class="mt-6 grid gap-4 md:grid-cols-3"><div class="panel"><p class="text-xs text-white/35">Avaliação média</p><p class="mt-2 text-3xl font-black text-[#e6bd62]">' + formatRating(ratingOf(athlete)) + '</p></div><div class="panel"><p class="text-xs text-white/35">Votos</p><p id="modal-votes" class="mt-2 text-3xl font-black">' + (athlete.votes + (state.votes[athlete.id] || 0)) + '</p></div><div class="panel"><p class="text-xs text-white/35">Status</p><p class="mt-2 text-lg font-black">' + escapeHtml(athlete.status) + '</p></div></div>' +
     '<div class="mt-6"><span class="eyebrow">Atributos</span><div class="mt-3 flex flex-wrap gap-2">' + (athlete.tags || []).map((item) => tag(item)).join('') + '</div></div>' +
-    '<div class="mt-6 flex flex-wrap gap-2"><button type="button" class="btn-primary" data-message-athlete="' + athlete.id + '">' + icon('message', 'size-4') + ' Abrir conversa</button><button type="button" class="btn-secondary" data-vote="' + athlete.id + '"' + (hasVoted(state, athlete.id, state.user?.email || 'anon') ? ' disabled' : '') + '>' + icon('star', 'size-4') + (hasVoted(state, athlete.id, state.user?.email || 'anon') ? ' Votado ✓' : ' Votar') + '</button>' +
+    '<div class="mt-6 flex flex-wrap gap-2"><button type="button" class="btn-primary" data-message-athlete="' + athlete.id + '">' + icon('message', 'size-4') + ' Abrir conversa</button><button type="button" class="btn-secondary" data-vote="' + athlete.id + '">' + icon('star', 'size-4') + '<span>' + (hasVoted(state, athlete.id, state.user?.email || 'anon') ? 'Retirar voto' : 'Votar') + '</span></button>' +
     (state.user?.role === 'staff' ? '<button type="button" class="btn-secondary" data-review-athlete="' + athlete.id + '">' + icon('edit', 'size-4') + ' Registrar avaliação</button>' : '') + '</div>' +
-    '<section class="mt-8"><div class="flex items-center justify-between gap-3"><div><span class="eyebrow">Avaliações</span><h3 class="section-title">' + reviews.length + ' registro(s)</h3></div></div><div class="mt-4 grid gap-4 md:grid-cols-2">' + (reviews.length ? reviews.map(reviewCard).join('') : '<div class="md:col-span-2 rounded-2xl border border-dashed border-white/10 p-8 text-center text-white/40">Nenhuma avaliação registrada ainda.</div>') + '</div></section>' +
+    '<section class="mt-8"><div class="flex items-center justify-between gap-3"><div><span class="eyebrow">Avaliações</span><h3 class="section-title">' + reviews.length + ' registro(s)</h3></div></div><div class="mt-4 grid gap-4 md:grid-cols-2">' + (reviews.length ? reviews.map((review) => reviewCard(review, athlete.id)).join('') : '<div class="md:col-span-2 rounded-2xl border border-dashed border-white/10 p-8 text-center text-white/40">Nenhuma avaliação registrada ainda.</div>') + '</div></section>' +
     '</div>'
 
   document.body.appendChild(wrapper)
@@ -702,11 +761,26 @@ function openAthleteModal(athleteId) {
     startConversationForAthlete(id)
   }))
   wrapper.querySelectorAll('[data-vote]').forEach((button) => button.addEventListener('click', () => {
-    if (!castVote(Number(button.dataset.vote))) return
-    button.innerHTML = icon('star', 'size-4') + ' Votado ✓'
-    button.disabled = true
+    const voted = castVote(Number(button.dataset.vote))
+    button.querySelector('span').textContent = voted ? 'Retirar voto' : 'Votar'
     const counter = wrapper.querySelector('#modal-votes')
     if (counter) counter.textContent = athlete.votes + (state.votes[athlete.id] || 0)
+  }))
+  wrapper.querySelectorAll('[data-delete-review]').forEach((button) => button.addEventListener('click', () => {
+    confirmDialog({
+      eyebrow: 'Avaliação',
+      title: 'Excluir sua avaliação?',
+      message: 'A avaliação será removida do perfil de ' + athlete.name + ' e a nota média será recalculada.',
+      confirmLabel: 'Excluir avaliação',
+      onConfirm: () => {
+        state.reviews[athlete.id] = (state.reviews[athlete.id] || []).filter((review) => review.id !== Number(button.dataset.deleteReview))
+        persist()
+        wrapper.remove()
+        refreshAthleteViews()
+        openAthleteModal(athlete.id)
+        toast('Avaliação excluída.')
+      },
+    })
   }))
   wrapper.querySelectorAll('[data-review-athlete]').forEach((button) => button.addEventListener('click', () => {
     wrapper.remove()
@@ -719,43 +793,129 @@ function startConversationForAthlete(id) {
   go('messages')
 }
 
+function confirmDialog({ eyebrow = 'Confirmação', title, message, confirmLabel = 'Confirmar', onConfirm }) {
+  const wrapper = document.createElement('div')
+  wrapper.className = 'fixed inset-0 z-[110] grid place-items-center bg-black/75 p-4'
+  wrapper.innerHTML =
+    '<div class="w-full max-w-md rounded-[28px] border border-white/10 bg-[#111] p-6" role="dialog" aria-modal="true"><span class="eyebrow">' + escapeHtml(eyebrow) + '</span><h2 class="mt-2 text-2xl font-black">' + escapeHtml(title) + '</h2><p class="mt-3 text-sm leading-6 text-white/55">' + escapeHtml(message) + '</p>' +
+    '<div class="mt-6 flex justify-end gap-2"><button type="button" class="btn-secondary" data-close>Voltar</button><button type="button" class="btn-danger" data-confirm>' + escapeHtml(confirmLabel) + '</button></div></div>'
+  document.body.appendChild(wrapper)
+  wrapper.querySelector('[data-close]').addEventListener('click', () => wrapper.remove())
+  wrapper.addEventListener('click', (event) => { if (event.target === wrapper) wrapper.remove() })
+  wrapper.querySelector('[data-confirm]').addEventListener('click', () => {
+    wrapper.remove()
+    onConfirm()
+  })
+}
+
 function openReviewModal(athleteId) {
   if (state.user?.role !== 'staff') return
   const athlete = state.athletes.find((a) => a.id === athleteId)
   if (!athlete) return
+  const positions = [athlete.pos].concat(athlete.secondary && athlete.secondary !== '—' && athlete.secondary !== athlete.pos ? [athlete.secondary] : [])
 
   const wrapper = document.createElement('div')
   wrapper.className = 'fixed inset-0 z-[95] grid place-items-center bg-black/75 p-4 backdrop-blur-md'
   wrapper.innerHTML =
-    '<div class="w-full max-w-xl rounded-[28px] border border-white/10 bg-[#111] p-6 shadow-2xl sm:p-8" role="dialog" aria-modal="true" aria-labelledby="review-modal-title">' +
-    '<div class="flex items-start justify-between gap-4"><div><span class="eyebrow">Avaliação</span><h2 id="review-modal-title" class="mt-2 text-2xl font-black">Avaliar ' + escapeHtml(athlete.name) + '</h2></div><button type="button" class="icon-button" data-close>' + icon('close') + '</button></div>' +
-    '<form id="review-form" class="mt-6 space-y-4"><label class="field-label">Nota (0 a 10)<input id="review-rating" class="field" type="number" min="0" max="10" step="0.1" value="8.0" required/></label><label class="field-label">Comentário<textarea id="review-comment" class="field min-h-32 resize-y" required placeholder="Descreva pontos fortes e aspectos observados..."></textarea></label><p id="review-error" class="hidden text-xs text-rose-300"></p><div class="flex justify-end gap-2"><button type="button" class="btn-secondary" data-close>Cancelar</button><button type="submit" class="btn-primary">Salvar avaliação ' + icon('check', 'size-4') + '</button></div></form></div>'
-
+    '<div class="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[28px] border border-white/10 bg-[#111] p-6 shadow-2xl sm:p-8" role="dialog" aria-modal="true" aria-labelledby="review-modal-title">' +
+    '<div class="flex items-start justify-between gap-4"><div><span class="eyebrow">Avaliação</span><h2 id="review-modal-title" class="mt-2 text-2xl font-black">Avaliar ' + escapeHtml(athlete.name) + '</h2><p class="mt-1 text-sm text-white/45">Dê uma nota de 0 a 10 para cada característica. A nota final é uma média ponderada pela posição avaliada.</p></div><button type="button" class="icon-button" data-close aria-label="Fechar">' + icon('close') + '</button></div>' +
+    '<form id="review-form" class="mt-6 space-y-6">' +
+    '<label class="field-label">Posição avaliada<select id="review-position" class="field">' + positions.map((p, i) => '<option value="' + escapeHtml(p) + '">' + escapeHtml(p) + (i === 0 ? ' (principal)' : ' (secundária)') + '</option>').join('') + '</select></label>' +
+    '<section><div class="flex items-center justify-between gap-3"><h3 class="font-bold">Características <span class="text-xs font-normal text-white/35">(0 a 10)</span></h3><span class="text-[11px] text-white/35">O “peso” mostra a importância na posição</span></div><div id="review-criteria" class="mt-3 grid gap-3 sm:grid-cols-2"></div>' +
+    '<div class="mt-4 flex items-center justify-between gap-4 rounded-2xl border border-[#d4ad59]/20 bg-[#d4ad59]/7 p-4"><div><p class="text-sm font-bold text-[#e2bb62]">Nota final ponderada</p><p id="review-score-hint" class="mt-1 text-xs text-white/45"></p></div><p id="review-score" class="text-4xl font-black text-[#e6bd62]">—</p></div></section>' +
+    '<section><h3 class="font-bold">Estatísticas da partida <span class="text-xs font-normal text-white/35">(opcional)</span></h3><div id="review-stats" class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"></div></section>' +
+    '<section><h3 class="font-bold">Pontos fortes <span class="text-xs font-normal text-white/35">(opcional)</span></h3><div class="mt-3 flex flex-wrap gap-2">' + STRENGTHS.map((item) => '<label class="check-pill"><input type="checkbox" name="strength" value="' + escapeHtml(item) + '"/><span>' + escapeHtml(item) + '</span></label>').join('') + '</div></section>' +
+    '<label class="field-label">Comentário<textarea id="review-comment" class="field min-h-28 resize-y" required placeholder="Descreva o que observou no jogo, atitude, evolução..."></textarea></label>' +
+    '<p id="review-error" class="hidden rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200" role="alert"></p>' +
+    '<div class="flex justify-end gap-2"><button type="button" class="btn-secondary" data-close>Cancelar</button><button type="submit" class="btn-primary">Salvar avaliação ' + icon('check', 'size-4') + '</button></div></form></div>'
   document.body.appendChild(wrapper)
+
+  const form = wrapper.querySelector('#review-form')
+  const criteriaBox = wrapper.querySelector('#review-criteria')
+  const statsBox = wrapper.querySelector('#review-stats')
+  const positionSelect = wrapper.querySelector('#review-position')
+  const readValues = (attr) => Object.fromEntries([...wrapper.querySelectorAll('[' + attr + ']')].map((field) => [field.getAttribute(attr), field.value]))
+
+  const updateScore = () => {
+    const pos = positionSelect.value
+    const criteria = criteriaForPosition(pos)
+    const ratings = readValues('data-criterion')
+    const filled = criteria.filter((c) => ratings[c.key] !== '').length
+    const score = filled === criteria.length ? computeScore(pos, ratings) : null
+    wrapper.querySelector('#review-score').textContent = score === null ? '—' : score.toFixed(1).replace('.', ',')
+    wrapper.querySelector('#review-score-hint').textContent = score === null
+      ? 'Avalie as ' + criteria.length + ' características para calcular (' + filled + '/' + criteria.length + ').'
+      : 'Calculada com os pesos da posição ' + pos + '.'
+  }
+
+  const paint = () => {
+    const pos = positionSelect.value
+    const keepCriteria = readValues('data-criterion')
+    const keepStats = readValues('data-stat')
+    criteriaBox.innerHTML = criteriaForPosition(pos).map((c) => {
+      const level = weightLevel(pos, c.key)
+      const tone = level === 'alto' ? 'text-[#e2bb62]' : level === 'médio' ? 'text-white/60' : 'text-white/30'
+      return '<label class="field-label"><span class="flex items-center justify-between gap-2"><span>' + escapeHtml(c.label) + '</span><span class="text-[10px] font-bold uppercase tracking-wider ' + tone + '">peso ' + level + '</span></span><input class="field" type="number" inputmode="decimal" min="0" max="10" step="0.5" required placeholder="0 a 10" data-criterion="' + c.key + '" value="' + escapeHtml(keepCriteria[c.key] ?? '') + '"/></label>'
+    }).join('')
+    statsBox.innerHTML = statsForPosition(pos).map((c) =>
+      '<label class="field-label">' + escapeHtml(c.label) + '<input class="field" type="number" inputmode="numeric" min="0" step="1" placeholder="—" data-stat="' + c.key + '" value="' + escapeHtml(keepStats[c.key] ?? '') + '"/></label>').join('')
+    updateScore()
+  }
+
+  paint()
+  positionSelect.addEventListener('change', paint)
+  form.addEventListener('input', updateScore)
   wrapper.querySelectorAll('[data-close]').forEach((button) => button.addEventListener('click', () => wrapper.remove()))
-  wrapper.querySelector('#review-form').addEventListener('submit', (event) => {
+
+  form.addEventListener('submit', (event) => {
     event.preventDefault()
-    const rating = Number(wrapper.querySelector('#review-rating').value)
+    const error = wrapper.querySelector('#review-error')
+    const fail = (message) => {
+      error.textContent = message
+      error.classList.remove('hidden')
+      error.scrollIntoView({ block: 'nearest' })
+    }
+    const pos = positionSelect.value
+    const ratings = {}
+    for (const c of criteriaForPosition(pos)) {
+      const value = Number(wrapper.querySelector('[data-criterion="' + c.key + '"]').value)
+      if (!Number.isFinite(value) || value < 0 || value > 10) return fail('A nota de "' + c.label + '" deve estar entre 0 e 10.')
+      ratings[c.key] = value
+    }
+    const stats = {}
+    for (const c of statsForPosition(pos)) {
+      const raw = wrapper.querySelector('[data-stat="' + c.key + '"]').value
+      if (raw === '') continue
+      const value = Number(raw)
+      if (!Number.isInteger(value) || value < 0) return fail('"' + c.label + '" deve ser um número inteiro, 0 ou maior.')
+      stats[c.key] = value
+    }
+    const statsError = validateStats(stats)
+    if (statsError) return fail(statsError)
     const comment = wrapper.querySelector('#review-comment').value.trim()
-    if (!Number.isFinite(rating) || rating < 0 || rating > 10) {
-      const error = wrapper.querySelector('#review-error')
-      error.textContent = 'Informe uma nota entre 0 e 10.'
-      error.classList.remove('hidden')
-      return
-    }
-    if (comment.length < 10) {
-      const error = wrapper.querySelector('#review-error')
-      error.textContent = 'Escreva um comentário com pelo menos 10 caracteres.'
-      error.classList.remove('hidden')
-      return
-    }
+    if (comment.length < 10) return fail('Escreva um comentário com pelo menos 10 caracteres.')
+
+    const score = computeScore(pos, ratings)
+    const strengths = [...wrapper.querySelectorAll('input[name="strength"]:checked')].map((box) => box.value)
     const list = state.reviews[athleteId] || []
-    list.unshift({ id: Date.now(), author: state.user?.name || 'Olheiro', rating: rating.toFixed(1), comment, date: 'Agora' })
+    list.unshift({
+      id: Date.now(),
+      author: state.user?.name || 'Olheiro',
+      authorEmail: state.user?.email,
+      position: pos,
+      ratings,
+      rating: score.toFixed(1),
+      stats,
+      strengths,
+      comment,
+      date: new Date().toLocaleDateString('pt-BR'),
+    })
     state.reviews[athleteId] = list
-    if (athlete.email) notify(athlete.email, 'Nova avaliação', 'Um olheiro registrou uma avaliação no seu perfil.')
+    if (athlete.email) notify(athlete.email, 'Nova avaliação', 'Um olheiro avaliou seu desempenho como ' + pos + ' (nota ' + score.toFixed(1).replace('.', ',') + ').')
     persist()
     wrapper.remove()
-    toast('Avaliação salva.')
+    toast('Avaliação salva. Nota final: ' + score.toFixed(1).replace('.', ',') + '.')
+    refreshAthleteViews()
     openAthleteModal(athleteId)
   })
 }
@@ -917,11 +1077,18 @@ function openEnrolledModal(tryoutId) {
   wrapper.className = 'fixed inset-0 z-[92] grid place-items-center bg-black/75 p-4'
   wrapper.innerHTML =
     '<div class="max-h-[86vh] w-full max-w-xl overflow-y-auto rounded-[28px] border border-white/10 bg-[#111] p-6" role="dialog" aria-modal="true"><div class="flex items-start justify-between gap-3"><div><span class="eyebrow">Inscritos • ' + emails.length + '/' + escapeHtml(tryout.seats) + '</span><h2 class="mt-2 text-2xl font-black">' + escapeHtml(tryout.title) + '</h2></div><button type="button" class="icon-button" data-close>' + icon('close') + '</button></div><div class="mt-5 space-y-2">' +
-    (profiles.length ? profiles.map((profile) => '<div class="flex items-center justify-between gap-3 rounded-2xl border border-white/8 bg-white/[.03] p-4"><div class="flex items-center gap-3"><span class="avatar">' + avatar(profile.name) + '</span><div><p class="font-semibold">' + escapeHtml(profile.name) + '</p><p class="text-xs text-white/35">' + escapeHtml(profile.pos) + ' • ' + escapeHtml(getCategoryFromAge(getAgeFromProfile(profile.birth))) + ' • ' + escapeHtml(profile.city) + '</p></div></div><button type="button" class="btn-ghost" data-message-email="' + escapeHtml(profile.email) + '">Mensagem</button></div>').join('') : '<div class="rounded-2xl border border-dashed border-white/10 p-8 text-center text-white/40">Ainda não há inscritos nesta peneira.</div>') +
+    (profiles.length ? profiles.map((profile) => '<div class="flex items-center justify-between gap-3 rounded-2xl border border-white/8 bg-white/[.03] p-4"><div class="flex items-center gap-3"><span class="avatar">' + avatar(profile.name) + '</span><div><p class="font-semibold">' + escapeHtml(profile.name) + '</p><p class="text-xs text-white/45"><span class="text-[#e2bb62]">Principal:</span> ' + escapeHtml(profile.pos) + ' • <span class="text-[#e2bb62]">Secundária:</span> ' + escapeHtml(profile.secondary && profile.secondary !== '—' ? profile.secondary : 'nenhuma') + '</p><p class="text-xs text-white/30">' + escapeHtml(getCategoryFromAge(getAgeFromProfile(profile.birth))) + ' • ' + escapeHtml(profile.city) + (profile.foot ? ' • ' + escapeHtml(profile.foot) : '') + '</p></div></div><div class="flex shrink-0 flex-col gap-1"><button type="button" class="btn-ghost" data-view-email="' + escapeHtml(profile.email) + '">Ver perfil</button><button type="button" class="btn-ghost" data-message-email="' + escapeHtml(profile.email) + '">Mensagem</button></div></div>').join('') : '<div class="rounded-2xl border border-dashed border-white/10 p-8 text-center text-white/40">Ainda não há inscritos nesta peneira.</div>') +
     '</div></div>'
 
   document.body.appendChild(wrapper)
   wrapper.querySelector('[data-close]').addEventListener('click', () => wrapper.remove())
+  wrapper.querySelectorAll('[data-view-email]').forEach((button) => button.addEventListener('click', () => {
+    const account = state.accounts.find((entry) => entry.email === button.dataset.viewEmail)
+    const athlete = state.athletes.find((a) => a.id === account?.athleteId)
+    if (!athlete) return
+    wrapper.remove()
+    openAthleteModal(athlete.id)
+  }))
   wrapper.querySelectorAll('[data-message-email]').forEach((button) => button.addEventListener('click', () => {
     const profile = state.accounts.find((account) => account.email === button.dataset.messageEmail)?.profile
     if (!profile) return
@@ -970,10 +1137,31 @@ function openMobileMenu() {
 }
 
 function exportSelection() {
-  const rows = [['Nome', 'Idade', 'Categoria', 'Gênero', 'Posição principal', 'Posição secundária', 'Cidade', 'Estado', 'Nota']]
-  ;(state.filteredAthletes || state.athletes).forEach((a) => rows.push([a.name, a.age, getCategoryFromAge(a.age), a.gender || '', a.pos, a.secondary, a.city, a.state, a.rating || '']))
-  const csv = rows.map((row) => row.map((cell) => '"' + String(cell).replaceAll('"', '""') + '"').join(';')).join('\n')
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const athletes = state.filteredAthletes || state.athletes
+  const header = ['Nome', 'Idade', 'Categoria', 'Gênero', 'Perna dominante', 'Posição principal', 'Posição secundária', 'Cidade', 'Estado', 'Nota média', 'Avaliações', 'Votos']
+  const rows = athletes.map((a) => [
+    a.name,
+    a.age,
+    getCategoryFromAge(a.age),
+    a.gender || 'Não informado',
+    a.foot || 'Não informada',
+    a.pos || 'Não informada',
+    a.secondary && a.secondary !== '—' ? a.secondary : 'Nenhuma',
+    a.city,
+    a.state,
+    ratingOf(a) ? ratingOf(a).toFixed(1).replace('.', ',') : 'Sem nota',
+    (state.reviews[a.id] || []).length,
+    a.votes + (state.votes[a.id] || 0),
+  ])
+  // Aspas em todas as células; texto que começaria com = + - @ vira texto (evita fórmulas no Excel)
+  const cell = (value) => {
+    let text = String(value ?? '')
+    if (/^[=+\-@]/.test(text) && !/^-?\d+([.,]\d+)?$/.test(text)) text = "'" + text
+    return '"' + text.replaceAll('"', '""') + '"'
+  }
+  const csv = [header].concat(rows).map((row) => row.map(cell).join(';')).join('\r\n')
+  // BOM UTF-8: faz o Excel exibir acentos corretamente (São Paulo, Posição, "—" etc.)
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const anchor = document.createElement('a')
   anchor.href = url
@@ -982,7 +1170,7 @@ function exportSelection() {
   anchor.click()
   anchor.remove()
   URL.revokeObjectURL(url)
-  toast('CSV exportado.')
+  toast('CSV exportado com ' + rows.length + ' atleta(s).')
 }
 
 function applyFilters() {
@@ -991,7 +1179,8 @@ function applyFilters() {
   const city = document.querySelector('#filter-city')?.value || ''
   const age = document.querySelector('#filter-age')?.value || ''
   const category = document.querySelector('#filter-category')?.value || ''
-  const filtered = filterAthletes(state.athletes, { name, pos, city, age, category })
+  const foot = document.querySelector('#filter-foot')?.value || ''
+  const filtered = filterAthletes(state.athletes, { name, pos, city, age, category, foot })
   state.filteredAthletes = filtered
   const grid = document.querySelector('#athlete-grid')
   if (grid) grid.innerHTML = filtered.map((a) => athleteCard(a, true)).join('') || '<div class="md:col-span-2 xl:col-span-3 rounded-2xl border border-dashed border-white/10 p-10 text-center text-white/40">Nenhum atleta encontrado com esses filtros.</div>'
@@ -1020,6 +1209,8 @@ function saveProfile() {
   const age = getAgeFromBirth(birth)
   const pos = document.querySelector('#profile-pos').value
   const secondary = document.querySelector('#profile-secondary').value
+  const foot = document.querySelector('#profile-foot').value
+  if (!foot) return showFeedback('profile-feedback', 'Selecione a perna dominante.', true)
   if (!validBirthDate(birth) || age < 7 || age > 20) return showFeedback('profile-feedback', 'Informe uma data de nascimento válida para uma categoria até Sub-20.', true)
   if (pos === secondary && secondary !== '—') return showFeedback('profile-feedback', 'A posição secundária deve ser diferente da principal.', true)
   const newEmail = normalizeEmail(document.querySelector('#profile-email').value)
@@ -1034,6 +1225,7 @@ function saveProfile() {
     phone: document.querySelector('#profile-phone').value.trim(),
     pos,
     secondary,
+    foot,
     zip: document.querySelector('#profile-zip').value.trim(),
     city: document.querySelector('#profile-city').value.trim(),
     state: document.querySelector('#profile-state').value.trim().toUpperCase(),
@@ -1070,6 +1262,7 @@ function registerAccount() {
   const phone = document.querySelector('#reg-phone').value.trim()
   const pos = document.querySelector('#reg-pos').value
   const secondary = document.querySelector('#reg-secondary').value
+  const foot = document.querySelector('#reg-foot').value
   const password = document.querySelector('#reg-password').value
   const confirm = document.querySelector('#reg-confirm').value
   const zip = document.querySelector('#reg-zip').value.trim()
@@ -1090,6 +1283,7 @@ function registerAccount() {
   if (!pos) return showFeedback('reg-feedback', 'Selecione a posição principal.', true)
   if (!secondary) return showFeedback('reg-feedback', 'Selecione a posição secundária ou "—".', true)
   if (secondary === pos && secondary !== '—') return showFeedback('reg-feedback', 'A posição secundária deve ser diferente da principal.', true)
+  if (!foot) return showFeedback('reg-feedback', 'Selecione a perna dominante.', true)
   if (!zip || !city || !region || !district || !address || !number) return showFeedback('reg-feedback', 'Preencha todo o endereço, incluindo cidade e estado.', true)
   if (password.length < 6) return showFeedback('reg-feedback', 'A senha precisa ter pelo menos 6 caracteres.', true)
   if (password !== confirm) return showFeedback('reg-feedback', 'As senhas não coincidem.', true)
@@ -1105,6 +1299,7 @@ function registerAccount() {
     phone,
     pos,
     secondary,
+    foot,
     city,
     state: region,
     address,
@@ -1174,16 +1369,22 @@ function refreshAthleteViews() {
   else render()
 }
 
+// Vota ou retira o voto (alterna). Retorna true se o usuário ficou com o voto ativo.
 function castVote(athleteId) {
   const voter = state.user?.email || 'anon'
-  if (!registerVote(state, athleteId, voter)) {
-    toast('Você já votou neste atleta.', 'error')
-    return false
+  let voted
+  if (hasVoted(state, athleteId, voter)) {
+    removeVote(state, athleteId, voter)
+    voted = false
+    toast('Voto retirado.')
+  } else {
+    registerVote(state, athleteId, voter)
+    voted = true
+    toast('Voto registrado com sucesso.')
   }
   persist()
-  toast('Voto registrado com sucesso.')
   refreshAthleteViews()
-  return true
+  return voted
 }
 
 function bindDynamicCards() {
@@ -1208,11 +1409,16 @@ function bind() {
   initLoginRoleButtons()
   bindDynamicCards()
 
+  document.querySelectorAll('[data-action="home"]').forEach((button) => button.addEventListener('click', () => {
+    document.querySelectorAll('body > div.fixed.inset-0').forEach((modal) => modal.remove())
+    if (currentRoute() === 'dashboard') window.scrollTo({ top: 0, behavior: 'smooth' })
+    else go('dashboard')
+  }))
   document.querySelectorAll('[data-action="notifications"]').forEach((button) => button.addEventListener('click', openNotifications))
   document.querySelectorAll('[data-action="menu"]').forEach((button) => button.addEventListener('click', openMobileMenu))
 
   document.querySelectorAll('[data-action="clearFilters"]').forEach((button) => button.addEventListener('click', () => {
-    ;['filter-name', 'filter-pos', 'filter-city', 'filter-age', 'filter-category'].forEach((id) => {
+    ;['filter-name', 'filter-pos', 'filter-foot', 'filter-city', 'filter-age', 'filter-category'].forEach((id) => {
       const field = document.querySelector('#' + id)
       if (field) field.value = ''
     })
@@ -1252,7 +1458,7 @@ function bind() {
     toast('Inscrição confirmada.')
   }))
 
-  const filterIds = ['filter-name', 'filter-pos', 'filter-city', 'filter-age', 'filter-category']
+  const filterIds = ['filter-name', 'filter-pos', 'filter-foot', 'filter-city', 'filter-age', 'filter-category']
   filterIds.forEach((id) => {
     const field = document.querySelector('#' + id)
     if (field) field.addEventListener(field.tagName === 'INPUT' ? 'input' : 'change', applyFilters)
@@ -1340,6 +1546,8 @@ function render() {
 
   app.innerHTML = view
   bind()
+  if (route !== lastRoute) window.scrollTo(0, 0)
+  lastRoute = route
 }
 
 // Atualização automática: quando outra aba/janela altera os dados (inscrição, cancelamento,

@@ -36,3 +36,24 @@ Além disso, os scripts eram carregados como scripts comuns (sem `type="module"`
 - **Atualização automática**: quando outra aba/janela do navegador altera peneiras, avisos ou mensagens, a tela é atualizada sozinha (evento `storage`). Como o projeto ainda não tem back-end, isso funciona entre abas do mesmo navegador; entre aparelhos diferentes depende de API/banco.
 - **Funcionário pode cancelar peneira**: botão "Cancelar peneira" com motivo opcional; todos os inscritos recebem um aviso automático e a peneira sai da lista.
 - **Notificações por usuário** (antes eram globais): sino com contador, aviso ao jogador (cancelamento, inscrição, avaliação) e ao funcionário (nova inscrição, vaga liberada).
+
+## Atualização 4
+- **Perna dominante** (Destro / Canhoto / Ambidestro): campo obrigatório no cadastro e no perfil, tag nos cards/perfil do atleta, filtro "Perna dominante" na busca do funcionário e coluna no CSV.
+- **Logo → Início**: o logo do cabeçalho leva ao Início (jogador e funcionário), fecha janelas abertas e, se já estiver no Início, rola para o topo. Toda troca de tela agora começa no topo.
+- **Exportar seleção**: o CSV agora tem BOM UTF-8 (acentos e o "—" da posição secundária apareciam quebrados no Excel), posição secundária vazia vira "Nenhuma", e inclui Perna dominante, Nota média, nº de avaliações e Votos.
+- **Voto**: o funcionário pode **retirar o voto** (o botão vira "Retirar voto").
+- **Avaliação completa** (`evaluation.js`): notas 0–10 por característica, estatísticas da partida (gols, assistências, finalizações e no alvo, passes certos/tentados com %, desarmes, minutos; goleiro: defesas e gols sofridos), pontos fortes, comentário, escolha da posição avaliada (principal ou secundária) e **nota final ponderada pela posição**. O autor pode excluir a própria avaliação. A nota do atleta passa a ser a média das avaliações.
+- **Inscritos na peneira**: mostram posição principal e secundária, perna dominante e botão "Ver perfil".
+
+### Pesos da nota por posição
+| Posição | Pesa muito | Pesa pouco |
+|---|---|---|
+| Atacante | Finalização, posicionamento, técnica | Marcação |
+| Ponta | Técnica, físico/velocidade, finalização | Marcação, posicionamento |
+| Meia | Passe, visão, técnica (ataque e defesa equilibrados) | Físico, posicionamento |
+| Volante | Marcação, passe (ataque e defesa equilibrados) | Finalização |
+| Lateral | Marcação, físico, passe | Finalização |
+| Zagueiro | Marcação, posicionamento, físico | Finalização, técnica |
+| Goleiro | Defesas/reflexos, jogo aéreo, posicionamento | Físico |
+
+Os pesos ficam na constante `WEIGHTS` em `assets/js/evaluation.js` e podem ser ajustados.
