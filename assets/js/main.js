@@ -68,13 +68,11 @@ const state = {
   profile: readStorage('ap_profile', null),
   tryouts: readStorage('ap_tryouts', defaultTryouts),
   reviews: readStorage('ap_reviews', {}),
-  notifications: readStorage('ap_notifications', [
-    { id: 1, title: 'Perfil visualizado', text: 'Um profissional visualizou seu perfil.', time: 'Hoje' },
-    { id: 2, title: 'Nova oportunidade', text: 'Há uma peneira compatível com sua posição.', time: 'Ontem' },
-  ]),
+  notifications: readStorage('ap_notifications', []),
 }
 
 let activeThread = null
+let notificationSeq = 0
 let activeThreadKey = null
 
 migrateLegacyStorage()
@@ -107,6 +105,8 @@ function migrateLegacyStorage(){
       account.athleteId = account.email === 'gabriel@academiapele.com' ? 1 : ++seq
     }
   })
+  // notificações antigas eram globais (sem destinatário); agora cada aviso pertence a um usuário
+  state.notifications = (Array.isArray(state.notifications) ? state.notifications : []).filter((n) => n.to).map((n) => ({ ...n, to: fixEmail(n.to) }))
   // mensagens antigas não tinham remetente definido por papel
   state.messages = (Array.isArray(state.messages) ? state.messages : []).filter((m) => m.senderRole)
 
@@ -137,6 +137,32 @@ function persist() {
   localStorage.setItem('ap_notifications', JSON.stringify(state.notifications))
 }
 
+// Cria um aviso para um usuário específico (identificado pelo e-mail).
+function notify(to, title, text) {
+  if (!to) return
+  state.notifications.unshift({ id: Date.now() * 1000 + (notificationSeq++ % 1000), to, title, text, time: 'Agora' })
+}
+
+function myNotifications() {
+  return state.notifications.filter((n) => n.to === state.user?.email)
+}
+
+// Quem deve saber de mudanças numa peneira: quem a criou (ou todos os funcionários, nas peneiras de exemplo).
+function notifyTryoutStaff(tryout, title, text) {
+  const recipients = tryout.createdBy
+    ? [tryout.createdBy]
+    : state.accounts.filter((account) => account.role === 'staff').map((account) => account.email)
+  recipients.forEach((email) => notify(email, title, text))
+}
+
+function updateNotificationBadge() {
+  const badge = document.querySelector('#notif-badge')
+  if (!badge) return
+  const count = myNotifications().length
+  badge.textContent = count > 9 ? '9+' : String(count)
+  badge.style.display = count ? 'grid' : 'none'
+}
+
 function seedDemoAccounts() {
   DEMO_STAFF.forEach((demo) => {
     if (!state.accounts.some((account) => account.email === demo.email)) {
@@ -151,6 +177,8 @@ function seedDemoAccounts() {
   if (!state.accounts.some((account) => account.email === 'gabriel@academiapele.com')) {
     const profile = { ...defaultProfile, email: 'gabriel@academiapele.com', cpf: '11144477735' }
     state.accounts.push({ email: profile.email, password: 'Demo123!', role: 'player', cpf: profile.cpf, athleteId: 1, profile })
+    notify(profile.email, 'Perfil visualizado', 'Um profissional visualizou seu perfil.')
+    notify(profile.email, 'Nova oportunidade', 'Há uma peneira compatível com sua posição.')
   }
   persist()
 }
@@ -281,7 +309,7 @@ function shell(content, options = {}) {
     '</nav>' +
     '<div class="flex items-center gap-2">' +
     '<button type="button" class="icon-button" data-route="messages" aria-label="Conversas">' + icon('message') + '</button>' +
-    '<button type="button" class="icon-button" data-action="notifications" aria-label="Abrir notificações">' + icon('bell') + '</button>' +
+    '<button type="button" class="icon-button relative" data-action="notifications" aria-label="Abrir notificações">' + icon('bell') + '<span id="notif-badge" class="absolute -right-1 -top-1 min-w-[1.1rem] place-items-center rounded-full bg-rose-500 px-1 text-[10px] font-black leading-[1.1rem] text-white" style="display:' + (myNotifications().length ? 'grid' : 'none') + '">' + (myNotifications().length > 9 ? '9+' : myNotifications().length) + '</span></button>' +
     '<button type="button" class="profile-chip" data-route="profile"><span class="avatar">' + avatar(state.user?.name || 'Atleta') + '</span><span class="hidden lg:block max-w-28 truncate text-sm">' + escapeHtml(state.user?.name || 'Atleta') + '</span></button>' +
     '<button type="button" class="icon-button md:hidden" data-action="menu" aria-label="Abrir menu">' + icon('menu') + '</button>' +
     '</div></div></header>' +
@@ -318,7 +346,7 @@ function playerDashboard() {
     '<div class="mt-8 grid gap-3 sm:grid-cols-3">' +
     stat(averagePlayerRating(profile), 'Avaliação média', 'notas registradas') +
     stat(String(state.tryouts.filter((t) => Array.isArray(t.enrolled) && t.enrolled.includes(state.user?.email)).length).padStart(2, '0'), 'Peneiras inscritas', 'acompanhe suas vagas') +
-    stat(String(state.notifications.length).padStart(2, '0'), 'Notificações', 'atualizadas recentemente') +
+    stat(String(myNotifications().length).padStart(2, '0'), 'Notificações', 'atualizadas recentemente') +
     '</div></div>' +
     '<aside class="rounded-[28px] border border-white/10 bg-white/[.03] p-6"><div class="flex items-center justify-between gap-3"><div><span class="eyebrow">Próxima oportunidade</span><h2 class="mt-2 text-xl font-black">' + escapeHtml(next.title) + '</h2></div><span class="status-dot">' + escapeHtml(next.category || 'Aberta') + '</span></div>' +
     '<div class="mt-6 space-y-4"><div class="flex gap-3">' + icon('calendar', 'size-5 text-[#e1bb62]') + '<div><p class="text-sm font-semibold">' + formatDate(next.date) + ' • ' + escapeHtml(next.time) + '</p><p class="text-xs text-white/45">' + escapeHtml(next.location) + ' • ' + escapeHtml(next.city) + '/' + escapeHtml(next.state) + '</p></div></div>' +
@@ -411,7 +439,7 @@ function profilePage() {
     '<div class="flex flex-wrap items-end justify-between gap-4"><div><span class="eyebrow">Meu perfil</span><h1 class="page-title">' + escapeHtml(p.name) + '</h1><p class="page-subtitle">Mantenha seus dados pessoais, categoria, cidade e posições atualizados.</p></div><button type="button" class="btn-secondary" data-action="logout">' + icon('logout', 'size-4') + ' Sair</button></div>' +
     '<section class="mt-6 grid gap-5 xl:grid-cols-[.75fr_1.25fr]">' +
     '<aside class="panel"><div class="flex items-center gap-4"><div class="avatar-xl">' + avatar(p.name) + '</div><div><p class="text-xs uppercase tracking-[.2em] text-white/35">Atleta</p><h2 class="mt-1 text-2xl font-black">' + escapeHtml(p.pos) + '</h2><p class="text-sm text-white/45">' + age + ' anos • ' + escapeHtml(category) + '</p></div></div>' +
-    '<div class="mt-6 grid grid-cols-2 gap-3">' + stat(averagePlayerRating(p), 'Avaliação', 'média atual') + stat(String(state.tryouts.filter((t) => Array.isArray(t.enrolled) && t.enrolled.includes(state.user.email)).length).padStart(2, '0'), 'Peneiras', 'inscritas') + stat(String(getPlayerReviewCount()).padStart(2, '0'), 'Avaliações', 'recebidas') + stat(String(state.notifications.length).padStart(2, '0'), 'Notificações', 'recentes') + '</div>' +
+    '<div class="mt-6 grid grid-cols-2 gap-3">' + stat(averagePlayerRating(p), 'Avaliação', 'média atual') + stat(String(state.tryouts.filter((t) => Array.isArray(t.enrolled) && t.enrolled.includes(state.user.email)).length).padStart(2, '0'), 'Peneiras', 'inscritas') + stat(String(getPlayerReviewCount()).padStart(2, '0'), 'Avaliações', 'recebidas') + stat(String(myNotifications().length).padStart(2, '0'), 'Notificações', 'recentes') + '</div>' +
     '<div class="mt-6 flex flex-wrap gap-2">' + tag(p.pos) + tag(p.secondary, true) + tag(category) + tag(p.city) + '</div></aside>' +
     '<div class="panel"><div class="flex items-center justify-between"><div><span class="eyebrow">Dados do jogador</span><h2 class="section-title">Atualizar perfil</h2></div>' + icon('edit', 'size-5 text-[#e1bb62]') + '</div>' +
     '<form id="profile-form" class="mt-5 grid gap-4 sm:grid-cols-2">' +
@@ -456,22 +484,40 @@ function tryoutsPage() {
 }
 
 function tryoutCard(t) {
+  const staff = state.user?.role === 'staff'
   const email = state.user?.email || ''
-  const enrolled = Array.isArray(t.enrolled) && t.enrolled.includes(email)
-  const vacancies = Math.max(0, Number(t.seats) - (Array.isArray(t.enrolled) ? t.enrolled.length : 0))
+  const list = Array.isArray(t.enrolled) ? t.enrolled : []
+  const seats = Math.max(1, Number(t.seats) || 1)
+  const taken = list.length
+  const vacancies = Math.max(0, seats - taken)
+  const full = vacancies === 0
+  const enrolled = list.includes(email)
   const playerCategory = getCategoryFromAge(getAgeFromProfile(state.profile?.birth))
   const playerPos = state.profile?.pos
-  const canEnroll = state.user?.role === 'staff' || ((t.positions.includes(playerPos) || t.positions.includes(state.profile?.secondary)) && (!t.category || t.category === playerCategory))
-  const button = state.user?.role === 'staff'
-    ? '<button type="button" class="btn-secondary mt-6 w-full" data-action="view-enrolled" data-id="' + t.id + '">Ver inscritos ' + icon('arrow', 'size-4') + '</button>'
-    : '<button type="button" class="btn-' + (enrolled ? 'secondary' : 'primary') + ' mt-6 w-full" data-action="enroll" data-id="' + t.id + '" ' + (!enrolled && (!canEnroll || vacancies === 0) ? 'disabled' : '') + '>' +
-      (enrolled ? 'Inscrição confirmada' : vacancies === 0 ? 'Sem vagas' : canEnroll ? 'Inscrever-me' : 'Posição/categoria incompatível') + ' ' + icon(enrolled ? 'check' : 'arrow', 'size-4') + '</button>'
+  const canEnroll = staff || ((t.positions.includes(playerPos) || t.positions.includes(state.profile?.secondary)) && (!t.category || t.category === playerCategory))
+  const incompatible = !staff && !enrolled && !canEnroll
 
-  return '<article class="panel flex flex-col"><div class="flex items-start justify-between gap-3"><div class="flex flex-wrap gap-1.5">' + tag(t.category || 'Aberta') + tag(t.positions.join(' • '), true) + '</div><span class="text-xs text-white/35">' + vacancies + ' vaga(s)</span></div>' +
+  let actions
+  if (staff) {
+    actions = '<button type="button" class="btn-secondary w-full" data-action="view-enrolled" data-id="' + t.id + '">Ver inscritos (' + taken + '/' + seats + ') ' + icon('arrow', 'size-4') + '</button>' +
+      '<button type="button" class="btn-danger w-full" data-action="cancel-tryout" data-id="' + t.id + '">' + icon('close', 'size-4') + ' Cancelar peneira</button>'
+  } else if (enrolled) {
+    actions = '<div class="btn-secondary w-full cursor-default" role="status">Inscrição confirmada ' + icon('check', 'size-4') + '</div>' +
+      '<button type="button" class="btn-danger w-full" data-action="withdraw" data-id="' + t.id + '">Cancelar minha inscrição</button>'
+  } else {
+    actions = '<button type="button" class="btn-' + (incompatible ? 'incompatible' : 'primary') + ' w-full" data-action="enroll" data-id="' + t.id + '" ' + (!canEnroll || full ? 'disabled' : '') + '>' +
+      (full ? 'Sem vagas' : canEnroll ? 'Inscrever-me' : 'Posição/categoria incompatível') + ' ' + icon('arrow', 'size-4') + '</button>'
+  }
+
+  return '<article class="panel flex flex-col" data-tryout-card="' + t.id + '"><div class="flex flex-wrap gap-1.5">' + tag(t.category || 'Aberta') + tag(t.positions.join(' • '), true) + '</div>' +
     '<h2 class="mt-4 text-xl font-black">' + escapeHtml(t.title) + '</h2><div class="mt-5 space-y-3 text-sm text-white/55">' +
     '<p class="flex gap-2">' + icon('calendar', 'size-4 text-[#e2bb62]') + formatDate(t.date) + ' • ' + escapeHtml(t.time) + '</p>' +
     '<p class="flex gap-2">' + icon('pin', 'size-4 text-[#e2bb62]') + escapeHtml(t.location) + ' — ' + escapeHtml(t.city) + '/' + escapeHtml(t.state) + '</p></div>' +
-    '<div class="mt-6 h-2 overflow-hidden rounded-full bg-white/8"><div class="h-full rounded-full bg-[#d4ad59]" style="width:' + Math.min(100, (Array.isArray(t.enrolled) ? t.enrolled.length : 0) / Math.max(1, Number(t.seats)) * 100) + '%"></div></div>' + button + '</article>'
+    '<div class="mt-6 flex items-end justify-between gap-3"><div><p class="text-[11px] font-bold uppercase tracking-[.18em] text-white/35">Vagas preenchidas</p>' +
+    '<p class="mt-1 text-3xl font-black leading-none" aria-label="' + taken + ' de ' + seats + ' vagas preenchidas"><span class="' + (full ? 'text-rose-300' : 'text-[#e6bd62]') + '">' + taken + '</span><span class="text-white/35">/' + seats + '</span></p></div>' +
+    '<span class="tag ' + (full ? 'red' : 'green') + '">' + (full ? 'Lotada' : vacancies + (vacancies === 1 ? ' vaga livre' : ' vagas livres')) + '</span></div>' +
+    '<div class="mt-3 h-2 overflow-hidden rounded-full bg-white/8"><div class="h-full rounded-full ' + (full ? 'bg-rose-400' : 'bg-[#d4ad59]') + '" style="width:' + Math.min(100, taken / seats * 100) + '%"></div></div>' +
+    '<div class="mt-6 grid gap-2">' + actions + '</div></article>'
 }
 
 function messagesPage() {
@@ -503,7 +549,7 @@ function messagesPage() {
     '<div><span class="eyebrow">Comunicação</span><h1 class="page-title">Conversas</h1><p class="page-subtitle">' + (staff ? 'Pesquise qualquer atleta do banco, abra a conversa e envie uma mensagem.' : 'Converse com treinadores e olheiros disponíveis.') + '</p></div>' +
     '<section class="mt-6 grid min-h-[620px] overflow-hidden rounded-[28px] border border-white/10 bg-white/[.025] md:grid-cols-[300px_1fr]">' +
     '<aside class="border-b border-white/8 bg-black/20 md:border-b-0 md:border-r"><div class="p-4"><label class="field-label">Pesquisar ' + (staff ? 'atleta' : 'profissional') + '<input id="conversation-search" class="field mt-2" placeholder="Digite um nome, posição ou cidade..." /></label></div>' +
-    '<div id="conversation-list" class="max-h-[520px] space-y-1 overflow-y-auto p-2">' + conversations.map((c) => '<button type="button" class="conversation-item ' + (c.id === selected.id ? 'selected' : '') + '" data-thread="' + escapeHtml(c.id) + '" data-name="' + escapeHtml(c.name) + '" data-subtitle="' + escapeHtml(c.subtitle) + '"><span class="avatar">' + avatar(c.avatar) + '</span><span class="min-w-0 text-left"><strong class="block truncate">' + escapeHtml(c.name) + '</strong><small class="block truncate text-white/35">' + escapeHtml(c.subtitle) + '</small></span></button>').join('') + '</div></aside>' +
+    '<div id="conversation-list" class="max-h-[520px] space-y-1 overflow-y-auto p-2">' + conversations.map((c) => '<button type="button" class="conversation-item ' + (c.id === selected.id ? 'selected' : '') + '" data-thread="' + escapeHtml(c.id) + '" data-name="' + escapeHtml(c.name) + '" data-subtitle="' + escapeHtml(c.subtitle) + '"><span class="avatar">' + avatar(c.avatar) + '</span><span class="min-w-0 text-left"><strong class="block truncate">' + escapeHtml(c.name) + '</strong><small class="block truncate text-white/35">' + escapeHtml(c.subtitle) + '</small></span></button>').join('') + '<p id="conversation-empty" class="p-4 text-center text-xs text-white/35" hidden>Nenhum resultado encontrado.</p></div></aside>' +
     '<div class="flex min-w-0 flex-col"><header class="flex items-center justify-between gap-3 border-b border-white/8 px-5 py-4"><div class="flex items-center gap-3"><span class="avatar">' + avatar(selected.avatar) + '</span><div><p class="font-bold">' + escapeHtml(selected.name) + '</p><p class="text-xs text-emerald-300">Disponível para conversar</p></div></div>' + tag(staff ? selected.subtitle : 'Canal seguro') + '</header>' +
     '<div id="chat-messages" class="flex-1 space-y-3 overflow-y-auto p-5">' + renderHistory(history, myRole) + '</div>' +
     '<form id="message-form" class="border-t border-white/8 p-4"><div class="flex gap-2"><input id="message-input" class="field" placeholder="Escreva sua mensagem..." autocomplete="off" required/><button class="btn-primary shrink-0" aria-label="Enviar mensagem">' + icon('arrow', 'size-4') + '</button></div></form></div></section>',
@@ -706,7 +752,7 @@ function openReviewModal(athleteId) {
     const list = state.reviews[athleteId] || []
     list.unshift({ id: Date.now(), author: state.user?.name || 'Olheiro', rating: rating.toFixed(1), comment, date: 'Agora' })
     state.reviews[athleteId] = list
-    state.notifications.unshift({ id: Date.now(), title: 'Avaliação registrada', text: 'Uma avaliação foi adicionada ao perfil de ' + athlete.name + '.', time: 'Agora' })
+    if (athlete.email) notify(athlete.email, 'Nova avaliação', 'Um olheiro registrou uma avaliação no seu perfil.')
     persist()
     wrapper.remove()
     toast('Avaliação salva.')
@@ -795,12 +841,70 @@ function openTryoutModal() {
       positions,
       seats,
       enrolled: [],
+      createdBy: state.user.email,
     })
-    state.notifications.unshift({ id: Date.now(), title: 'Nova peneira criada', text: title + ' foi publicada.', time: 'Agora' })
+    notify(state.user.email, 'Nova peneira criada', title + ' foi publicada.')
     persist()
     wrapper.remove()
     render()
     toast('Peneira criada e publicada.')
+  })
+}
+
+function confirmWithdraw(tryoutId) {
+  const tryout = state.tryouts.find((item) => item.id === Number(tryoutId))
+  if (!tryout || state.user?.role !== 'player') return
+  const wrapper = document.createElement('div')
+  wrapper.className = 'fixed inset-0 z-[92] grid place-items-center bg-black/75 p-4'
+  wrapper.innerHTML =
+    '<div class="w-full max-w-md rounded-[28px] border border-white/10 bg-[#111] p-6" role="dialog" aria-modal="true" aria-labelledby="withdraw-title"><span class="eyebrow">Cancelar inscrição</span><h2 id="withdraw-title" class="mt-2 text-2xl font-black">Sair da peneira?</h2>' +
+    '<p class="mt-3 text-sm leading-6 text-white/55">Você será removido de <strong class="text-white">' + escapeHtml(tryout.title) + '</strong> (' + formatDate(tryout.date) + ' • ' + escapeHtml(tryout.time) + '). A vaga ficará livre para outros atletas.</p>' +
+    '<div class="mt-6 flex justify-end gap-2"><button type="button" class="btn-secondary" data-close>Manter inscrição</button><button type="button" class="btn-danger" data-confirm>Cancelar inscrição</button></div></div>'
+  document.body.appendChild(wrapper)
+  wrapper.querySelector('[data-close]').addEventListener('click', () => wrapper.remove())
+  wrapper.addEventListener('click', (event) => { if (event.target === wrapper) wrapper.remove() })
+  wrapper.querySelector('[data-confirm]').addEventListener('click', () => {
+    wrapper.remove()
+    withdrawFromTryout(tryout.id)
+  })
+}
+
+function withdrawFromTryout(tryoutId) {
+  const tryout = state.tryouts.find((item) => item.id === Number(tryoutId))
+  const email = state.user?.email
+  if (!tryout || state.user?.role !== 'player' || !Array.isArray(tryout.enrolled) || !tryout.enrolled.includes(email)) return
+  tryout.enrolled = tryout.enrolled.filter((item) => item !== email)
+  notify(email, 'Inscrição cancelada', 'Você saiu da peneira "' + tryout.title + '". A vaga foi liberada.')
+  notifyTryoutStaff(tryout, 'Vaga liberada', state.user.name + ' cancelou a inscrição em "' + tryout.title + '" (' + tryout.enrolled.length + '/' + tryout.seats + ').')
+  persist()
+  render()
+  toast('Inscrição cancelada. A vaga foi liberada.')
+}
+
+function openCancelTryoutModal(tryoutId) {
+  const tryout = state.tryouts.find((item) => item.id === Number(tryoutId))
+  if (!tryout || state.user?.role !== 'staff') return
+  const total = Array.isArray(tryout.enrolled) ? tryout.enrolled.length : 0
+  const wrapper = document.createElement('div')
+  wrapper.className = 'fixed inset-0 z-[92] grid place-items-center bg-black/75 p-4'
+  wrapper.innerHTML =
+    '<div class="w-full max-w-lg rounded-[28px] border border-white/10 bg-[#111] p-6" role="dialog" aria-modal="true" aria-labelledby="cancel-title"><span class="eyebrow">Cancelar peneira</span><h2 id="cancel-title" class="mt-2 text-2xl font-black">' + escapeHtml(tryout.title) + '</h2>' +
+    '<p class="mt-3 text-sm leading-6 text-white/55">' + (total ? '<strong class="text-white">' + total + ' inscrito(s)</strong> receberão um aviso automático com o motivo abaixo.' : 'Não há inscritos nesta peneira, então nenhum aviso será enviado.') + ' Esta ação remove a peneira da lista e não pode ser desfeita.</p>' +
+    '<form id="cancel-tryout-form" class="mt-5"><label class="field-label">Motivo do cancelamento (opcional)<textarea id="cancel-reason" class="field min-h-24 resize-y" maxlength="240" placeholder="Ex.: chuva forte, campo indisponível, nova data será divulgada."></textarea></label>' +
+    '<div class="mt-6 flex justify-end gap-2"><button type="button" class="btn-secondary" data-close>Manter peneira</button><button type="submit" class="btn-danger">Cancelar peneira e avisar inscritos</button></div></form></div>'
+  document.body.appendChild(wrapper)
+  wrapper.querySelector('[data-close]').addEventListener('click', () => wrapper.remove())
+  wrapper.addEventListener('click', (event) => { if (event.target === wrapper) wrapper.remove() })
+  wrapper.querySelector('#cancel-tryout-form').addEventListener('submit', (event) => {
+    event.preventDefault()
+    const reason = wrapper.querySelector('#cancel-reason').value.trim() || 'A peneira foi cancelada por uma eventualidade.'
+    const when = formatDate(tryout.date) + ' • ' + tryout.time
+    ;(tryout.enrolled || []).forEach((email) => notify(email, 'Peneira cancelada', '"' + tryout.title + '" (' + when + ') foi cancelada. Motivo: ' + reason))
+    state.tryouts = state.tryouts.filter((item) => item.id !== tryout.id)
+    persist()
+    wrapper.remove()
+    render()
+    toast('Peneira cancelada. ' + total + ' inscrito(s) avisado(s).')
   })
 }
 
@@ -812,7 +916,7 @@ function openEnrolledModal(tryoutId) {
   const wrapper = document.createElement('div')
   wrapper.className = 'fixed inset-0 z-[92] grid place-items-center bg-black/75 p-4'
   wrapper.innerHTML =
-    '<div class="max-h-[86vh] w-full max-w-xl overflow-y-auto rounded-[28px] border border-white/10 bg-[#111] p-6" role="dialog" aria-modal="true"><div class="flex items-start justify-between gap-3"><div><span class="eyebrow">Inscritos</span><h2 class="mt-2 text-2xl font-black">' + escapeHtml(tryout.title) + '</h2></div><button type="button" class="icon-button" data-close>' + icon('close') + '</button></div><div class="mt-5 space-y-2">' +
+    '<div class="max-h-[86vh] w-full max-w-xl overflow-y-auto rounded-[28px] border border-white/10 bg-[#111] p-6" role="dialog" aria-modal="true"><div class="flex items-start justify-between gap-3"><div><span class="eyebrow">Inscritos • ' + emails.length + '/' + escapeHtml(tryout.seats) + '</span><h2 class="mt-2 text-2xl font-black">' + escapeHtml(tryout.title) + '</h2></div><button type="button" class="icon-button" data-close>' + icon('close') + '</button></div><div class="mt-5 space-y-2">' +
     (profiles.length ? profiles.map((profile) => '<div class="flex items-center justify-between gap-3 rounded-2xl border border-white/8 bg-white/[.03] p-4"><div class="flex items-center gap-3"><span class="avatar">' + avatar(profile.name) + '</span><div><p class="font-semibold">' + escapeHtml(profile.name) + '</p><p class="text-xs text-white/35">' + escapeHtml(profile.pos) + ' • ' + escapeHtml(getCategoryFromAge(getAgeFromProfile(profile.birth))) + ' • ' + escapeHtml(profile.city) + '</p></div></div><button type="button" class="btn-ghost" data-message-email="' + escapeHtml(profile.email) + '">Mensagem</button></div>').join('') : '<div class="rounded-2xl border border-dashed border-white/10 p-8 text-center text-white/40">Ainda não há inscritos nesta peneira.</div>') +
     '</div></div>'
 
@@ -836,15 +940,17 @@ function openNotifications() {
     '<div class="w-full max-w-lg rounded-[28px] border border-white/10 bg-[#111] p-6" role="dialog" aria-modal="true" aria-labelledby="notifications-title">' +
     '<div class="flex items-center justify-between gap-3"><div><span class="eyebrow">Central</span><h2 id="notifications-title" class="mt-1 text-2xl font-black">Notificações</h2></div><button type="button" class="icon-button" data-close>' + icon('close') + '</button></div>' +
     '<div class="mt-5 space-y-2">' +
-    (state.notifications.length ? state.notifications.map((n) => '<article class="rounded-2xl border border-white/8 bg-white/[.03] p-4"><div class="flex items-start justify-between gap-3"><div><p class="font-semibold">' + escapeHtml(n.title) + '</p><p class="mt-1 text-sm text-white/50">' + escapeHtml(n.text) + '</p></div><span class="text-xs text-white/30">' + escapeHtml(n.time) + '</span></div></article>').join('') : '<div class="rounded-2xl border border-dashed border-white/10 p-8 text-center text-white/40">Nenhuma notificação.</div>') +
+    (myNotifications().length ? myNotifications().map((n) => '<article class="rounded-2xl border border-white/8 bg-white/[.03] p-4"><div class="flex items-start justify-between gap-3"><div><p class="font-semibold">' + escapeHtml(n.title) + '</p><p class="mt-1 text-sm text-white/50">' + escapeHtml(n.text) + '</p></div><span class="text-xs text-white/30">' + escapeHtml(n.time) + '</span></div></article>').join('') : '<div class="rounded-2xl border border-dashed border-white/10 p-8 text-center text-white/40">Nenhuma notificação.</div>') +
     '</div><button type="button" class="btn-secondary mt-5 w-full" data-clear-notifications>Marcar como lidas</button></div>'
 
   document.body.appendChild(wrapper)
   wrapper.querySelector('[data-close]').addEventListener('click', () => wrapper.remove())
   wrapper.querySelector('[data-clear-notifications]').addEventListener('click', () => {
-    state.notifications = []
+    const me = state.user?.email
+    state.notifications = state.notifications.filter((n) => n.to !== me)
     persist()
     wrapper.remove()
+    updateNotificationBadge()
     toast('Notificações limpas.')
   })
 }
@@ -1012,7 +1118,7 @@ function registerAccount() {
   state.profile = profile
   state.user = { name, email, role: 'player' }
   syncAthletes()
-  state.notifications.unshift({ id: Date.now(), title: 'Conta criada', text: 'Seu cadastro foi concluído com categoria ' + getCategoryFromAge(age) + '.', time: 'Agora' })
+  notify(email, 'Conta criada', 'Seu cadastro foi concluído com categoria ' + getCategoryFromAge(age) + '.')
   persist()
   go('dashboard')
   toast('Conta criada com sucesso.')
@@ -1123,6 +1229,8 @@ function bind() {
   }))
 
   document.querySelectorAll('[data-action="openTryout"]').forEach((button) => button.addEventListener('click', openTryoutModal))
+  document.querySelectorAll('[data-action="withdraw"]').forEach((button) => button.addEventListener('click', () => confirmWithdraw(Number(button.dataset.id))))
+  document.querySelectorAll('[data-action="cancel-tryout"]').forEach((button) => button.addEventListener('click', () => openCancelTryoutModal(Number(button.dataset.id))))
   document.querySelectorAll('[data-action="view-enrolled"]').forEach((button) => button.addEventListener('click', () => openEnrolledModal(Number(button.dataset.id))))
 
   document.querySelectorAll('[data-action="enroll"]').forEach((button) => button.addEventListener('click', () => {
@@ -1137,7 +1245,8 @@ function bind() {
     if (!compatible) return toast('Sua posição não está entre as posições aceitas.', 'error')
     if (vacancies <= 0) return toast('Não há mais vagas nesta peneira.', 'error')
     enrolled.push(state.user.email)
-    state.notifications.unshift({ id: Date.now(), title: 'Inscrição confirmada', text: 'Você se inscreveu em ' + tryout.title + '.', time: 'Agora' })
+    notifyTryoutStaff(tryout, 'Nova inscrição', state.user.name + ' se inscreveu em "' + tryout.title + '" (' + enrolled.length + '/' + tryout.seats + ').')
+    notify(state.user.email, 'Inscrição confirmada', 'Você se inscreveu em ' + tryout.title + '.')
     persist()
     render()
     toast('Inscrição confirmada.')
@@ -1172,7 +1281,9 @@ function bind() {
     const items = [...document.querySelectorAll('[data-thread]')].map((el) => ({ name: el.dataset.name, subtitle: el.dataset.subtitle, el }))
     const visible = searchConversations(items, conversationSearch.value)
     const visibleSet = new Set(visible.map((item) => item.el))
-    items.forEach((item) => item.el.classList.toggle('hidden', !visibleSet.has(item.el)))
+    items.forEach((item) => { item.el.hidden = !visibleSet.has(item.el) })
+    const empty = document.querySelector('#conversation-empty')
+    if (empty) empty.hidden = visibleSet.size > 0
   })
 
   document.querySelectorAll('[data-thread]').forEach((button) => button.addEventListener('click', () => {
@@ -1230,6 +1341,33 @@ function render() {
   app.innerHTML = view
   bind()
 }
+
+// Atualização automática: quando outra aba/janela altera os dados (inscrição, cancelamento,
+// mensagem...), esta tela é atualizada sem precisar recarregar.
+function reloadSharedState() {
+  state.tryouts = readStorage('ap_tryouts', state.tryouts)
+  state.notifications = readStorage('ap_notifications', state.notifications)
+  state.messages = readStorage('ap_messages', state.messages)
+  state.accounts = readStorage('ap_accounts', state.accounts)
+  state.reviews = readStorage('ap_reviews', state.reviews)
+  state.votes = readStorage('ap_votes', state.votes)
+  state.voted = readStorage('ap_voted', state.voted)
+  state.favorites = readStorage('ap_favorites', state.favorites)
+  syncAthletes()
+}
+
+window.addEventListener('storage', (event) => {
+  if (!state.user || !event.key || !event.key.startsWith('ap_') || ['ap_user', 'ap_profile'].includes(event.key)) return
+  const before = myNotifications().length
+  reloadSharedState()
+  const after = myNotifications().length
+  const route = currentRoute()
+  if (route === 'athletes') applyFilters()
+  else if (route === 'messages') { if (!document.querySelector('#message-input')?.value) render() }
+  else if (route !== 'profile') render()
+  updateNotificationBadge()
+  if (after > before) toast('Você recebeu uma nova notificação.')
+})
 
 window.addEventListener('hashchange', render)
 // ESC fecha o modal aberto mais recentemente

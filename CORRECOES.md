@@ -25,3 +25,14 @@ Além disso, os scripts eram carregados como scripts comuns (sem `type="module"`
 ## Como testar
 1. `npm install` e `npm run dev` (ou Live Server no `index.html`).
 2. Contas de teste estão no `README.md`.
+
+## Atualização 2
+- **Pesquisa em Conversas**: o CSS `.conversation-item { display:flex }` anulava o `hidden` do Tailwind, então nenhum item sumia. Agora a busca usa o atributo `hidden` (com regra CSS própria), ignora maiúsculas/acentos ("joao" acha "João") e mostra "Nenhum resultado encontrado".
+- **Botão de peneira incompatível**: nova classe `.btn-incompatible` (fundo preto, texto e borda vermelhos) usada quando posição/categoria do jogador não combina com a peneira.
+
+## Atualização 3
+- **Jogador pode sair da peneira**: botão "Cancelar minha inscrição" (com confirmação) libera a vaga na hora.
+- **Contador de vagas X/Y** em cada peneira (ex.: `10/11`), com "N vagas livres"/"Lotada" e barra de progresso; atualiza ao inscrever, cancelar ou criar peneira.
+- **Atualização automática**: quando outra aba/janela do navegador altera peneiras, avisos ou mensagens, a tela é atualizada sozinha (evento `storage`). Como o projeto ainda não tem back-end, isso funciona entre abas do mesmo navegador; entre aparelhos diferentes depende de API/banco.
+- **Funcionário pode cancelar peneira**: botão "Cancelar peneira" com motivo opcional; todos os inscritos recebem um aviso automático e a peneira sai da lista.
+- **Notificações por usuário** (antes eram globais): sino com contador, aviso ao jogador (cancelamento, inscrição, avaliação) e ao funcionário (nova inscrição, vaga liberada).
