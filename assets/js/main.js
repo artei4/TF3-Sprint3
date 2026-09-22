@@ -28,6 +28,8 @@ import {
   getSessionUser,
   signUp as remoteSignUp,
   signIn as remoteSignIn,
+  requestPasswordReset,
+  updatePassword,
   signOut as remoteSignOut,
   onSignedOut,
   fetchOwnProfile,
@@ -112,6 +114,7 @@ let activeConversation = null
 let mobileChatOpen = false
 let openChatOnArrive = false
 let booted = false
+let passwordRecovery = false
 let stopMessages = null
 let stopAuthWatch = null
 let lastRemoteRefresh = 0
@@ -679,6 +682,7 @@ function go(route) {
 }
 
 function currentRoute() {
+  if (new URLSearchParams(location.search).get('reset') === '1') return 'reset-password'
   const raw = location.hash.replace(/^#\/?/, '')
   return raw || (state.user ? 'dashboard' : 'login')
 }
@@ -1021,10 +1025,47 @@ function loginPage() {
     '<div class="flex items-center justify-center p-6 sm:p-10"><div class="w-full max-w-md"><img src="./assets/brand/simbolo.jpg" alt="Academia Pelé" class="mx-auto h-24 w-24 rounded-3xl object-contain lg:hidden"/><span class="eyebrow mt-6">' + t('Acesso') + '</span><h2 class="mt-3 text-3xl font-black">' + t('Entrar na Academia Pelé') + '</h2><p class="mt-2 text-sm text-white/45">' + t('Escolha o tipo de conta antes de entrar.') + '</p>' +
     '<div class="mt-6 grid grid-cols-2 gap-2 rounded-2xl border border-white/8 bg-black/25 p-1"><button type="button" class="role-tab active" data-role="player">' + t('Jogador') + '</button><button type="button" class="role-tab" data-role="staff">' + t('Funcionário') + '</button></div>' +
     '<form id="login-form" class="mt-6 space-y-4">' + input(t('E-mail'), 'login-email', '', 'email', true) + input(t('Senha'), 'login-password', '', 'password', true) + '<p id="login-error" class="hidden rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200"></p><button class="btn-primary w-full" type="submit">' + t('Entrar') + ' ' + icon('arrow', 'size-4') + '</button></form>' +
+    '<button type="button" class="mt-3 w-full text-center text-xs text-[#e2bb62] hover:text-[#f0d58c]" data-action="forgot-password">' + t('Esqueci minha senha') + '</button>' +
     '<div class="my-6 flex items-center gap-3"><span class="h-px flex-1 bg-white/8"></span><span class="text-xs text-white/25">' + t('ou') + '</span><span class="h-px flex-1 bg-white/8"></span></div>' +
-    '<div class="grid gap-2 sm:grid-cols-2"><button type="button" class="btn-secondary w-full" data-route="register">' + t('Criar conta de jogador') + '</button><button type="button" class="btn-secondary w-full" data-route="staff-register">' + t('Criar conta de funcionário') + '</button></div><button type="button" class="mt-3 w-full text-center text-xs text-white/35 hover:text-white" data-action="demo">' + t('Entrar com conta demo') + '</button>' +
+    '<button type="button" class="btn-secondary w-full" data-route="register">' + t('Criar conta de jogador') + '</button><button type="button" class="mt-3 w-full text-center text-xs text-white/35 hover:text-white" data-action="demo">' + t('Entrar com conta demo') + '</button>' +
     '<button type="button" class="mt-4 w-full text-center text-xs text-white/30 hover:text-white" data-action="change-lang">' + icon('globe', 'size-3.5') + ' ' + LANGS.find((l) => l.code === getLang())?.label + '</button>' +
     '<p class="mt-5 text-center text-[11px] leading-5 text-white/30">Funcionário (teste): funcionario@academiapele.com / Academia123!<br/>Jogador (teste): gabriel@academiapele.com / Demo123!</p></div></div></div></div>'
+}
+
+function passwordRecoveryPage() {
+  return '<div class="grid min-h-screen place-items-center bg-[#070707] px-4 py-8 text-white"><div class="w-full max-w-md rounded-[32px] border border-white/10 bg-white/[.025] p-6 sm:p-10">' +
+    '<span class="eyebrow">' + t('Recuperação de acesso') + '</span><h1 class="mt-2 text-3xl font-black">' + t('Crie uma nova senha') + '</h1><p class="mt-3 text-sm leading-6 text-white/45">' + t('Escolha uma senha nova para voltar a acessar sua conta.') + '</p>' +
+    '<form id="password-recovery-form" class="mt-6 space-y-4">' + input(t('Nova senha'), 'recovery-password', '', 'password', true) + input(t('Confirmar senha'), 'recovery-confirm', '', 'password', true) + '<p id="recovery-feedback" class="hidden rounded-2xl border px-4 py-3 text-sm" role="alert"></p><button class="btn-primary w-full" type="submit">' + t('Salvar nova senha') + '</button></form>' +
+    '</div></div>'
+}
+
+function forgotPassword() {
+  if (!remote.enabled) return toast(t('A recuperação por e-mail precisa do Supabase configurado.'), 'error')
+  const email = normalizeEmail(document.querySelector('#login-email').value)
+  if (!email || !email.includes('@')) return showFeedback('login-error', t('Informe um e-mail válido.'), true)
+  const button = document.querySelector('[data-action="forgot-password"]')
+  button?.setAttribute('disabled', '')
+  requestPasswordReset(email, location.origin + location.pathname + '?reset=1')
+    .then((error) => {
+      button?.removeAttribute('disabled')
+      if (error) return showFeedback('login-error', describeError(error), true)
+      toast(t('Se o e-mail estiver cadastrado, enviaremos um link para redefinir sua senha.'))
+    })
+    .catch((error) => {
+      button?.removeAttribute('disabled')
+      showFeedback('login-error', describeError(error), true)
+    })
+}
+
+async function saveRecoveredPassword() {
+  const password = document.querySelector('#recovery-password').value
+  const confirm = document.querySelector('#recovery-confirm').value
+  if (password.length < 6) return showFeedback('recovery-feedback', t('A senha precisa ter pelo menos 6 caracteres.'), true)
+  if (password !== confirm) return showFeedback('recovery-feedback', t('As senhas não coincidem.'), true)
+  const error = await updatePassword(password)
+  if (error) return showFeedback('recovery-feedback', describeError(error), true)
+  toast(t('Senha atualizada com sucesso.'))
+  await clearRemoteSession({ navigate: true })
 }
 
 function registerPage() {
@@ -1055,14 +1096,6 @@ function registerPage() {
     '<div id="reg-feedback" class="sm:col-span-2 hidden rounded-2xl border px-4 py-3 text-sm" role="alert"></div>' +
     '<div class="sm:col-span-2 flex flex-wrap items-center justify-between gap-3 pt-3"><p class="max-w-2xl text-xs leading-5 text-white/35">Nesta versão front-end, os dados são armazenados localmente no navegador para permitir a demonstração do fluxo. Não use senhas reais.</p><button class="btn-primary" type="submit">' + t('Criar conta') + ' ' + icon('check', 'size-4') + '</button></div>' +
     '</form></div></div>'
-}
-
-function staffRegisterPage() {
-  return '<div class="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(216,176,88,.1),transparent_28%),#070707] px-4 py-8 text-white"><div class="mx-auto max-w-xl rounded-[32px] border border-white/10 bg-white/[.025] p-6 sm:p-10">' +
-    '<div class="flex items-center justify-between gap-4"><div><span class="eyebrow">' + t('Cadastro') + '</span><h1 class="mt-1 text-3xl font-black">' + t('Criar conta de funcionário') + '</h1></div><button type="button" class="btn-ghost" data-route="login">' + t('Voltar') + '</button></div>' +
-    '<p class="mt-3 text-sm leading-6 text-white/45">' + t('Informe seu e-mail profissional, nome de usuário e senha. O acesso de funcionário depende da autorização da Academia Pelé.') + '</p>' +
-    '<form id="staff-register-form" class="mt-8 space-y-4">' + input(t('E-mail'), 'staff-email', '', 'email', true) + input(t('Nome de usuário'), 'staff-name', '', 'text', true) + input(t('Senha'), 'staff-password', '', 'password', true) + input(t('Confirmar senha'), 'staff-confirm', '', 'password', true) +
-    '<p id="staff-register-feedback" class="hidden rounded-2xl border px-4 py-3 text-sm" role="alert"></p><button class="btn-primary w-full" type="submit">' + t('Criar conta') + ' ' + icon('check', 'size-4') + '</button></form></div></div>'
 }
 
 function input(label, id, value = '', type = 'text', required = false, disabled = false, readonly = false) {
@@ -1736,51 +1769,6 @@ async function registerAccount() {
     if (state.accounts.some((account) => account.cpf && account.cpf === cpf.replace(/\D/g, ''))) return showFeedback('reg-feedback', 'Já existe uma conta com esse CPF.', true)
   }
 
-  async function registerStaffAccount() {
-    const email = normalizeEmail(document.querySelector('#staff-email').value)
-    const name = document.querySelector('#staff-name').value.trim()
-    const password = document.querySelector('#staff-password').value
-    const confirm = document.querySelector('#staff-confirm').value
-    const feedback = (message, error = true) => showFeedback('staff-register-feedback', message, error)
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return feedback(t('Informe um e-mail válido.'))
-    if (name.length < 3) return feedback(t('Informe um nome de usuário com pelo menos 3 caracteres.'))
-    if (password.length < 6) return feedback(t('A senha precisa ter pelo menos 6 caracteres.'))
-    if (password !== confirm) return feedback(t('As senhas não coincidem.'))
-    if (!remote.enabled && state.accounts.some((account) => account.email === email)) return feedback(t('Já existe uma conta com esse e-mail.'))
-
-    if (remote.enabled) {
-      const submit = document.querySelector('#staff-register-form button[type="submit"]')
-      submit?.setAttribute('disabled', '')
-      const result = await remoteSignUp({ email, password, name, publicData: { position: 'Funcionário' }, privateData: {} })
-      if (result.error) {
-        submit?.removeAttribute('disabled')
-        return feedback(describeError(result.error))
-      }
-      if (!result.session) return feedback(t('Conta criada! Confirme seu e-mail antes de entrar.'), false)
-      try {
-        await hydrateRemote(result.session.user.id)
-      } catch (error) {
-        submit?.removeAttribute('disabled')
-        return feedback(describeError(error))
-      }
-      if (state.user.role !== 'staff') {
-        await clearRemoteSession()
-        return feedback(t('Este e-mail ainda não está autorizado para uma conta de funcionário. Solicite a liberação à Academia Pelé.'))
-      }
-      go('dashboard')
-      toast(t('Conta criada com sucesso.'))
-      return
-    }
-
-    const account = { email, password, role: 'staff', profile: { name, email, position: 'Funcionário' } }
-    state.accounts.push(account)
-    state.user = { name, email, role: 'staff' }
-    state.profile = null
-    persist()
-    go('dashboard')
-    toast(t('Conta criada com sucesso.'))
-  }
-
   const profile = {
     name,
     cpf: cpf.replace(/\D/g, ''),
@@ -2063,9 +2051,6 @@ function bind() {
     if (field) field.addEventListener(field.tagName === 'INPUT' ? 'input' : 'change', applyFilters)
   })
 
-  const staffRegisterForm = document.querySelector('#staff-register-form')
-  if (staffRegisterForm) staffRegisterForm.addEventListener('submit', (event) => { event.preventDefault(); safely(registerStaffAccount()) })
-
   const registerForm = document.querySelector('#register-form')
   if (registerForm) {
     document.querySelector('#reg-cpf').addEventListener('input', (event) => formatCPF(event.target))
@@ -2082,6 +2067,9 @@ function bind() {
 
   const loginForm = document.querySelector('#login-form')
   if (loginForm) loginForm.addEventListener('submit', (event) => { event.preventDefault(); safely(loginAccount()) })
+  document.querySelectorAll('[data-action="forgot-password"]').forEach((button) => button.addEventListener('click', forgotPassword))
+  const recoveryForm = document.querySelector('#password-recovery-form')
+  if (recoveryForm) recoveryForm.addEventListener('submit', (event) => { event.preventDefault(); safely(saveRecoveredPassword()) })
   document.querySelectorAll('[data-action="demo"]').forEach((button) => button.addEventListener('click', () => safely(loginDemo())))
 
   const conversationSearch = document.querySelector('#conversation-search')
@@ -2146,11 +2134,11 @@ function render() {
       pushChatEntry = true
     }
   }
-  if (!state.user && !['login', 'register', 'staff-register'].includes(route)) {
+  if (!state.user && !['login', 'register', 'reset-password'].includes(route)) {
     go('login')
     return
   }
-  if (state.user && ['login', 'register', 'staff-register'].includes(route)) {
+  if (state.user && ['login', 'register'].includes(route) && !passwordRecovery) {
     go('dashboard')
     return
   }
@@ -2162,7 +2150,7 @@ function render() {
   let view
   if (route === 'login') view = loginPage()
   else if (route === 'register') view = registerPage()
-  else if (route === 'staff-register') view = staffRegisterPage()
+  else if (route === 'reset-password') view = passwordRecoveryPage()
   else if (route === 'dashboard') view = dashboard(state.user.role)
   else if (route === 'athletes') view = athletesPage()
   else if (route === 'profile') view = profilePage()

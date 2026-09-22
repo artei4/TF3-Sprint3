@@ -22,7 +22,7 @@ export async function initRemote() {
       new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), LOAD_TIMEOUT_MS)),
     ])
     client = module.createClient(SUPABASE_URL, SUPABASE_KEY, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
     })
     remote.enabled = true
     return true
@@ -73,12 +73,24 @@ export async function signIn(email, password) {
   return { error, user: data?.user || null }
 }
 
+export async function requestPasswordReset(email, redirectTo) {
+  const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo })
+  return error || null
+}
+
+export async function updatePassword(password) {
+  const { error } = await client.auth.updateUser({ password })
+  return error || null
+}
+
 export async function signOut() {
   try { await client.auth.signOut() } catch { /* sem conexão: a sessão local é descartada mesmo assim */ }
 }
 
 export function onSignedOut(callback) {
-  const { data } = client.auth.onAuthStateChange((event) => { if (event === 'SIGNED_OUT') callback() })
+  const { data } = client.auth.onAuthStateChange((event) => {
+    if (event === 'SIGNED_OUT') callback()
+  })
   return () => data?.subscription?.unsubscribe()
 }
 
