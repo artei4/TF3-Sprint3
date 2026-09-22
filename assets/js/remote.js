@@ -89,7 +89,7 @@ export async function signOut() {
 
 export function onSignedOut(callback) {
   const { data } = client.auth.onAuthStateChange((event) => {
-    if (event === 'SIGNED_OUT') callback()
+    if (event === 'SIGNED_OUT' || event === 'PASSWORD_RECOVERY') callback(event)
   })
   return () => data?.subscription?.unsubscribe()
 }

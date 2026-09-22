@@ -527,7 +527,14 @@ async function hydrateRemote(uid) {
   stopMessages?.()
   stopMessages = subscribeMessages(uid, onRemoteInsert)
   stopAuthWatch?.()
-  stopAuthWatch = onSignedOut(() => { if (state.user && remote.enabled) clearRemoteSession({ navigate: true, signOut: false }) })
+  stopAuthWatch = onSignedOut((event) => {
+    if (event === 'PASSWORD_RECOVERY') {
+      passwordRecovery = true
+      render()
+      return
+    }
+    if (state.user && remote.enabled) clearRemoteSession({ navigate: true, signOut: false })
+  })
   lastRemoteRefresh = Date.now()
   syncAthletes()
   try {
@@ -682,7 +689,9 @@ function go(route) {
 }
 
 function currentRoute() {
-  if (new URLSearchParams(location.search).get('reset') === '1') return 'reset-password'
+  const query = new URLSearchParams(location.search)
+  const hashParams = new URLSearchParams(location.hash.replace(/^#/, ''))
+  if (query.get('reset') === '1' || query.get('type') === 'recovery' || hashParams.get('type') === 'recovery' || hashParams.has('access_token') || hashParams.has('code')) return 'reset-password'
   const raw = location.hash.replace(/^#\/?/, '')
   return raw || (state.user ? 'dashboard' : 'login')
 }
