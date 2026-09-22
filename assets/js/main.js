@@ -36,6 +36,9 @@ import {
   fetchMessages,
   sendMessage as remoteSendMessage,
   subscribeMessages,
+  fetchEvaluations,
+  createEvaluation,
+  removeEvaluation,
 } from './remote.js'
 
 const app = document.querySelector('#app')
@@ -524,6 +527,39 @@ async function hydrateRemote(uid) {
   stopAuthWatch = onSignedOut(() => { if (state.user && remote.enabled) clearRemoteSession({ navigate: true, signOut: false }) })
   lastRemoteRefresh = Date.now()
   syncAthletes()
+  await refreshRemoteEvaluations()
+}
+
+function mapRemoteEvaluation(row) {
+  const athlete = state.athletes.find((item) => item.profileId === row.athlete_id)
+  if (!athlete) return null
+  return {
+    id: 'r' + row.id,
+    author: row.evaluator?.name || state.accounts.find((account) => account.uid === row.evaluator_id)?.profile?.name || 'Olheiro',
+    authorEmail: row.evaluator?.email || state.accounts.find((account) => account.uid === row.evaluator_id)?.email,
+    position: row.position,
+    ratings: row.ratings || {},
+    rating: Number(row.rating).toFixed(1),
+    baseRating: Number(row.base_rating),
+    adjustment: Number(row.adjustment || 0),
+    stats: row.stats || {},
+    strengths: Array.isArray(row.strengths) ? row.strengths : [],
+    comment: row.comment,
+    date: row.created_at ? new Date(row.created_at).toLocaleDateString('pt-BR') : 'Agora',
+  }
+}
+
+async function refreshRemoteEvaluations() {
+  if (!remote.enabled) return
+  const rows = await fetchEvaluations()
+  const reviews = {}
+  rows.forEach((row) => {
+    const review = mapRemoteEvaluation(row)
+    const athlete = state.athletes.find((item) => item.profileId === row.athlete_id)
+    if (review && athlete) (reviews[athlete.id] ||= []).push(review)
+  })
+  state.reviews = reviews
+  persist()
 }
 
 async function clearRemoteSession({ navigate = false, signOut = true } = {}) {
@@ -563,6 +599,7 @@ async function refreshRemote(force = false) {
     missed.forEach((message) => {
       if (ingestMessage(message).added) showIncoming(message, message.senderRole === myRole())
     })
+    await refreshRemoteEvaluations()
     const route = currentRoute()
     if (state.athletes.length !== before) {
       if (route === 'athletes') applyFilters()
@@ -795,8 +832,8 @@ function profilePage() {
     const account = state.accounts.find((a) => a.email === state.user.email)
     const profile = account?.profile || { name: state.user.name, email: state.user.email, phone: '', position: t('Funcionário'), city: 'São Paulo', state: 'SP' }
     return shell(
-      '<div class="flex flex-wrap items-end justify-between gap-4"><div><span class="eyebrow">Meu perfil</span><h1 class="page-title">' + escapeHtml(profile.name) + '</h1><p class="page-subtitle">Dados do funcionário que está conectado.</p></div><button type="button" class="btn-secondary" data-action="logout">' + icon('logout', 'size-4') + ' ' + t('Sair') + '</button></div>' +
-      '<section class="mt-6 grid gap-5 md:grid-cols-2"><aside class="panel"><div class="flex items-center gap-4"><div class="avatar-xl">' + avatar(profile.name) + '</div><div><p class="text-xs uppercase tracking-[.2em] text-white/35">Funcionário</p><h2 class="mt-1 text-2xl font-black">' + escapeHtml(profile.position || 'Profissional') + '</h2><p class="text-sm text-white/45">' + escapeHtml(profile.city) + '/' + escapeHtml(profile.state) + '</p></div></div></aside><div class="panel"><span class="eyebrow">Acesso demo</span><h2 class="section-title">Credenciais de teste</h2><p class="mt-4 text-sm leading-6 text-white/55">E-mail: funcionario@academiapele.com<br/>Senha: Academia123!</p><button type="button" class="btn-primary mt-5" data-route="athletes">Ir para o banco de atletas ' + icon('arrow', 'size-4') + '</button></div></section>',
+      '<div class="flex flex-wrap items-end justify-between gap-4"><div><span class="eyebrow">' + t('Meu perfil') + '</span><h1 class="page-title">' + escapeHtml(profile.name) + '</h1><p class="page-subtitle">' + t('Dados do funcionário que está conectado.') + '</p></div><button type="button" class="btn-secondary" data-action="logout">' + icon('logout', 'size-4') + ' ' + t('Sair') + '</button></div>' +
+      '<section class="mt-6 grid gap-5 md:grid-cols-2"><aside class="panel"><div class="flex items-center gap-4"><div class="avatar-xl">' + avatar(profile.name) + '</div><div><p class="text-xs uppercase tracking-[.2em] text-white/35">' + t('Funcionário') + '</p><h2 class="mt-1 text-2xl font-black">' + escapeHtml(profile.position || t('Profissional')) + '</h2><p class="text-sm text-white/45">' + escapeHtml(profile.city) + '/' + escapeHtml(profile.state) + '</p></div></div></aside><div class="panel"><span class="eyebrow">' + t('Acesso demo') + '</span><h2 class="section-title">' + t('Credenciais de teste') + '</h2><p class="mt-4 text-sm leading-6 text-white/55">'+ t('E-mail de teste') + ': funcionario@academiapele.com<br/>' + t('Senha de teste') + ': Academia123!</p><button type="button" class="btn-primary mt-5" data-route="athletes">'+ t('Ir para o banco de atletas') + ' ' + icon('arrow', 'size-4') + '</button></div></section>',
       { active: 'dashboard', role: 'staff' },
     )
   }
@@ -805,12 +842,12 @@ function profilePage() {
   const age = getAgeFromProfile(p.birth)
   const category = getCategoryFromAge(age)
   return shell(
-    '<div class="flex flex-wrap items-end justify-between gap-4"><div><span class="eyebrow">Meu perfil</span><h1 class="page-title">' + escapeHtml(p.name) + '</h1><p class="page-subtitle">Mantenha seus dados pessoais, categoria, cidade e posições atualizados.</p></div><button type="button" class="btn-secondary" data-action="logout">' + icon('logout', 'size-4') + ' ' + t('Sair') + '</button></div>' +
+    '<div class="flex flex-wrap items-end justify-between gap-4"><div><span class="eyebrow">' + t('Meu perfil') + '</span><h1 class="page-title">' + escapeHtml(p.name) + '</h1><p class="page-subtitle">' + t('Mantenha seus dados pessoais, categoria, cidade e posições atualizados.') + '</p></div><button type="button" class="btn-secondary" data-action="logout">' + icon('logout', 'size-4') + ' ' + t('Sair') + '</button></div>' +
     '<section class="mt-6 grid gap-5 xl:grid-cols-[.75fr_1.25fr]">' +
-    '<aside class="panel"><div class="flex items-center gap-4"><div class="avatar-xl">' + avatar(p.name) + '</div><div><p class="text-xs uppercase tracking-[.2em] text-white/35">Atleta</p><h2 class="mt-1 text-2xl font-black">' + escapeHtml(p.pos) + '</h2><p class="text-sm text-white/45">' + age + ' anos • ' + escapeHtml(category) + '</p></div></div>' +
-    '<div class="mt-6 grid grid-cols-2 gap-3">' + stat(averagePlayerRating(p), 'Avaliação', 'média atual') + stat(String(state.tryouts.filter((t) => Array.isArray(t.enrolled) && t.enrolled.includes(state.user.email)).length).padStart(2, '0'), 'Peneiras', 'inscritas') + stat(String(getPlayerReviewCount()).padStart(2, '0'), 'Avaliações', 'recebidas') + stat(String(myNotifications().length).padStart(2, '0'), t('Notificações'), 'recentes') + '</div>' +
-    '<div class="mt-6 flex flex-wrap gap-2">' + tag(p.pos) + tag(p.secondary, true) + footTag(p.foot) + tag(category) + tag(p.city) + '</div></aside>' +
-    '<div class="panel"><div class="flex items-center justify-between"><div><span class="eyebrow">' + t('Dados do jogador') + '</span><h2 class="section-title">Atualizar perfil</h2></div>' + icon('edit', 'size-5 text-[#e1bb62]') + '</div>' +
+    '<aside class="panel"><div class="flex items-center gap-4"><div class="avatar-xl">' + avatar(p.name) + '</div><div><p class="text-xs uppercase tracking-[.2em] text-white/35">' + t('Atleta') + '</p><h2 class="mt-1 text-2xl font-black">' + escapeHtml(p.pos) + '</h2><p class="text-sm text-white/45">' + age + ' anos • ' + escapeHtml(category) + '</p></div></div>' +
+    '<div class="mt-6 grid grid-cols-2 gap-3">' + stat(averagePlayerRating(p), t('Avaliação'), t('média atual')) + stat(String(state.tryouts.filter((t) => Array.isArray(t.enrolled) && t.enrolled.includes(state.user.email)).length).padStart(2, '0'), t('Peneiras'), t('inscritas')) + stat(String(getPlayerReviewCount()).padStart(2, '0'), t('Avaliações'), t('recebidas')) + stat(String(myNotifications().length).padStart(2, '0'), t('Notificações'), t('recentes')) + '</div>' +
+    '<div class="mt-6 flex flex-wrap gap-2">' + tag(t(p.pos)) + tag(t(p.secondary), true) + footTag(t(p.foot)) + tag(t(category)) + tag(p.city) + '</div></aside>' +
+    '<div class="panel"><div class="flex items-center justify-between"><div><span class="eyebrow">' + t('Dados do jogador') + '</span><h2 class="section-title">' + t('Atualizar perfil') + '</h2></div>' + icon('edit', 'size-5 text-[#e1bb62]') + '</div>' +
     '<form id="profile-form" class="mt-5 grid gap-4 sm:grid-cols-2">' +
     input(t('Nome completo'), 'profile-name', p.name, 'text', true) +
     input('CPF', 'profile-cpf', p.cpf || '', 'text', false, true) +
@@ -820,11 +857,11 @@ function profilePage() {
     selectField(t('Gênero'), 'profile-gender', GENDERS, p.gender) +
     input(t('E-mail'), 'profile-email', p.email, 'email', true, remote.enabled) + input(t('Telefone'), 'profile-phone', p.phone, 'tel', true) +
     selectField(t('Posição principal'), 'profile-pos', POSITIONS, p.pos) + selectField(t('Posição secundária'), 'profile-secondary', ['—'].concat(POSITIONS), p.secondary) + selectField(t('Perna dominante'), 'profile-foot', FEET, p.foot || '') +
-    '<div class="sm:col-span-2 mt-2 border-t border-white/8 pt-5"><p class="text-sm font-bold">Endereço</p></div>' +
+    '<div class="sm:col-span-2 mt-2 border-t border-white/8 pt-5"><p class="text-sm font-bold">' + t('Endereço') + '</p></div>' +
     input(t('CEP'), 'profile-zip', p.zip, 'text', true) + input(t('Cidade'), 'profile-city', p.city, 'text', true) + input(t('Estado'), 'profile-state', p.state, 'text', true) + input(t('Bairro'), 'profile-district', p.district, 'text', true) +
     input(t('Endereço'), 'profile-address', p.address, 'text', true) + input(t('Número'), 'profile-number', p.number, 'text', true) +
-    '<div id="profile-feedback" class="sm:col-span-2 hidden" role="alert"></div><div class="sm:col-span-2 flex justify-end"><button class="btn-primary" type="submit">Salvar alterações ' + icon('check', 'size-4') + '</button></div></form></div></section>' +
-    '<section class="mt-6 panel"><div class="flex items-center justify-between"><div><span class="eyebrow">' + t('Olheiros') + '</span><h2 class="section-title">Comentários e notas</h2><p class="mt-1 text-xs text-white/35">Notas e estatísticas ficam visíveis apenas para você e para a equipe da Academia.</p></div><span class="tag">' + getPlayerReviewCount() + ' registro(s)</span></div><div class="mt-5 grid gap-4 md:grid-cols-2">' + renderPlayerReviews() + '</div></section>',
+    '<div id="profile-feedback" class="sm:col-span-2 hidden" role="alert"></div><div class="sm:col-span-2 flex justify-end"><button class="btn-primary" type="submit">' + t('Salvar alterações') + ' ' + icon('check', 'size-4') + '</button></div></form></div></section>' +
+    '<section class="mt-6 panel"><div class="flex items-center justify-between"><div><span class="eyebrow">' + t('Olheiros') + '</span><h2 class="section-title">' + t('Comentários e notas') + '</h2><p class="mt-1 text-xs text-white/35">' + t('Notas e estatísticas ficam visíveis apenas para você e para a equipe da Academia.') + '</p></div><span class="tag">' + getPlayerReviewCount() + ' ' + t('registro(s)') + '</span></div><div class="mt-5 grid gap-4 md:grid-cols-2">' + renderPlayerReviews() + '</div></section>',
     { active: 'profile', role: 'player' },
   )
 }
@@ -833,7 +870,7 @@ function renderPlayerReviews() {
   const profileAthlete = getCurrentAthlete()
   const reviews = state.reviews[profileAthlete?.id] || []
   if (!reviews.length) {
-    return '<div class="md:col-span-2 rounded-2xl border border-dashed border-white/10 p-8 text-center text-white/40">Ainda não há avaliações registradas para este perfil.</div>'
+    return '<div class="md:col-span-2 rounded-2xl border border-dashed border-white/10 p-8 text-center text-white/40">'+ t('Ainda não há avaliações registradas para este perfil.') +'</div>'
   }
   return reviews.map(reviewCard).join('')
 }
@@ -866,15 +903,15 @@ function reviewCard(review, athleteId = null) {
   const criteria = review.ratings && review.position
     ? criteriaForPosition(review.position).filter((c) => review.ratings[c.key] !== undefined && review.ratings[c.key] !== '')
     : []
-  return '<article class="rounded-2xl border border-white/8 bg-white/[.025] p-5"><div class="flex items-start justify-between gap-3"><div class="flex items-center gap-3"><span class="avatar">' + avatar(review.author || 'Olheiro') + '</span><div><p class="font-semibold">' + escapeHtml(review.author || 'Olheiro') + '</p><p class="text-xs text-white/35">' + escapeHtml(review.date || 'Agora') + (review.position ? ' • como ' + escapeHtml(review.position) : '') + '</p></div></div>' +
-    '<div class="text-center"><div class="rounded-xl border border-[#d4ad59]/20 bg-[#d4ad59]/8 px-3 py-2 text-sm font-black text-[#e2bb62]">' + escapeHtml(String(review.rating).replace('.', ',')) + '</div>' + (criteria.length ? '<p class="mt-1 text-[10px] text-white/30">nota ponderada</p>' : '') + '</div></div>' +
+  return '<article class="rounded-2xl border border-white/8 bg-white/[.025] p-5"><div class="flex items-start justify-between gap-3"><div class="flex items-center gap-3"><span class="avatar">' + avatar(review.author || 'Olheiro') + '</span><div><p class="font-semibold">' + escapeHtml(review.author || 'Olheiro') + '</p><p class="text-xs text-white/35">' + escapeHtml(review.date || 'Agora') + (review.position ? ' • ' + t('como') + ' ' + escapeHtml(review.position) : '') + '</p></div></div>' +
+    '<div class="text-center"><div class="rounded-xl border border-[#d4ad59]/20 bg-[#d4ad59]/8 px-3 py-2 text-sm font-black text-[#e2bb62]">' + escapeHtml(String(review.rating).replace('.', ',')) + '</div>' + (criteria.length ? '<p class="mt-1 text-[10px] text-white/30">' + t('nota ponderada') + '</p>' : '') + '</div></div>' +
     (criteria.length ? '<div class="mt-4 grid grid-cols-2 gap-x-4 gap-y-2">' + criteria.map((c) => {
       const value = Number(review.ratings[c.key])
       return '<div><div class="flex justify-between text-[11px] text-white/50"><span>' + escapeHtml(c.label) + '</span><strong class="text-white">' + String(value).replace('.', ',') + '</strong></div><div class="mt-1 h-1 overflow-hidden rounded-full bg-white/8"><div class="h-1 rounded-full bg-[#d4ad59]" style="width:' + Math.max(0, Math.min(100, value * 10)) + '%"></div></div></div>'
     }).join('') + '</div>' : '') +
-    (review.baseRating !== undefined && review.adjustment ? '<p class="mt-3 text-[11px] text-white/40">Nota base <strong class="text-white">' + String(review.baseRating).replace('.', ',') + '</strong> • ajuste por desempenho <strong class="' + (review.adjustment > 0 ? 'text-emerald-300' : 'text-rose-300') + '">' + (review.adjustment > 0 ? '+' : '') + String(review.adjustment).replace('.', ',') + '</strong></p>' : '') +
+    (review.baseRating !== undefined && review.adjustment ? '<p class="mt-3 text-[11px] text-white/40">' + t('Nota base') + ' <strong class="text-white">' + String(review.baseRating).replace('.', ',') + '</strong> • ' + t('ajuste por desempenho') + ' <strong class="' + (review.adjustment > 0 ? 'text-emerald-300' : 'text-rose-300') + '">' + (review.adjustment > 0 ? '+' : '') + String(review.adjustment).replace('.', ',') + '</strong></p>' : '') +
     (reviewStatChips(review) ? '<div class="mt-4 flex flex-wrap gap-1.5">' + reviewStatChips(review) + '</div>' : '') +
-    (review.strengths && review.strengths.length ? '<div class="mt-3"><p class="text-[10px] font-bold uppercase tracking-[.16em] text-white/30">Pontos fortes</p><div class="mt-1.5 flex flex-wrap gap-1.5">' + review.strengths.map((item) => tag(item)).join('') + '</div></div>' : '') +
+    (review.strengths && review.strengths.length ? '<div class="mt-3"><p class="text-[10px] font-bold uppercase tracking-[.16em] text-white/30">' + t('Pontos fortes') + '</p><div class="mt-1.5 flex flex-wrap gap-1.5">' + review.strengths.map((item) => tag(item)).join('') + '</div></div>' : '') +
     '<p class="mt-4 text-sm leading-6 text-white/65">“' + escapeHtml(review.comment) + '”</p>' +
     (canDelete ? '<button type="button" class="mt-3 text-xs font-semibold text-rose-300 hover:text-rose-200" data-delete-review="' + review.id + '">Excluir minha avaliação</button>' : '') + '</article>'
 }
@@ -979,7 +1016,7 @@ function loginPage() {
     '<div class="mt-6 grid grid-cols-2 gap-2 rounded-2xl border border-white/8 bg-black/25 p-1"><button type="button" class="role-tab active" data-role="player">' + t('Jogador') + '</button><button type="button" class="role-tab" data-role="staff">' + t('Funcionário') + '</button></div>' +
     '<form id="login-form" class="mt-6 space-y-4">' + input(t('E-mail'), 'login-email', '', 'email', true) + input(t('Senha'), 'login-password', '', 'password', true) + '<p id="login-error" class="hidden rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200"></p><button class="btn-primary w-full" type="submit">' + t('Entrar') + ' ' + icon('arrow', 'size-4') + '</button></form>' +
     '<div class="my-6 flex items-center gap-3"><span class="h-px flex-1 bg-white/8"></span><span class="text-xs text-white/25">' + t('ou') + '</span><span class="h-px flex-1 bg-white/8"></span></div>' +
-    '<button type="button" class="btn-secondary w-full" data-route="register">' + t('Criar conta de jogador') + '</button><button type="button" class="mt-3 w-full text-center text-xs text-white/35 hover:text-white" data-action="demo">' + t('Entrar com conta demo') + '</button>' +
+    '<div class="grid gap-2 sm:grid-cols-2"><button type="button" class="btn-secondary w-full" data-route="register">' + t('Criar conta de jogador') + '</button><button type="button" class="btn-secondary w-full" data-route="staff-register">' + t('Criar conta de funcionário') + '</button></div><button type="button" class="mt-3 w-full text-center text-xs text-white/35 hover:text-white" data-action="demo">' + t('Entrar com conta demo') + '</button>' +
     '<button type="button" class="mt-4 w-full text-center text-xs text-white/30 hover:text-white" data-action="change-lang">' + icon('globe', 'size-3.5') + ' ' + LANGS.find((l) => l.code === getLang())?.label + '</button>' +
     '<p class="mt-5 text-center text-[11px] leading-5 text-white/30">Funcionário (teste): funcionario@academiapele.com / Academia123!<br/>Jogador (teste): gabriel@academiapele.com / Demo123!</p></div></div></div></div>'
 }
@@ -1000,7 +1037,7 @@ function registerPage() {
     selectField(t('Posição principal'), 'reg-pos', POSITIONS, '') +
     selectField(t('Posição secundária'), 'reg-secondary', ['—'].concat(POSITIONS), '—') +
     selectField(t('Perna dominante'), 'reg-foot', FEET, '') +
-    '<div class="sm:col-span-2 mt-2 rounded-2xl border border-white/8 bg-black/15 p-4"><p class="text-sm font-bold">Endereço</p><p class="mt-1 text-xs text-white/35">A cidade informada aqui será usada também nos filtros de região.</p></div>' +
+    '<div class="sm:col-span-2 mt-2 rounded-2xl border border-white/8 bg-black/15 p-4"><p class="text-sm font-bold">' + t('Endereço') + '</p><p class="mt-1 text-xs text-white/35">A cidade informada aqui será usada também nos filtros de região.</p></div>' +
     input(t('CEP'), 'reg-zip', '', 'text', true) +
     input(t('Cidade'), 'reg-city', '', 'text', true) +
     input(t('Estado'), 'reg-state', '', 'text', true) +
@@ -1012,6 +1049,14 @@ function registerPage() {
     '<div id="reg-feedback" class="sm:col-span-2 hidden rounded-2xl border px-4 py-3 text-sm" role="alert"></div>' +
     '<div class="sm:col-span-2 flex flex-wrap items-center justify-between gap-3 pt-3"><p class="max-w-2xl text-xs leading-5 text-white/35">Nesta versão front-end, os dados são armazenados localmente no navegador para permitir a demonstração do fluxo. Não use senhas reais.</p><button class="btn-primary" type="submit">' + t('Criar conta') + ' ' + icon('check', 'size-4') + '</button></div>' +
     '</form></div></div>'
+}
+
+function staffRegisterPage() {
+  return '<div class="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(216,176,88,.1),transparent_28%),#070707] px-4 py-8 text-white"><div class="mx-auto max-w-xl rounded-[32px] border border-white/10 bg-white/[.025] p-6 sm:p-10">' +
+    '<div class="flex items-center justify-between gap-4"><div><span class="eyebrow">' + t('Cadastro') + '</span><h1 class="mt-1 text-3xl font-black">' + t('Criar conta de funcionário') + '</h1></div><button type="button" class="btn-ghost" data-route="login">' + t('Voltar') + '</button></div>' +
+    '<p class="mt-3 text-sm leading-6 text-white/45">' + t('Informe seu e-mail profissional, nome de usuário e senha. O acesso de funcionário depende da autorização da Academia Pelé.') + '</p>' +
+    '<form id="staff-register-form" class="mt-8 space-y-4">' + input(t('E-mail'), 'staff-email', '', 'email', true) + input(t('Nome de usuário'), 'staff-name', '', 'text', true) + input(t('Senha'), 'staff-password', '', 'password', true) + input(t('Confirmar senha'), 'staff-confirm', '', 'password', true) +
+    '<p id="staff-register-feedback" class="hidden rounded-2xl border px-4 py-3 text-sm" role="alert"></p><button class="btn-primary w-full" type="submit">' + t('Criar conta') + ' ' + icon('check', 'size-4') + '</button></form></div></div>'
 }
 
 function input(label, id, value = '', type = 'text', required = false, disabled = false, readonly = false) {
@@ -1085,13 +1130,13 @@ function openAthleteModal(athleteId) {
   wrapper.className = 'fixed inset-0 z-[90] grid place-items-center bg-black/75 p-4 backdrop-blur-md'
   wrapper.innerHTML =
     '<div class="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[28px] border border-white/10 bg-[#111] p-6 shadow-2xl sm:p-8" role="dialog" aria-modal="true" aria-labelledby="athlete-modal-title">' +
-    '<div class="flex items-start justify-between gap-4"><div class="flex items-center gap-4"><div class="avatar-xl bg-gradient-to-br ' + athlete.color + '">' + avatar(athlete.name) + '</div><div><span class="eyebrow">Perfil do atleta</span><h2 id="athlete-modal-title" class="mt-1 text-2xl font-black">' + escapeHtml(athlete.name) + '</h2><p class="text-sm text-white/45">' + athlete.age + ' anos • ' + escapeHtml(athlete.city) + '/' + escapeHtml(athlete.state) + '</p></div></div><button type="button" class="icon-button" data-close-modal aria-label="Fechar">' + icon('close') + '</button></div>' +
-    '<div class="mt-6 flex flex-wrap gap-2">' + tag(athlete.pos) + tag(athlete.secondary, true) + footTag(athlete.foot) + tag(getCategoryFromAge(athlete.age)) + tag(athlete.gender || 'Não informado', true) + '</div>' +
-    '<div class="mt-6 grid gap-4 md:grid-cols-3"><div class="panel"><p class="text-xs text-white/35">Avaliação média</p><p class="mt-2 text-3xl font-black text-[#e6bd62]">' + formatRating(ratingOf(athlete)) + '</p></div><div class="panel"><p class="text-xs text-white/35">Votos</p><p id="modal-votes" class="mt-2 text-3xl font-black">' + (athlete.votes + (state.votes[athlete.id] || 0)) + '</p></div><div class="panel"><p class="text-xs text-white/35">Status</p><p class="mt-2 text-lg font-black">' + escapeHtml(athlete.status) + '</p></div></div>' +
+    '<div class="flex items-start justify-between gap-4"><div class="flex items-center gap-4"><div class="avatar-xl bg-gradient-to-br ' + athlete.color + '">' + avatar(athlete.name) + '</div><div><span class="eyebrow">' + t('Perfil do atleta') + '</span><h2 id="athlete-modal-title" class="mt-1 text-2xl font-black">' + escapeHtml(athlete.name) + '</h2><p class="text-sm text-white/45">' + athlete.age + ' ' + t('anos') + ' • ' + escapeHtml(athlete.city) + '/' + escapeHtml(athlete.state) + '</p></div></div><button type="button" class="icon-button" data-close-modal aria-label="Fechar">' + icon('close') + '</button></div>' +
+    '<div class="mt-6 flex flex-wrap gap-2">' + tag(t(athlete.pos)) + tag(t(athlete.secondary), true) + footTag(t(athlete.foot)) + tag(t(getCategoryFromAge(athlete.age))) + tag(t(athlete.gender || 'Não informado'), true) + '</div>' +
+    '<div class="mt-6 grid gap-4 md:grid-cols-3"><div class="panel"><p class="text-xs text-white/35">' + t('Avaliação média') + '</p><p class="mt-2 text-3xl font-black text-[#e6bd62]">' + formatRating(ratingOf(athlete)) + '</p></div><div class="panel"><p class="text-xs text-white/35">' + t('Votos') + '</p><p id="modal-votes" class="mt-2 text-3xl font-black">' + (athlete.votes + (state.votes[athlete.id] || 0)) + '</p></div><div class="panel"><p class="text-xs text-white/35">' + t('Status') + '</p><p class="mt-2 text-lg font-black">' + escapeHtml(athlete.status) + '</p></div></div>' +
     '<div class="mt-6"><span class="eyebrow">' + t('Atributos') + '</span><div class="mt-3 flex flex-wrap gap-2">' + (athlete.tags || []).map((item) => tag(item)).join('') + '</div></div>' +
-    '<div class="mt-6 flex flex-wrap gap-2"><button type="button" class="btn-primary" data-message-athlete="' + athlete.id + '">' + icon('message', 'size-4') + ' Abrir conversa</button><button type="button" class="btn-secondary" data-vote="' + athlete.id + '">' + icon('star', 'size-4') + '<span>' + (hasVoted(state, athlete.id, state.user?.email || 'anon') ? 'Retirar voto' : t('Votar')) + '</span></button>' +
-    (state.user?.role === 'staff' ? '<button type="button" class="btn-secondary" data-review-athlete="' + athlete.id + '">' + icon('edit', 'size-4') + ' Registrar avaliação</button>' : '') + '</div>' +
-    '<section class="mt-8"><div class="flex items-center justify-between gap-3"><div><span class="eyebrow">' + t('Avaliações') + '</span><h3 class="section-title">' + reviews.length + ' registro(s)</h3></div></div><div class="mt-4 grid gap-4 md:grid-cols-2">' + (reviews.length ? reviews.map((review) => reviewCard(review, athlete.id)).join('') : '<div class="md:col-span-2 rounded-2xl border border-dashed border-white/10 p-8 text-center text-white/40">Nenhuma avaliação registrada ainda.</div>') + '</div></section>' +
+    '<div class="mt-6 flex flex-wrap gap-2"><button type="button" class="btn-primary" data-message-athlete="' + athlete.id + '">' + icon('message', 'size-4') + ' ' + t('Abrir conversa') + '</button><button type="button" class="btn-secondary" data-vote="' + athlete.id + '">' + icon('star', 'size-4') + '<span>' + (hasVoted(state, athlete.id, state.user?.email || 'anon') ? t('Retirar voto') : t('Votar')) + '</span></button>' +
+    (state.user?.role === 'staff' ? '<button type="button" class="btn-secondary" data-review-athlete="' + athlete.id + '">' + icon('edit', 'size-4') + ' ' + t('Registrar avaliação') + '</button>' : '') + '</div>' +
+    '<section class="mt-8"><div class="flex items-center justify-between gap-3"><div><span class="eyebrow">' + t('Avaliações') + '</span><h3 class="section-title">' + reviews.length + ' ' + t('registro(s)') + '</h3></div></div><div class="mt-4 grid gap-4 md:grid-cols-2">' + (reviews.length ? reviews.map((review) => reviewCard(review, athlete.id)).join('') : '<div class="md:col-span-2 rounded-2xl border border-dashed border-white/10 p-8 text-center text-white/40">' + t('Nenhuma avaliação registrada ainda.') + '</div>') + '</div></section>' +
     '</div>'
 
   document.body.appendChild(wrapper)
@@ -1110,12 +1155,17 @@ function openAthleteModal(athleteId) {
   }))
   wrapper.querySelectorAll('[data-delete-review]').forEach((button) => button.addEventListener('click', () => {
     confirmDialog({
-      eyebrow: 'Avaliação',
-      title: 'Excluir sua avaliação?',
-      message: 'A avaliação será removida do perfil de ' + athlete.name + ' e a nota média será recalculada.',
+      eyebrow: t('Avaliação'),
+      title: t('Excluir sua avaliação?'),
+      message: t('A avaliação será removida do perfil de') + ' ' + athlete.name + ' ' + t('e a nota média será recalculada.'),
       confirmLabel: t('Excluir avaliação'),
-      onConfirm: () => {
-        state.reviews[athlete.id] = (state.reviews[athlete.id] || []).filter((review) => review.id !== Number(button.dataset.deleteReview))
+      onConfirm: async () => {
+        const reviewId = button.dataset.deleteReview
+        if (remote.enabled) {
+          const error = await removeEvaluation(String(reviewId).replace(/^r/, ''))
+          if (error) return toast(describeError(error), 'error')
+        }
+        state.reviews[athlete.id] = (state.reviews[athlete.id] || []).filter((review) => String(review.id) !== String(reviewId))
         persist()
         wrapper.remove()
         refreshAthleteViews()
@@ -1132,18 +1182,18 @@ function openAthleteModal(athleteId) {
 
 function startConversationForAthlete(id) {
   const athlete = state.athletes.find((a) => a.id === Number(id))
-  if (remote.enabled && !athlete?.profileId) return toast('Este atleta de exemplo não tem conta para receber mensagens.', 'error')
+  if (remote.enabled && !athlete?.profileId) return toast(t('Este atleta de exemplo não tem conta para receber mensagens.'), 'error')
   activeThread = String(id)
   openChatOnArrive = true
   go('messages')
 }
 
-function confirmDialog({ eyebrow = 'Confirmação', title, message, confirmLabel = t('Confirmar'), onConfirm }) {
+function confirmDialog({ eyebrow = t('Confirmação'), title, message, confirmLabel = t('Confirmar'), onConfirm }) {
   const wrapper = document.createElement('div')
   wrapper.className = 'fixed inset-0 z-[110] grid place-items-center bg-black/75 p-4'
   wrapper.innerHTML =
     '<div class="w-full max-w-md rounded-[28px] border border-white/10 bg-[#111] p-6" role="dialog" aria-modal="true"><span class="eyebrow">' + escapeHtml(eyebrow) + '</span><h2 class="mt-2 text-2xl font-black">' + escapeHtml(title) + '</h2><p class="mt-3 text-sm leading-6 text-white/55">' + escapeHtml(message) + '</p>' +
-    '<div class="mt-6 flex justify-end gap-2"><button type="button" class="btn-secondary" data-close>Voltar</button><button type="button" class="btn-danger" data-confirm>' + escapeHtml(confirmLabel) + '</button></div></div>'
+    '<div class="mt-6 flex justify-end gap-2"><button type="button" class="btn-secondary" data-close>' + t('Voltar') + '</button><button type="button" class="btn-danger" data-confirm>' + escapeHtml(confirmLabel) + '</button></div></div>'
   document.body.appendChild(wrapper)
   wrapper.querySelector('[data-close]').addEventListener('click', () => wrapper.remove())
   wrapper.addEventListener('click', (event) => { if (event.target === wrapper) wrapper.remove() })
@@ -1221,7 +1271,7 @@ function openReviewModal(athleteId) {
   form.addEventListener('input', updateScore)
   wrapper.querySelectorAll('[data-close]').forEach((button) => button.addEventListener('click', () => wrapper.remove()))
 
-  form.addEventListener('submit', (event) => {
+  form.addEventListener('submit', async (event) => {
     event.preventDefault()
     const error = wrapper.querySelector('#review-error')
     const fail = (message) => {
@@ -1252,8 +1302,7 @@ function openReviewModal(athleteId) {
     const result = computeFinalScore(pos, ratings, stats)
     const score = result.final
     const strengths = [...wrapper.querySelectorAll('input[name="strength"]:checked')].map((box) => box.value)
-    const list = state.reviews[athleteId] || []
-    list.unshift({
+    const review = {
       id: Date.now(),
       author: state.user?.name || 'Olheiro',
       authorEmail: state.user?.email,
@@ -1266,12 +1315,35 @@ function openReviewModal(athleteId) {
       strengths,
       comment,
       date: new Date().toLocaleDateString('pt-BR'),
-    })
+    }
+    if (remote.enabled) {
+      if (!athlete.profileId) return fail('Este atleta ainda não possui uma conta ativa para receber avaliações.')
+      const submit = form.querySelector('button[type="submit"]')
+      submit?.setAttribute('disabled', '')
+      const saved = await createEvaluation({
+        athleteId: athlete.profileId,
+        position: pos,
+        ratings,
+        rating: score,
+        baseRating: result.base,
+        adjustment: result.adjustment,
+        stats,
+        strengths,
+        comment,
+      })
+      if (saved.error || !saved.row) {
+        submit?.removeAttribute('disabled')
+        return fail(describeError(saved.error))
+      }
+      review.id = 'r' + saved.row.id
+    }
+    const list = state.reviews[athleteId] || []
+    list.unshift(review)
     state.reviews[athleteId] = list
     if (athlete.email) notify(athlete.email, 'Nova avaliação', 'Um olheiro avaliou seu desempenho como ' + pos + ' (nota ' + score.toFixed(1).replace('.', ',') + ').')
     persist()
     wrapper.remove()
-    toast('Avaliação salva. Nota final: ' + score.toFixed(1).replace('.', ',') + '.')
+    toast(t('Avaliação salva. Nota final:') + ' ' + score.toFixed(1).replace('.', ',') + '.')
     refreshAthleteViews()
     openAthleteModal(athleteId)
   })
@@ -1567,12 +1639,12 @@ async function saveProfile() {
   const pos = document.querySelector('#profile-pos').value
   const secondary = document.querySelector('#profile-secondary').value
   const foot = document.querySelector('#profile-foot').value
-  if (!foot) return showFeedback('profile-feedback', 'Selecione a perna dominante.', true)
-  if (!validBirthDate(birth) || age < 7 || age > 20) return showFeedback('profile-feedback', 'Informe uma data de nascimento válida para uma categoria até Sub-20.', true)
-  if (pos === secondary && secondary !== '—') return showFeedback('profile-feedback', 'A posição secundária deve ser diferente da principal.', true)
+  if (!foot) return showFeedback('profile-feedback', t('Selecione a perna dominante.'), true)
+  if (!validBirthDate(birth) || age < 7 || age > 20) return showFeedback('profile-feedback', t('Informe uma data de nascimento válida para uma categoria até Sub-20.'), true)
+  if (pos === secondary && secondary !== '—') return showFeedback('profile-feedback', t('A posição secundária deve ser diferente da principal.'), true)
   const newEmail = normalizeEmail(document.querySelector('#profile-email').value)
   const oldEmail = state.user.email
-  if (newEmail !== oldEmail && state.accounts.some((entry) => entry.email === newEmail)) return showFeedback('profile-feedback', 'Já existe uma conta com esse e-mail.', true)
+  if (newEmail !== oldEmail && state.accounts.some((entry) => entry.email === newEmail)) return showFeedback('profile-feedback', t('Já existe uma conta com esse e-mail.'), true)
   const next = {
     name: document.querySelector('#profile-name').value.trim(),
     cpf: document.querySelector('#profile-cpf').value.trim(),
@@ -1656,6 +1728,51 @@ async function registerAccount() {
   if (!remote.enabled) {
     if (state.accounts.some((account) => account.email === email)) return showFeedback('reg-feedback', 'Já existe uma conta com esse e-mail.', true)
     if (state.accounts.some((account) => account.cpf && account.cpf === cpf.replace(/\D/g, ''))) return showFeedback('reg-feedback', 'Já existe uma conta com esse CPF.', true)
+  }
+
+  async function registerStaffAccount() {
+    const email = normalizeEmail(document.querySelector('#staff-email').value)
+    const name = document.querySelector('#staff-name').value.trim()
+    const password = document.querySelector('#staff-password').value
+    const confirm = document.querySelector('#staff-confirm').value
+    const feedback = (message, error = true) => showFeedback('staff-register-feedback', message, error)
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return feedback(t('Informe um e-mail válido.'))
+    if (name.length < 3) return feedback(t('Informe um nome de usuário com pelo menos 3 caracteres.'))
+    if (password.length < 6) return feedback(t('A senha precisa ter pelo menos 6 caracteres.'))
+    if (password !== confirm) return feedback(t('As senhas não coincidem.'))
+    if (!remote.enabled && state.accounts.some((account) => account.email === email)) return feedback(t('Já existe uma conta com esse e-mail.'))
+
+    if (remote.enabled) {
+      const submit = document.querySelector('#staff-register-form button[type="submit"]')
+      submit?.setAttribute('disabled', '')
+      const result = await remoteSignUp({ email, password, name, publicData: { position: 'Funcionário' }, privateData: {} })
+      if (result.error) {
+        submit?.removeAttribute('disabled')
+        return feedback(describeError(result.error))
+      }
+      if (!result.session) return feedback(t('Conta criada! Confirme seu e-mail antes de entrar.'), false)
+      try {
+        await hydrateRemote(result.session.user.id)
+      } catch (error) {
+        submit?.removeAttribute('disabled')
+        return feedback(describeError(error))
+      }
+      if (state.user.role !== 'staff') {
+        await clearRemoteSession()
+        return feedback(t('Este e-mail ainda não está autorizado para uma conta de funcionário. Solicite a liberação à Academia Pelé.'))
+      }
+      go('dashboard')
+      toast(t('Conta criada com sucesso.'))
+      return
+    }
+
+    const account = { email, password, role: 'staff', profile: { name, email, position: 'Funcionário' } }
+    state.accounts.push(account)
+    state.user = { name, email, role: 'staff' }
+    state.profile = null
+    persist()
+    go('dashboard')
+    toast(t('Conta criada com sucesso.'))
   }
 
   const profile = {
@@ -1920,9 +2037,9 @@ function bind() {
     const vacancies = Number(tryout.seats) - enrolled.length
     const category = getCategoryFromAge(getAgeFromProfile(state.profile?.birth))
     const compatible = tryout.positions.includes(state.profile?.pos) || tryout.positions.includes(state.profile?.secondary)
-    if (tryout.category && tryout.category !== category) return toast('Sua categoria não corresponde à desta peneira.', 'error')
-    if (!compatible) return toast('Sua posição não está entre as posições aceitas.', 'error')
-    if (vacancies <= 0) return toast('Não há mais vagas nesta peneira.', 'error')
+    if (tryout.category && tryout.category !== category) return toast(t('Sua categoria não corresponde à desta peneira.'), 'error')
+    if (!compatible) return toast(t('Sua posição não está entre as posições aceitas.'), 'error')
+    if (vacancies <= 0) return toast(t('Não há mais vagas nesta peneira.'), 'error')
     enrolled.push(state.user.email)
     notifyTryoutStaff(tryout, 'Nova inscrição', state.user.name + ' se inscreveu em "' + tryout.title + '" (' + enrolled.length + '/' + tryout.seats + ').')
     notify(state.user.email, t('Inscrição confirmada'), 'Você se inscreveu em ' + tryout.title + '.')
@@ -1936,6 +2053,9 @@ function bind() {
     const field = document.querySelector('#' + id)
     if (field) field.addEventListener(field.tagName === 'INPUT' ? 'input' : 'change', applyFilters)
   })
+
+  const staffRegisterForm = document.querySelector('#staff-register-form')
+  if (staffRegisterForm) staffRegisterForm.addEventListener('submit', (event) => { event.preventDefault(); safely(registerStaffAccount()) })
 
   const registerForm = document.querySelector('#register-form')
   if (registerForm) {
@@ -2017,11 +2137,11 @@ function render() {
       pushChatEntry = true
     }
   }
-  if (!state.user && !['login', 'register'].includes(route)) {
+  if (!state.user && !['login', 'register', 'staff-register'].includes(route)) {
     go('login')
     return
   }
-  if (state.user && ['login', 'register'].includes(route)) {
+  if (state.user && ['login', 'register', 'staff-register'].includes(route)) {
     go('dashboard')
     return
   }
@@ -2033,6 +2153,7 @@ function render() {
   let view
   if (route === 'login') view = loginPage()
   else if (route === 'register') view = registerPage()
+  else if (route === 'staff-register') view = staffRegisterPage()
   else if (route === 'dashboard') view = dashboard(state.user.role)
   else if (route === 'athletes') view = athletesPage()
   else if (route === 'profile') view = profilePage()

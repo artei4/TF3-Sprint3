@@ -48,6 +48,23 @@ create table if not exists public.messages (
 );
 create index if not exists messages_thread_idx on public.messages (athlete_id, staff_id, created_at);
 
+-- ---------- 4) Avaliações ----------
+create table if not exists public.evaluations (
+  id           bigint generated always as identity primary key,
+  athlete_id   uuid not null references public.profiles (id) on delete cascade,
+  evaluator_id uuid not null references public.profiles (id) on delete cascade default auth.uid(),
+  position     text not null,
+  ratings      jsonb not null default '{}'::jsonb,
+  rating       numeric(3,1) not null check (rating between 0 and 10),
+  base_rating  numeric(3,1) not null check (base_rating between 0 and 10),
+  adjustment   numeric(3,1) not null default 0,
+  stats        jsonb not null default '{}'::jsonb,
+  strengths    jsonb not null default '[]'::jsonb,
+  comment      text not null check (char_length(btrim(comment)) between 10 and 2000),
+  created_at   timestamptz not null default now()
+);
+create index if not exists evaluations_athlete_idx on public.evaluations (athlete_id, created_at desc);
+
 -- ---------- 4) Funções ----------
 create or replace function public.is_staff()
 returns boolean language sql stable security definer set search_path = public as $$
@@ -84,12 +101,14 @@ create trigger on_auth_user_created
 alter table public.profiles        enable row level security;
 alter table public.profile_private enable row level security;
 alter table public.messages        enable row level security;
+alter table public.evaluations    enable row level security;
 
-revoke all on public.profiles, public.profile_private, public.messages, public.staff_allowlist from anon, authenticated;
+revoke all on public.profiles, public.profile_private, public.messages, public.evaluations, public.staff_allowlist from anon, authenticated;
 grant select on public.profiles to authenticated;
 grant update (name, data) on public.profiles to authenticated;      -- não dá para alterar o próprio "role"
 grant select, update on public.profile_private to authenticated;
 grant select, insert on public.messages to authenticated;
+grant select, insert, delete on public.evaluations to authenticated;
 
 drop policy if exists profiles_select on public.profiles;
 create policy profiles_select on public.profiles for select to authenticated
@@ -119,6 +138,22 @@ create policy messages_insert on public.messages for insert to authenticated
     and exists (select 1 from public.profiles p where p.id = athlete_id and p.role = 'player')
     and exists (select 1 from public.profiles p where p.id = staff_id   and p.role = 'staff')
   );
+
+drop policy if exists evaluations_select on public.evaluations;
+create policy evaluations_select on public.evaluations for select to authenticated
+  using (athlete_id = auth.uid() or public.is_staff());
+
+drop policy if exists evaluations_insert on public.evaluations;
+create policy evaluations_insert on public.evaluations for insert to authenticated
+  with check (
+    evaluator_id = auth.uid()
+    and public.is_staff()
+    and exists (select 1 from public.profiles p where p.id = athlete_id and p.role = 'player')
+  );
+
+drop policy if exists evaluations_delete on public.evaluations;
+create policy evaluations_delete on public.evaluations for delete to authenticated
+  using (evaluator_id = auth.uid() and public.is_staff());
 
 -- ---------- 6) Tempo real ----------
 do $$

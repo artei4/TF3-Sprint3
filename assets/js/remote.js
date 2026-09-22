@@ -2,6 +2,7 @@
 // Se o Supabase não estiver configurado (ou não carregar), `remote.enabled` fica false
 // e o site continua funcionando em modo local (localStorage), como antes.
 import { SUPABASE_URL, SUPABASE_KEY } from './config.js'
+import { t } from './i18n.js'
 
 const SUPABASE_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
 const LOAD_TIMEOUT_MS = 8000
@@ -36,14 +37,14 @@ export async function initRemote() {
 export function describeError(error) {
   const text = String(error?.message || error || '').toLowerCase()
   const code = String(error?.code || '').toLowerCase()
-  if (text.includes('invalid login credentials')) return 'E-mail ou senha incorretos.'
-  if (text.includes('already registered') || code === 'user_already_exists') return 'Já existe uma conta com esse e-mail.'
-  if (text.includes('email not confirmed')) return 'Confirme seu e-mail antes de entrar (veja sua caixa de entrada).'
-  if (text.includes('database error saving new user') || code === 'unexpected_failure') return 'Não foi possível criar a conta. O CPF ou o e-mail já pode estar cadastrado.'
-  if (text.includes('rate limit') || code.includes('rate_limit')) return 'Muitas tentativas. Aguarde alguns minutos e tente novamente.'
-  if (text.includes('relation') && text.includes('does not exist')) return 'O banco ainda não foi configurado. Execute o SQL da pasta supabase/migrations.'
-  if (text.includes('failed to fetch') || text.includes('network')) return 'Sem conexão com o servidor. Verifique sua internet.'
-  return 'Não foi possível concluir a operação. Tente novamente.'
+  if (text.includes('invalid login credentials')) return t('E-mail ou senha incorretos.')
+  if (text.includes('already registered') || code === 'user_already_exists') return t('Já existe uma conta com esse e-mail.')
+  if (text.includes('email not confirmed')) return t('Confirme seu e-mail antes de entrar (veja sua caixa de entrada).')
+  if (text.includes('database error saving new user') || code === 'unexpected_failure') return t('Não foi possível criar a conta. O CPF ou o e-mail já pode estar cadastrado.')
+  if (text.includes('rate limit') || code.includes('rate_limit')) return t('Muitas tentativas. Aguarde alguns minutos e tente novamente.')
+  if (text.includes('relation') && text.includes('does not exist')) return t('O banco ainda não foi configurado. Execute o SQL da pasta supabase/migrations.')
+  if (text.includes('failed to fetch') || text.includes('network')) return t('Sem conexão com o servidor. Verifique sua internet.')
+  return t('Não foi possível concluir a operação. Tente novamente.')
 }
 
 // ---------- Autenticação ----------
@@ -125,6 +126,45 @@ export async function sendMessage({ athleteId, staffId, senderId, body }) {
     .select('id,athlete_id,staff_id,sender_id,body,created_at')
     .single()
   return { row: data || null, error }
+}
+
+export async function fetchEvaluations() {
+  const { data, error } = await client
+    .from('evaluations')
+    .select('id,athlete_id,evaluator_id,position,ratings,rating,base_rating,adjustment,stats,strengths,comment,created_at')
+    .order('created_at', { ascending: false })
+    .limit(2000)
+  if (error) throw error
+  const evaluatorIds = [...new Set((data || []).map((row) => row.evaluator_id).filter(Boolean))]
+  if (!evaluatorIds.length) return data || []
+  const authors = await client.from('profiles').select('id,name,email').in('id', evaluatorIds)
+  if (authors.error) throw authors.error
+  const byId = new Map((authors.data || []).map((profile) => [profile.id, profile]))
+  return (data || []).map((row) => ({ ...row, evaluator: byId.get(row.evaluator_id) || null }))
+}
+
+export async function createEvaluation({ athleteId, position, ratings, rating, baseRating, adjustment, stats, strengths, comment }) {
+  const { data, error } = await client
+    .from('evaluations')
+    .insert({
+      athlete_id: athleteId,
+      position,
+      ratings,
+      rating,
+      base_rating: baseRating,
+      adjustment,
+      stats,
+      strengths,
+      comment,
+    })
+    .select('id,athlete_id,evaluator_id,position,ratings,rating,base_rating,adjustment,stats,strengths,comment,created_at')
+    .single()
+  return { row: data || null, error }
+}
+
+export async function removeEvaluation(id) {
+  const { error } = await client.from('evaluations').delete().eq('id', id)
+  return error || null
 }
 
 // Recebe novas mensagens em tempo real (o banco só entrega as conversas de que o usuário participa).
