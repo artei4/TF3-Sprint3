@@ -62,3 +62,34 @@ button { cursor:pointer; }
 .check-pill input { accent-color:#d8b05c; }
 
 *:focus-visible { outline:2px solid #f0c965; outline-offset:3px; }
+
+/* ===== Conversas ===== */
+.chat-back { display:none; }
+.conv-preview { display:none; font-size:.72rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.conv-meta { display:flex; flex-direction:column; align-items:flex-end; gap:.3rem; flex:none; }
+.conv-time { display:none; font-size:.68rem; color:rgba(255,255,255,.35); }
+.conv-unread { display:inline-grid; place-items:center; min-width:1.25rem; height:1.25rem; padding:0 .3rem; border-radius:999px; background:#22c55e; color:#04140a; font-size:.68rem; font-weight:900; }
+.chat-messages { min-height:0; }
+
+/* Celular: a conversa abre em tela cheia (estilo WhatsApp); no computador nada muda. */
+@media (max-width:767px) {
+  .chat-heading .page-subtitle { display:none; }
+  #conversation-list { max-height:none !important; }
+  .conv-sub { display:none !important; }
+  .conv-preview { display:block; }
+  .conv-time { display:block; }
+  .conversation-item { padding:.8rem .7rem; }
+  .conversation-item .avatar { width:3rem; height:3rem; font-size:.85rem; }
+  .chat-layout[data-mobile-view="list"] .chat-pane { display:none; }
+  .chat-layout[data-mobile-view="chat"] { min-height:0; border:0; background:transparent; }
+  .chat-layout[data-mobile-view="chat"] .chat-list { display:none; }
+  .chat-layout[data-mobile-view="chat"] .chat-pane { position:fixed; inset:0; z-index:70; display:flex; flex-direction:column; height:100vh; height:100dvh; background:#0a0a0a; }
+  .chat-back { display:grid; flex:none; }
+  .chat-tag { display:none; }
+  .chat-header { padding:.6rem .75rem; background:#111; padding-top:calc(.6rem + env(safe-area-inset-top)); }
+  .chat-messages { padding:.9rem .75rem; background:radial-gradient(circle at top right, rgba(216,176,88,.06), transparent 40%), #0a0a0a; }
+  .chat-input-bar { padding:.55rem .7rem calc(.55rem + env(safe-area-inset-bottom)); background:#111; }
+  .chat-input-bar .field { margin-top:0; border-radius:999px; padding:.8rem 1rem; }
+  .chat-send { width:2.9rem; height:2.9rem; padding:0; border-radius:50%; }
+  body.chat-open { overflow:hidden; }
+}

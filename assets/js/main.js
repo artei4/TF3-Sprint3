@@ -8,6 +8,7 @@ import {
 } from './validation.js'
 import { filterAthletes } from './filters.js'
 import { toggleFavorite, registerVote, removeVote, hasVoted } from './feed.js'
+import { LANGS, getLang, setLang, t } from './i18n.js'
 import {
   FEET,
   STRENGTHS,
@@ -20,6 +21,22 @@ import {
   validateStats,
 } from './evaluation.js'
 import { threadKey, searchConversations } from './messages.js'
+import {
+  remote,
+  initRemote,
+  describeError,
+  getSessionUser,
+  signUp as remoteSignUp,
+  signIn as remoteSignIn,
+  signOut as remoteSignOut,
+  onSignedOut,
+  fetchOwnProfile,
+  listDirectory,
+  updateOwnProfile,
+  fetchMessages,
+  sendMessage as remoteSendMessage,
+  subscribeMessages,
+} from './remote.js'
 
 const app = document.querySelector('#app')
 
@@ -81,12 +98,20 @@ const state = {
   tryouts: readStorage('ap_tryouts', defaultTryouts),
   reviews: readStorage('ap_reviews', {}),
   notifications: readStorage('ap_notifications', []),
+  lastRead: readStorage('ap_lastread', {}),
 }
 
 let activeThread = null
 let lastRoute = null
 let notificationSeq = 0
 let activeThreadKey = null
+let activeConversation = null
+let mobileChatOpen = false
+let openChatOnArrive = false
+let booted = false
+let stopMessages = null
+let stopAuthWatch = null
+let lastRemoteRefresh = 0
 
 migrateLegacyStorage()
 seedDemoAccounts()
@@ -138,13 +163,16 @@ function migrateLegacyStorage(){
 }
 
 function persist() {
-  localStorage.setItem('ap_user', JSON.stringify(state.user))
-  localStorage.setItem('ap_accounts', JSON.stringify(state.accounts))
+  // Com o Supabase ativo, sessão, contas e mensagens vivem no servidor (nada disso é guardado no navegador).
+  if (!remote.enabled) {
+    localStorage.setItem('ap_user', JSON.stringify(state.user))
+    localStorage.setItem('ap_accounts', JSON.stringify(state.accounts))
+    localStorage.setItem('ap_profile', JSON.stringify(state.profile))
+    localStorage.setItem('ap_messages', JSON.stringify(state.messages))
+  }
   localStorage.setItem('ap_favorites', JSON.stringify(state.favorites))
   localStorage.setItem('ap_votes', JSON.stringify(state.votes))
   localStorage.setItem('ap_voted', JSON.stringify(state.voted))
-  localStorage.setItem('ap_messages', JSON.stringify(state.messages))
-  localStorage.setItem('ap_profile', JSON.stringify(state.profile))
   localStorage.setItem('ap_tryouts', JSON.stringify(state.tryouts))
   localStorage.setItem('ap_reviews', JSON.stringify(state.reviews))
   localStorage.setItem('ap_notifications', JSON.stringify(state.notifications))
@@ -215,7 +243,9 @@ function athleteFieldsFromProfile(profile = {}) {
 function syncAthletes() {
   const players = state.accounts.filter((account) => account.role === 'player' && account.athleteId && account.profile)
   const byId = new Map(players.map((account) => [account.athleteId, account]))
-  const base = defaultAthletes.map((athlete) => {
+  // Com o Supabase, um atleta de exemplo com o mesmo e-mail de uma conta real é substituído pela conta real.
+  const realEmails = new Set(players.filter((account) => account.uid).map((account) => account.email))
+  const base = defaultAthletes.filter((athlete) => !(athlete.email && realEmails.has(athlete.email))).map((athlete) => {
     const account = byId.get(athlete.id)
     return account ? { ...athlete, ...athleteFieldsFromProfile(account.profile) } : { ...athlete }
   })
@@ -223,6 +253,7 @@ function syncAthletes() {
     .filter((account) => !defaultAthletes.some((athlete) => athlete.id === account.athleteId))
     .map((account, index) => ({
       id: account.athleteId,
+      profileId: account.uid,
       email: account.email,
       ...athleteFieldsFromProfile(account.profile),
       rating: 0,
@@ -233,6 +264,314 @@ function syncAthletes() {
     }))
   state.athletes = base.concat(registered)
   state.filteredAthletes = state.athletes
+}
+
+// =====================================================================================
+// Conversas: identidade, não lidas, tempo real (Supabase) e layout do celular
+// =====================================================================================
+const isMobileView = () => window.matchMedia('(max-width: 767px)').matches
+const myRole = () => (state.user?.role === 'staff' ? 'staff' : 'player')
+const timeLocale = () => 'pt-BR'
+
+function fmtClock(ts) {
+  return ts ? new Date(ts).toLocaleTimeString(timeLocale(), { hour: '2-digit', minute: '2-digit' }) : ''
+}
+
+function fmtListTime(ts) {
+  if (!ts) return ''
+  const date = new Date(ts)
+  const today = new Date()
+  return date.toDateString() === today.toDateString()
+    ? fmtClock(ts)
+    : date.toLocaleDateString(timeLocale(), { day: '2-digit', month: '2-digit' })
+}
+
+// Cada conversa é o par (atleta, funcionário). `key` é o mesmo para as duas pontas.
+function getConversations() {
+  if (!state.user) return []
+  const staff = state.user.role === 'staff'
+  if (staff) {
+    return state.athletes
+      .filter((a) => !remote.enabled || a.profileId)
+      .map((a) => ({
+        id: String(a.id),
+        name: a.name,
+        subtitle: a.pos + ' • ' + a.city,
+        avatar: a.name,
+        key: remote.enabled ? threadKey(a.profileId, state.user.uid) : threadKey(a.id, state.user.email),
+        athleteRef: a.profileId,
+        staffRef: state.user.uid,
+      }))
+  }
+  const me = getCurrentAthlete()
+  if (!remote.enabled && !me) return []
+  return state.accounts.filter((a) => a.role === 'staff').map((a) => ({
+    id: remote.enabled ? a.uid : a.email,
+    name: a.profile?.name || a.email,
+    subtitle: (a.profile?.position || 'Profissional') + ' • ' + (a.profile?.city || 'Academia Pelé'),
+    avatar: a.profile?.name || a.email,
+    key: remote.enabled ? threadKey(state.user.uid, a.uid) : threadKey(me.id, a.email),
+    athleteRef: state.user.uid,
+    staffRef: a.uid,
+  }))
+}
+
+const messageTs = (message) => Number(message.ts) || Number(message.id) || 0
+const lastMessageOf = (key) => state.messages.filter((m) => m.thread === key).reduce((last, m) => (!last || messageTs(m) >= messageTs(last) ? m : last), null)
+
+function unreadCount(key) {
+  const readUntil = state.lastRead[key] || 0
+  return state.messages.filter((m) => m.thread === key && m.senderRole !== myRole() && !m.pending && messageTs(m) > readUntil).length
+}
+
+function markRead(key) {
+  const last = lastMessageOf(key)
+  if (!last || messageTs(last) <= (state.lastRead[key] || 0)) return
+  state.lastRead[key] = messageTs(last)
+  localStorage.setItem('ap_lastread', JSON.stringify(state.lastRead))
+}
+
+// Na primeira vez que o usuário entra, tudo o que já existe conta como lido (evita "50 não lidas" de uma vez).
+function ensureReadBaseline(tag) {
+  const flag = '__init:' + tag
+  if (state.lastRead[flag]) return
+  state.messages.forEach((m) => {
+    state.lastRead[m.thread] = Math.max(state.lastRead[m.thread] || 0, messageTs(m))
+  })
+  state.lastRead[flag] = 1
+  localStorage.setItem('ap_lastread', JSON.stringify(state.lastRead))
+}
+
+function updateMessageBadge() {
+  const badge = document.querySelector('#msg-badge')
+  if (!badge) return
+  const total = getConversations().reduce((sum, c) => sum + unreadCount(c.key), 0)
+  badge.textContent = total > 9 ? '9+' : String(total)
+  badge.style.display = total ? 'grid' : 'none'
+}
+
+function messageBubble(message, role) {
+  const mine = message.senderRole === role
+  return '<div class="flex ' + (mine ? 'justify-end' : '') + '" data-msg-id="' + escapeHtml(message.id) + '"><div class="max-w-[78%] rounded-2xl ' + (mine ? 'rounded-br-md bg-[#d8af58] text-black' : 'rounded-bl-md border border-white/8 bg-white/[.045] text-white') + (message.pending ? ' opacity-60' : '') + ' px-4 py-3 text-sm leading-6"><p class="whitespace-pre-wrap break-words" translate="no">' + escapeHtml(message.text) + '</p><p class="mt-1 text-[10px] opacity-50">' + escapeHtml(fmtClock(messageTs(message)) || message.time || '') + '</p></div></div>'
+}
+
+function appendBubble(message) {
+  const box = document.querySelector('#chat-messages')
+  if (!box) return
+  box.querySelector('[data-empty-chat]')?.remove()
+  box.insertAdjacentHTML('beforeend', messageBubble(message, myRole()))
+  box.scrollTop = box.scrollHeight
+}
+
+function markBubbleSent(oldId, message) {
+  const bubble = document.querySelector('[data-msg-id="' + oldId + '"]')
+  if (!bubble) return
+  bubble.setAttribute('data-msg-id', message.id)
+  bubble.firstElementChild?.classList.remove('opacity-60')
+}
+
+function conversationItemsHtml(conversations, selectedId) {
+  const role = myRole()
+  return conversations.map((c) => {
+    const last = lastMessageOf(c.key)
+    const unread = c.id === selectedId && (!isMobileView() || mobileChatOpen) ? 0 : unreadCount(c.key)
+    return '<button type="button" class="conversation-item ' + (c.id === selectedId ? 'selected' : '') + '" data-thread="' + escapeHtml(c.id) + '" data-name="' + escapeHtml(c.name) + '" data-subtitle="' + escapeHtml(c.subtitle) + '">' +
+      '<span class="avatar">' + avatar(c.avatar) + '</span>' +
+      '<span class="min-w-0 flex-1 text-left"><strong class="block truncate">' + escapeHtml(c.name) + '</strong>' +
+      '<small class="conv-sub block truncate text-white/35">' + escapeHtml(c.subtitle) + '</small>' +
+      '<small class="conv-preview truncate text-white/45">' + (last ? (last.senderRole === role ? '<span>Você: </span>' : '') + '<span translate="no">' + escapeHtml(last.text) + '</span>' : '<span>' + escapeHtml(c.subtitle) + '</span>') + '</small></span>' +
+      '<span class="conv-meta">' + (last ? '<time class="conv-time">' + escapeHtml(fmtListTime(messageTs(last))) + '</time>' : '') + (unread ? '<b class="conv-unread">' + unread + '</b>' : '') + '</span></button>'
+  }).join('') + '<p id="conversation-empty" class="p-4 text-center text-xs text-white/35" hidden>Nenhum resultado encontrado.</p>'
+}
+
+function bindConversationItems() {
+  document.querySelectorAll('[data-thread]').forEach((button) => button.addEventListener('click', () => {
+    activeThread = button.dataset.thread
+    if (isMobileView()) {
+      mobileChatOpen = true
+      history.pushState({ apChat: true }, '')
+    }
+    render()
+  }))
+}
+
+// Atualiza só a lista de contatos (mantém o texto digitado na pesquisa e na mensagem).
+function updateConversationList() {
+  const list = document.querySelector('#conversation-list')
+  if (!list) return
+  list.innerHTML = conversationItemsHtml(getConversations(), activeThread)
+  bindConversationItems()
+  document.querySelector('#conversation-search')?.dispatchEvent(new Event('input'))
+}
+
+function closeMobileChat() {
+  if (history.state?.apChat) history.back()
+  else {
+    mobileChatOpen = false
+    render()
+  }
+}
+
+// ---------- envio e recebimento ----------
+async function sendChatMessage(text) {
+  const conversation = activeConversation
+  if (!conversation) return false
+  const role = myRole()
+  if (!remote.enabled) {
+    const message = { id: Date.now(), thread: conversation.key, senderRole: role, text, ts: Date.now() }
+    state.messages.push(message)
+    persist()
+    appendBubble(message)
+    markRead(conversation.key)
+    return true
+  }
+  const temp = { id: 'tmp-' + Date.now() + Math.random().toString(36).slice(2, 6), thread: conversation.key, senderRole: role, text, ts: Date.now(), pending: true }
+  state.messages.push(temp)
+  appendBubble(temp)
+  const { row, error } = await remoteSendMessage({ athleteId: conversation.athleteRef, staffId: conversation.staffRef, senderId: state.user.uid, body: text })
+  if (error || !row) {
+    state.messages = state.messages.filter((m) => m.id !== temp.id)
+    document.querySelector('[data-msg-id="' + temp.id + '"]')?.remove()
+    toast('Não foi possível enviar a mensagem. Tente novamente.', 'error')
+    return false
+  }
+  const real = mapRemoteMessage(row)
+  const index = state.messages.findIndex((m) => m.id === temp.id)
+  if (state.messages.some((m) => m.id === real.id)) {
+    state.messages = state.messages.filter((m) => m.id !== temp.id) // o "eco" em tempo real já chegou
+  } else if (index >= 0) {
+    state.messages[index] = real
+  }
+  markBubbleSent(temp.id, real)
+  markRead(conversation.key)
+  return true
+}
+
+function mapRemoteMessage(row) {
+  return {
+    id: 'r' + row.id,
+    thread: row.athlete_id + '::' + row.staff_id,
+    senderRole: row.sender_id === row.athlete_id ? 'player' : 'staff',
+    text: row.body,
+    ts: Date.parse(row.created_at),
+  }
+}
+
+// Adiciona a mensagem ao estado. Se ela é a versão definitiva de uma mensagem "enviando...", troca a temporária.
+function ingestMessage(message) {
+  if (state.messages.some((m) => m.id === message.id)) return { added: false }
+  const pendingIndex = state.messages.findIndex((m) => m.pending && m.thread === message.thread && m.senderRole === message.senderRole && m.text === message.text)
+  if (pendingIndex >= 0) {
+    const replacedId = state.messages[pendingIndex].id
+    state.messages[pendingIndex] = message
+    return { added: true, replacedId }
+  }
+  state.messages.push(message)
+  return { added: true }
+}
+
+function showIncoming(message, fromSelf) {
+  const viewing = currentRoute() === 'messages' && activeThreadKey === message.thread && (!isMobileView() || mobileChatOpen)
+  if (viewing) {
+    appendBubble(message)
+    markRead(message.thread)
+    return
+  }
+  if (!fromSelf) {
+    const name = getConversations().find((c) => c.key === message.thread)?.name
+    toast('Nova mensagem' + (name ? ' de ' + name : '') + '.')
+  }
+  updateMessageBadge()
+  if (currentRoute() === 'messages') updateConversationList()
+}
+
+function onRemoteInsert(row) {
+  const message = mapRemoteMessage(row)
+  const { added, replacedId } = ingestMessage(message)
+  if (!added) return
+  if (replacedId) {
+    markBubbleSent(replacedId, message)
+    return
+  }
+  showIncoming(message, message.senderRole === myRole())
+}
+
+// ---------- sessão remota (Supabase) ----------
+function remoteAccount(row) {
+  return {
+    email: row.email,
+    role: row.role,
+    athleteId: Number(row.athlete_num),
+    uid: row.id,
+    profile: { ...(row.data || {}), name: row.name, email: row.email },
+  }
+}
+
+async function hydrateRemote(uid) {
+  const own = await fetchOwnProfile(uid)
+  if (!own.profile) throw new Error('perfil não encontrado')
+  const directory = await listDirectory(own.profile.role)
+  const ownAccount = remoteAccount(own.profile)
+  ownAccount.profile = { ...ownAccount.profile, ...own.private }
+  state.accounts = [ownAccount].concat(directory.map(remoteAccount))
+  state.user = { name: own.profile.name, email: own.profile.email, role: own.profile.role, uid }
+  state.profile = own.profile.role === 'player' ? ownAccount.profile : null
+  state.messages = (await fetchMessages()).map(mapRemoteMessage)
+  ensureReadBaseline(uid)
+  stopMessages?.()
+  stopMessages = subscribeMessages(uid, onRemoteInsert)
+  stopAuthWatch?.()
+  stopAuthWatch = onSignedOut(() => { if (state.user && remote.enabled) clearRemoteSession({ navigate: true, signOut: false }) })
+  lastRemoteRefresh = Date.now()
+  syncAthletes()
+}
+
+async function clearRemoteSession({ navigate = false, signOut = true } = {}) {
+  stopMessages?.()
+  stopAuthWatch?.()
+  stopMessages = null
+  stopAuthWatch = null
+  if (signOut) await remoteSignOut()
+  state.user = null
+  state.profile = null
+  state.accounts = []
+  state.messages = []
+  activeThread = null
+  activeConversation = null
+  activeThreadKey = null
+  mobileChatOpen = false
+  syncAthletes()
+  if (navigate) {
+    if (currentRoute() === 'login') render()
+    else go('login')
+  }
+}
+
+// Atualiza a lista de pessoas (novos cadastros) e busca mensagens perdidas (ex.: celular em segundo plano).
+async function refreshRemote(force = false) {
+  if (!remote.enabled || !state.user?.uid) return
+  if (!force && Date.now() - lastRemoteRefresh < 15000) return
+  lastRemoteRefresh = Date.now()
+  try {
+    const directory = await listDirectory(state.user.role)
+    const own = state.accounts.find((account) => account.uid === state.user.uid)
+    const before = state.athletes.length
+    state.accounts = (own ? [own] : []).concat(directory.map(remoteAccount))
+    syncAthletes()
+    const known = new Set(state.messages.map((m) => m.id))
+    const missed = (await fetchMessages()).map(mapRemoteMessage).filter((m) => !known.has(m.id))
+    missed.forEach((message) => {
+      if (ingestMessage(message).added) showIncoming(message, message.senderRole === myRole())
+    })
+    const route = currentRoute()
+    if (state.athletes.length !== before) {
+      if (route === 'athletes') applyFilters()
+      else if (route === 'dashboard') render()
+      else if (route === 'messages') updateConversationList()
+    }
+  } catch (error) {
+    console.warn('[Supabase] não foi possível atualizar:', error)
+  }
 }
 
 // Nota exibida do atleta: média das avaliações registradas (se houver) ou a nota inicial.
@@ -271,7 +610,9 @@ function icon(name, cls = 'size-5') {
     star: '<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.2 6.4 20l1.1-6.2L3 9.6l6.2-.9z"/>',
     menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
     close: '<path d="m6 6 12 12M18 6 6 18"/>',
+    globe: '<circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M3 12h18M12 3c2.5 2.6 3.8 5.8 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.8-3.8-9s1.3-6.4 3.8-9Z"/>',
     arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+    back: '<path d="M19 12H5M11 6l-6 6 6 6"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
     pin: '<path d="M12 21s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12Z"/><circle cx="12" cy="9" r="2.5"/>',
     check: '<path d="m5 12 4 4L19 6"/>',
@@ -321,8 +662,8 @@ function shell(content, options = {}) {
   const role = options.role || 'player'
   const active = options.active || 'dashboard'
   const nav = role === 'staff'
-    ? [['dashboard', 'Visão geral', 'home'], ['athletes', 'Atletas', 'search'], ['tryouts', 'Peneiras', 'calendar'], ['messages', 'Conversas', 'message']]
-    : [['dashboard', 'Início', 'home'], ['profile', 'Meu perfil', 'user'], ['tryouts', 'Peneiras', 'calendar'], ['messages', 'Conversas', 'message']]
+    ? [['dashboard', t('Visão geral'), 'home'], ['athletes', t('Atletas'), 'search'], ['tryouts', t('Peneiras'), 'calendar'], ['messages', t('Conversas'), 'message']]
+    : [['dashboard', t('Início'), 'home'], ['profile', t('Meu perfil'), 'user'], ['tryouts', t('Peneiras'), 'calendar'], ['messages', t('Conversas'), 'message']]
 
   return '<div class="min-h-screen bg-[radial-gradient(circle_at_top_right,_rgba(208,169,72,.12),_transparent_26%),#090909] text-white">' +
     '<header class="sticky top-0 z-40 border-b border-white/8 bg-[#090909]/90 backdrop-blur-xl">' +
@@ -334,7 +675,8 @@ function shell(content, options = {}) {
     nav.map((item) => '<button type="button" data-route="' + item[0] + '" class="nav-link ' + (active === item[0] ? 'active' : '') + '">' + icon(item[2], 'size-4') + item[1] + '</button>').join('') +
     '</nav>' +
     '<div class="flex items-center gap-2">' +
-    '<button type="button" class="icon-button" data-route="messages" aria-label="Conversas">' + icon('message') + '</button>' +
+    '<button type="button" class="icon-button relative" data-route="messages" aria-label="Conversas">' + icon('message') + '<span id="msg-badge" class="absolute -right-1 -top-1 min-w-[1.1rem] place-items-center rounded-full bg-emerald-500 px-1 text-[10px] font-black leading-[1.1rem] text-white" style="display:none"></span></button>' +
+    '<button type="button" class="icon-button" data-action="change-lang" aria-label="Alterar idioma" title="' + t('Alterar idioma') + '">' + icon('globe', 'size-4') + '</button>' +
     '<button type="button" class="icon-button relative" data-action="notifications" aria-label="Abrir notificações">' + icon('bell') + '<span id="notif-badge" class="absolute -right-1 -top-1 min-w-[1.1rem] place-items-center rounded-full bg-rose-500 px-1 text-[10px] font-black leading-[1.1rem] text-white" style="display:' + (myNotifications().length ? 'grid' : 'none') + '">' + (myNotifications().length > 9 ? '9+' : myNotifications().length) + '</span></button>' +
     '<button type="button" class="profile-chip" data-route="profile"><span class="avatar">' + avatar(state.user?.name || 'Atleta') + '</span><span class="hidden lg:block max-w-28 truncate text-sm">' + escapeHtml(state.user?.name || 'Atleta') + '</span></button>' +
     '<button type="button" class="icon-button md:hidden" data-action="menu" aria-label="Abrir menu">' + icon('menu') + '</button>' +
@@ -362,29 +704,29 @@ function playerDashboard() {
   const next = state.tryouts.find((t) => {
     const enrolled = Array.isArray(t.enrolled) && t.enrolled.includes(state.user?.email)
     return enrolled
-  }) || state.tryouts[0] || { title: 'Nenhuma peneira aberta', category: '—', date: '', time: '', location: '—', city: '—', state: '', positions: [] }
+  }) || state.tryouts[0] || { title: t('Nenhuma peneira aberta'), category: '—', date: '', time: '', location: '—', city: '—', state: '', positions: [] }
 
   return shell(
     '<section class="grid gap-6 xl:grid-cols-[1.55fr_.8fr]">' +
     '<div class="overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(135deg,#17130c_0%,#0d0d0d_55%,#18120a_100%)] p-6 shadow-2xl sm:p-8">' +
-    '<div class="flex flex-wrap items-center justify-between gap-4"><div><span class="eyebrow">Painel do atleta</span><h1 class="mt-3 max-w-xl text-3xl font-black leading-tight tracking-tight sm:text-5xl">Olá, ' + name + '. <span class="text-[#e6bd62]">Sua carreira em movimento.</span></h1><p class="mt-4 max-w-2xl text-base leading-7 text-white/55">Acompanhe oportunidades, avaliações e conversas com profissionais da Academia Pelé.</p></div>' +
+    '<div class="flex flex-wrap items-center justify-between gap-4"><div><span class="eyebrow">' + t('Painel do atleta') + '</span><h1 class="mt-3 max-w-xl text-3xl font-black leading-tight tracking-tight sm:text-5xl">Olá, ' + name + '. <span class="text-[#e6bd62]">Sua carreira em movimento.</span></h1><p class="mt-4 max-w-2xl text-base leading-7 text-white/55">Acompanhe oportunidades, avaliações e conversas com profissionais da Academia Pelé.</p></div>' +
     '<div class="hidden sm:flex h-28 w-28 items-center justify-center rounded-3xl border border-[#d4ad59]/25 bg-[#d4ad59]/10"><img src="./assets/brand/simbolo.jpg" alt="Logo Academia Pelé" class="h-24 w-24 rounded-2xl object-contain" /></div></div>' +
     '<div class="mt-8 grid gap-3 sm:grid-cols-3">' +
-    stat(averagePlayerRating(profile), 'Avaliação média', 'notas registradas') +
-    stat(String(state.tryouts.filter((t) => Array.isArray(t.enrolled) && t.enrolled.includes(state.user?.email)).length).padStart(2, '0'), 'Peneiras inscritas', 'acompanhe suas vagas') +
-    stat(String(myNotifications().length).padStart(2, '0'), 'Notificações', 'atualizadas recentemente') +
+    stat(averagePlayerRating(profile), t('Avaliação média'), 'notas registradas') +
+    stat(String(state.tryouts.filter((t) => Array.isArray(t.enrolled) && t.enrolled.includes(state.user?.email)).length).padStart(2, '0'), t('Peneiras inscritas'), 'acompanhe suas vagas') +
+    stat(String(myNotifications().length).padStart(2, '0'), t('Notificações'), 'atualizadas recentemente') +
     '</div></div>' +
-    '<aside class="rounded-[28px] border border-white/10 bg-white/[.03] p-6"><div class="flex items-center justify-between gap-3"><div><span class="eyebrow">Próxima oportunidade</span><h2 class="mt-2 text-xl font-black">' + escapeHtml(next.title) + '</h2></div><span class="status-dot">' + escapeHtml(next.category || 'Aberta') + '</span></div>' +
+    '<aside class="rounded-[28px] border border-white/10 bg-white/[.03] p-6"><div class="flex items-center justify-between gap-3"><div><span class="eyebrow">Próxima oportunidade</span><h2 class="mt-2 text-xl font-black">' + escapeHtml(next.title) + '</h2></div><span class="status-dot">' + escapeHtml(next.category || t('Aberta')) + '</span></div>' +
     '<div class="mt-6 space-y-4"><div class="flex gap-3">' + icon('calendar', 'size-5 text-[#e1bb62]') + '<div><p class="text-sm font-semibold">' + formatDate(next.date) + ' • ' + escapeHtml(next.time) + '</p><p class="text-xs text-white/45">' + escapeHtml(next.location) + ' • ' + escapeHtml(next.city) + '/' + escapeHtml(next.state) + '</p></div></div>' +
     '<div class="flex gap-3">' + icon('pin', 'size-5 text-[#e1bb62]') + '<div><p class="text-sm font-semibold">Posições aceitas</p><p class="text-xs text-white/45">' + escapeHtml(next.positions.join(', ')) + '</p></div></div></div>' +
     '<button type="button" class="btn-primary mt-6 w-full" data-route="tryouts">Ver peneiras ' + icon('arrow', 'size-4') + '</button></aside></section>' +
     '<section class="mt-8 grid gap-5 lg:grid-cols-[1.15fr_.85fr]">' +
-    '<div class="panel"><div class="flex items-center justify-between"><div><span class="eyebrow">Meu perfil</span><h2 class="section-title">' + escapeHtml(profile.pos) + ' • ' + escapeHtml(profile.city) + '</h2></div><button type="button" class="btn-ghost" data-route="profile">Editar perfil ' + icon('edit', 'size-4') + '</button></div>' +
+    '<div class="panel"><div class="flex items-center justify-between"><div><span class="eyebrow">' + t('Meu perfil') + '</span><h2 class="section-title">' + escapeHtml(profile.pos) + ' • ' + escapeHtml(profile.city) + '</h2></div><button type="button" class="btn-ghost" data-route="profile">Editar perfil ' + icon('edit', 'size-4') + '</button></div>' +
     '<div class="mt-5 flex flex-wrap gap-2">' + tag(profile.pos) + tag(profile.secondary, true) + tag(getCategoryFromAge(getAgeFromProfile(profile.birth))) + '</div></div>' +
-    '<div class="panel"><div class="flex items-center justify-between"><div><span class="eyebrow">Minha atividade</span><h2 class="section-title">Últimos movimentos</h2></div>' + icon('arrow', 'size-5 text-white/35') + '</div><div class="mt-5 space-y-4">' +
+    '<div class="panel"><div class="flex items-center justify-between"><div><span class="eyebrow">' + t('Minha atividade') + '</span><h2 class="section-title">Últimos movimentos</h2></div>' + icon('arrow', 'size-5 text-white/35') + '</div><div class="mt-5 space-y-4">' +
     activity('Perfil atualizado', 'Seus dados pessoais estão prontos para os profissionais.', 'Agora') +
     activity('Peneiras', 'Confira posições compatíveis com sua categoria.', 'Hoje') +
-    activity('Mensagens', 'Responda contatos de treinadores e olheiros.', 'Hoje') +
+    activity(t('Mensagens'), 'Responda contatos de treinadores e olheiros.', 'Hoje') +
     '</div></div></section>',
     { active: 'dashboard', role: 'player' },
   )
@@ -393,11 +735,11 @@ function playerDashboard() {
 function staffDashboard() {
   return shell(
     '<section class="grid gap-6 xl:grid-cols-[1.55fr_.8fr]">' +
-    '<div class="rounded-[28px] border border-white/10 bg-[linear-gradient(135deg,#17130c,#0e0e0e_65%,#1b1408)] p-6 sm:p-8"><span class="eyebrow">Central do funcionário</span><h1 class="mt-3 text-3xl font-black sm:text-5xl">Encontre atletas, avalie perfis e <span class="text-[#e6bd62]">crie oportunidades.</span></h1><p class="mt-4 max-w-2xl text-white/55">Pesquise o banco, abra o perfil completo do atleta, envie mensagens, registre avaliações e agende peneiras.</p><div class="mt-8 flex flex-wrap gap-3"><button type="button" class="btn-primary" data-route="athletes">Pesquisar atletas ' + icon('search', 'size-4') + '</button><button type="button" class="btn-secondary" data-action="openTryout">' + icon('plus', 'size-4') + ' Criar peneira</button></div></div>' +
-    '<aside class="panel"><span class="eyebrow">Hoje</span><div class="mt-3 grid grid-cols-2 gap-3">' +
-    staffStat(String(state.athletes.length).padStart(2, '0'), 'Atletas ativos') + staffStat(String(Object.values(state.reviews).filter((list) => Array.isArray(list) && list.length).length).padStart(2, '0'), 'Perfis avaliados') + staffStat(String(state.tryouts.length).padStart(2, '0'), 'Peneiras') + staffStat(String(state.messages.filter((m) => String(m.thread).endsWith('::' + state.user?.email)).length).padStart(2, '0'), 'Mensagens') +
+    '<div class="rounded-[28px] border border-white/10 bg-[linear-gradient(135deg,#17130c,#0e0e0e_65%,#1b1408)] p-6 sm:p-8"><span class="eyebrow">' + t('Central do funcionário') + '</span><h1 class="mt-3 text-3xl font-black sm:text-5xl">Encontre atletas, avalie perfis e <span class="text-[#e6bd62]">crie oportunidades.</span></h1><p class="mt-4 max-w-2xl text-white/55">Pesquise o banco, abra o perfil completo do atleta, envie mensagens, registre avaliações e agende peneiras.</p><div class="mt-8 flex flex-wrap gap-3"><button type="button" class="btn-primary" data-route="athletes">' + t('Pesquisar atletas') + ' ' + icon('search', 'size-4') + '</button><button type="button" class="btn-secondary" data-action="openTryout">' + icon('plus', 'size-4') + ' ' + t('Criar peneira') + '</button></div></div>' +
+    '<aside class="panel"><span class="eyebrow">' + t('Hoje') + '</span><div class="mt-3 grid grid-cols-2 gap-3">' +
+    staffStat(String(state.athletes.length).padStart(2, '0'), t('Atletas ativos')) + staffStat(String(Object.values(state.reviews).filter((list) => Array.isArray(list) && list.length).length).padStart(2, '0'), t('Perfis avaliados')) + staffStat(String(state.tryouts.length).padStart(2, '0'), t('Peneiras')) + staffStat(String(state.messages.filter((m) => String(m.thread).endsWith('::' + state.user?.email)).length).padStart(2, '0'), t('Mensagens')) +
     '</div></aside></section>' +
-    '<section class="mt-8 panel"><div class="flex flex-wrap items-end justify-between gap-3"><div><span class="eyebrow">Seu radar</span><h2 class="section-title">Atletas para observar</h2></div><button type="button" class="btn-ghost" data-route="athletes">Abrir banco completo ' + icon('arrow', 'size-4') + '</button></div><div class="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">' +
+    '<section class="mt-8 panel"><div class="flex flex-wrap items-end justify-between gap-3"><div><span class="eyebrow">' + t('Seu radar') + '</span><h2 class="section-title">' + t('Atletas para observar') + '</h2></div><button type="button" class="btn-ghost" data-route="athletes">' + t('Abrir banco completo') + ' ' + icon('arrow', 'size-4') + '</button></div><div class="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">' +
     state.athletes.slice(0, 6).map((a) => athleteCard(a, true)).join('') + '</div></section>',
     { active: 'dashboard', role: 'staff' },
   )
@@ -418,8 +760,8 @@ function athleteCard(a, staff = false) {
     '<button type="button" class="icon-button sm" data-favorite="' + a.id + '" aria-label="' + (fav ? 'Remover dos favoritos' : 'Favoritar') + '">' + icon('heart', 'size-4 ' + (fav ? 'fill-[#e2bb62] text-[#e2bb62]' : '')) + '</button></div>' +
     '<div class="mt-3 flex flex-wrap gap-1.5">' + tag(a.pos) + tag(a.secondary, true) + footTag(a.foot) + tag(getCategoryFromAge(a.age)) + '</div></div></div>' +
     '<div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/7 pt-3"><div class="flex items-center gap-2 text-xs text-white/45">' + icon('star', 'size-4 text-[#e2bb62]') + '<strong class="text-white">' + formatRating(ratingOf(a)) + '</strong> média <span>•</span> ' + count + ' votos <span>•</span> ' + reviewCount + ' avaliação(ões)</div>' +
-    '<div class="flex gap-2"><button type="button" class="vote-button ' + (voted ? 'voted' : '') + '" data-vote="' + a.id + '" title="' + (voted ? 'Clique para retirar seu voto' : 'Votar neste atleta') + '">' + (voted ? 'Retirar voto' : 'Votar') + '</button>' +
-    (staff ? '<button type="button" class="btn-secondary px-3 py-2 text-xs" data-message-athlete="' + a.id + '">Mensagem</button>' : '') +
+    '<div class="flex gap-2"><button type="button" class="vote-button ' + (voted ? 'voted' : '') + '" data-vote="' + a.id + '" title="' + t(voted ? 'Clique para retirar seu voto' : 'Votar neste atleta') + '">' + t(voted ? 'Retirar voto' : 'Votar') + '</button>' +
+    (staff ? '<button type="button" class="btn-secondary px-3 py-2 text-xs" data-message-athlete="' + a.id + '">' + t('Mensagem') + '</button>' : '') +
     '<button type="button" class="btn-ghost px-2" data-open-athlete="' + a.id + '" aria-label="Abrir perfil de ' + escapeHtml(a.name) + '">Ver perfil</button></div></div></article>'
 }
 
@@ -430,16 +772,16 @@ function tag(text, ghost = false) {
 
 function athletesPage() {
   const filters = '<aside class="panel h-max"><div class="flex items-center justify-between"><h2 class="font-bold">Filtros</h2><button type="button" class="text-xs text-[#e2bb62]" data-action="clearFilters">Limpar</button></div>' +
-    '<div class="mt-4 space-y-4"><label class="field-label">Buscar por nome<input id="filter-name" class="field" placeholder="Ex.: Gabriel" /></label>' +
-    '<label class="field-label">Posição principal ou secundária<select id="filter-pos" class="field"><option value="">Todas</option>' + POSITIONS.map((p) => '<option>' + p + '</option>').join('') + '</select></label>' +
-    '<label class="field-label">Perna dominante<select id="filter-foot" class="field"><option value="">Todas</option>' + FEET.map((f) => '<option>' + f + '</option>').join('') + '</select></label>' +
-    '<label class="field-label">Cidade/região<select id="filter-city" class="field"><option value="">Todas</option>' + [...new Set(state.athletes.map((a) => a.city))].sort().map((c) => '<option>' + escapeHtml(c) + '</option>').join('') + '</select></label>' +
-    '<label class="field-label">Idade<select id="filter-age" class="field"><option value="">Todas</option>' + [...new Set(state.athletes.map((a) => a.age))].sort((a,b)=>a-b).map((age) => '<option value="' + age + '">' + age + '</option>').join('') + '</select></label>' +
-    '<label class="field-label">Categoria<select id="filter-category" class="field"><option value="">Todas</option><option>Sub-7</option><option>Sub-9</option><option>Sub-11</option><option>Sub-13</option><option>Sub-15</option><option>Sub-17</option><option>Sub-20</option></select></label>' +
+    '<div class="mt-4 space-y-4"><label class="field-label">' + t('Buscar por nome') + '<input id="filter-name" class="field" placeholder="Ex.: Gabriel" /></label>' +
+    '<label class="field-label">' + t('Posição principal ou secundária') + '<select id="filter-pos" class="field"><option value="">Todas</option>' + POSITIONS.map((p) => '<option>' + p + '</option>').join('') + '</select></label>' +
+    '<label class="field-label">' + t('Perna dominante') + '<select id="filter-foot" class="field"><option value="">Todas</option>' + FEET.map((f) => '<option>' + f + '</option>').join('') + '</select></label>' +
+    '<label class="field-label">' + t('Cidade/região') + '<select id="filter-city" class="field"><option value="">Todas</option>' + [...new Set(state.athletes.map((a) => a.city))].sort().map((c) => '<option>' + escapeHtml(c) + '</option>').join('') + '</select></label>' +
+    '<label class="field-label">' + t('Idade') + '<select id="filter-age" class="field"><option value="">Todas</option>' + [...new Set(state.athletes.map((a) => a.age))].sort((a,b)=>a-b).map((age) => '<option value="' + age + '">' + age + '</option>').join('') + '</select></label>' +
+    '<label class="field-label">' + t('Categoria') + '<select id="filter-category" class="field"><option value="">Todas</option><option>Sub-7</option><option>Sub-9</option><option>Sub-11</option><option>Sub-13</option><option>Sub-15</option><option>Sub-17</option><option>Sub-20</option></select></label>' +
     '</div><div class="mt-6 rounded-2xl border border-[#d4ad59]/15 bg-[#d4ad59]/7 p-4 text-xs leading-5 text-white/55"><strong class="text-[#e2bb62]">Filtro em tempo real</strong><br/>Nome, posição, perna dominante, cidade, idade e categoria alteram a lista sem recarregar.</div></aside>'
 
   return shell(
-    '<div class="flex flex-wrap items-end justify-between gap-4"><div><span class="eyebrow">Banco de talentos</span><h1 class="page-title">Pesquisar atletas</h1><p class="page-subtitle">Abra o perfil completo, mande uma mensagem, vote e registre uma avaliação.</p></div><button type="button" class="btn-primary" data-action="openTryout">' + icon('plus', 'size-4') + ' Nova peneira</button></div>' +
+    '<div class="flex flex-wrap items-end justify-between gap-4"><div><span class="eyebrow">Banco de talentos</span><h1 class="page-title">' + t('Pesquisar atletas') + '</h1><p class="page-subtitle">Abra o perfil completo, mande uma mensagem, vote e registre uma avaliação.</p></div><button type="button" class="btn-primary" data-action="openTryout">' + icon('plus', 'size-4') + ' Nova peneira</button></div>' +
     '<section class="mt-6 grid gap-5 lg:grid-cols-[280px_1fr]">' +
     filters +
     '<div><div class="mb-4 flex flex-wrap items-center justify-between gap-2"><p id="athlete-count" class="text-sm text-white/45">' + state.athletes.length + ' atletas encontrados</p><button type="button" class="btn-secondary" data-action="export">' + icon('arrow', 'size-4') + ' Exportar seleção</button></div><div id="athlete-grid" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">' + state.athletes.map((a) => athleteCard(a, true)).join('') + '</div></div></section>',
@@ -451,9 +793,9 @@ function profilePage() {
   const role = state.user?.role || 'player'
   if (role === 'staff') {
     const account = state.accounts.find((a) => a.email === state.user.email)
-    const profile = account?.profile || { name: state.user.name, email: state.user.email, phone: '', position: 'Funcionário', city: 'São Paulo', state: 'SP' }
+    const profile = account?.profile || { name: state.user.name, email: state.user.email, phone: '', position: t('Funcionário'), city: 'São Paulo', state: 'SP' }
     return shell(
-      '<div class="flex flex-wrap items-end justify-between gap-4"><div><span class="eyebrow">Meu perfil</span><h1 class="page-title">' + escapeHtml(profile.name) + '</h1><p class="page-subtitle">Dados do funcionário que está conectado.</p></div><button type="button" class="btn-secondary" data-action="logout">' + icon('logout', 'size-4') + ' Sair</button></div>' +
+      '<div class="flex flex-wrap items-end justify-between gap-4"><div><span class="eyebrow">Meu perfil</span><h1 class="page-title">' + escapeHtml(profile.name) + '</h1><p class="page-subtitle">Dados do funcionário que está conectado.</p></div><button type="button" class="btn-secondary" data-action="logout">' + icon('logout', 'size-4') + ' ' + t('Sair') + '</button></div>' +
       '<section class="mt-6 grid gap-5 md:grid-cols-2"><aside class="panel"><div class="flex items-center gap-4"><div class="avatar-xl">' + avatar(profile.name) + '</div><div><p class="text-xs uppercase tracking-[.2em] text-white/35">Funcionário</p><h2 class="mt-1 text-2xl font-black">' + escapeHtml(profile.position || 'Profissional') + '</h2><p class="text-sm text-white/45">' + escapeHtml(profile.city) + '/' + escapeHtml(profile.state) + '</p></div></div></aside><div class="panel"><span class="eyebrow">Acesso demo</span><h2 class="section-title">Credenciais de teste</h2><p class="mt-4 text-sm leading-6 text-white/55">E-mail: funcionario@academiapele.com<br/>Senha: Academia123!</p><button type="button" class="btn-primary mt-5" data-route="athletes">Ir para o banco de atletas ' + icon('arrow', 'size-4') + '</button></div></section>',
       { active: 'dashboard', role: 'staff' },
     )
@@ -463,26 +805,26 @@ function profilePage() {
   const age = getAgeFromProfile(p.birth)
   const category = getCategoryFromAge(age)
   return shell(
-    '<div class="flex flex-wrap items-end justify-between gap-4"><div><span class="eyebrow">Meu perfil</span><h1 class="page-title">' + escapeHtml(p.name) + '</h1><p class="page-subtitle">Mantenha seus dados pessoais, categoria, cidade e posições atualizados.</p></div><button type="button" class="btn-secondary" data-action="logout">' + icon('logout', 'size-4') + ' Sair</button></div>' +
+    '<div class="flex flex-wrap items-end justify-between gap-4"><div><span class="eyebrow">Meu perfil</span><h1 class="page-title">' + escapeHtml(p.name) + '</h1><p class="page-subtitle">Mantenha seus dados pessoais, categoria, cidade e posições atualizados.</p></div><button type="button" class="btn-secondary" data-action="logout">' + icon('logout', 'size-4') + ' ' + t('Sair') + '</button></div>' +
     '<section class="mt-6 grid gap-5 xl:grid-cols-[.75fr_1.25fr]">' +
     '<aside class="panel"><div class="flex items-center gap-4"><div class="avatar-xl">' + avatar(p.name) + '</div><div><p class="text-xs uppercase tracking-[.2em] text-white/35">Atleta</p><h2 class="mt-1 text-2xl font-black">' + escapeHtml(p.pos) + '</h2><p class="text-sm text-white/45">' + age + ' anos • ' + escapeHtml(category) + '</p></div></div>' +
-    '<div class="mt-6 grid grid-cols-2 gap-3">' + stat(averagePlayerRating(p), 'Avaliação', 'média atual') + stat(String(state.tryouts.filter((t) => Array.isArray(t.enrolled) && t.enrolled.includes(state.user.email)).length).padStart(2, '0'), 'Peneiras', 'inscritas') + stat(String(getPlayerReviewCount()).padStart(2, '0'), 'Avaliações', 'recebidas') + stat(String(myNotifications().length).padStart(2, '0'), 'Notificações', 'recentes') + '</div>' +
+    '<div class="mt-6 grid grid-cols-2 gap-3">' + stat(averagePlayerRating(p), 'Avaliação', 'média atual') + stat(String(state.tryouts.filter((t) => Array.isArray(t.enrolled) && t.enrolled.includes(state.user.email)).length).padStart(2, '0'), 'Peneiras', 'inscritas') + stat(String(getPlayerReviewCount()).padStart(2, '0'), 'Avaliações', 'recebidas') + stat(String(myNotifications().length).padStart(2, '0'), t('Notificações'), 'recentes') + '</div>' +
     '<div class="mt-6 flex flex-wrap gap-2">' + tag(p.pos) + tag(p.secondary, true) + footTag(p.foot) + tag(category) + tag(p.city) + '</div></aside>' +
-    '<div class="panel"><div class="flex items-center justify-between"><div><span class="eyebrow">Dados do jogador</span><h2 class="section-title">Atualizar perfil</h2></div>' + icon('edit', 'size-5 text-[#e1bb62]') + '</div>' +
+    '<div class="panel"><div class="flex items-center justify-between"><div><span class="eyebrow">' + t('Dados do jogador') + '</span><h2 class="section-title">Atualizar perfil</h2></div>' + icon('edit', 'size-5 text-[#e1bb62]') + '</div>' +
     '<form id="profile-form" class="mt-5 grid gap-4 sm:grid-cols-2">' +
-    input('Nome completo', 'profile-name', p.name, 'text', true) +
+    input(t('Nome completo'), 'profile-name', p.name, 'text', true) +
     input('CPF', 'profile-cpf', p.cpf || '', 'text', false, true) +
-    input('Data de nascimento', 'profile-birth', p.birth, 'date', true) +
-    input('Idade', 'profile-age', String(age), 'number', false, false, true) +
+    input(t('Data de nascimento'), 'profile-birth', p.birth, 'date', true) +
+    input(t('Idade'), 'profile-age', String(age), 'number', false, false, true) +
     '<label class="field-label">Categoria<select id="profile-category" class="field" disabled><option>' + escapeHtml(category) + '</option></select></label>' +
-    selectField('Gênero', 'profile-gender', GENDERS, p.gender) +
-    input('E-mail', 'profile-email', p.email, 'email', true) + input('Telefone', 'profile-phone', p.phone, 'tel', true) +
-    selectField('Posição principal', 'profile-pos', POSITIONS, p.pos) + selectField('Posição secundária', 'profile-secondary', ['—'].concat(POSITIONS), p.secondary) + selectField('Perna dominante', 'profile-foot', FEET, p.foot || '') +
+    selectField(t('Gênero'), 'profile-gender', GENDERS, p.gender) +
+    input(t('E-mail'), 'profile-email', p.email, 'email', true, remote.enabled) + input(t('Telefone'), 'profile-phone', p.phone, 'tel', true) +
+    selectField(t('Posição principal'), 'profile-pos', POSITIONS, p.pos) + selectField(t('Posição secundária'), 'profile-secondary', ['—'].concat(POSITIONS), p.secondary) + selectField(t('Perna dominante'), 'profile-foot', FEET, p.foot || '') +
     '<div class="sm:col-span-2 mt-2 border-t border-white/8 pt-5"><p class="text-sm font-bold">Endereço</p></div>' +
-    input('CEP', 'profile-zip', p.zip, 'text', true) + input('Cidade', 'profile-city', p.city, 'text', true) + input('Estado', 'profile-state', p.state, 'text', true) + input('Bairro', 'profile-district', p.district, 'text', true) +
-    input('Endereço', 'profile-address', p.address, 'text', true) + input('Número', 'profile-number', p.number, 'text', true) +
+    input(t('CEP'), 'profile-zip', p.zip, 'text', true) + input(t('Cidade'), 'profile-city', p.city, 'text', true) + input(t('Estado'), 'profile-state', p.state, 'text', true) + input(t('Bairro'), 'profile-district', p.district, 'text', true) +
+    input(t('Endereço'), 'profile-address', p.address, 'text', true) + input(t('Número'), 'profile-number', p.number, 'text', true) +
     '<div id="profile-feedback" class="sm:col-span-2 hidden" role="alert"></div><div class="sm:col-span-2 flex justify-end"><button class="btn-primary" type="submit">Salvar alterações ' + icon('check', 'size-4') + '</button></div></form></div></section>' +
-    '<section class="mt-6 panel"><div class="flex items-center justify-between"><div><span class="eyebrow">Olheiros</span><h2 class="section-title">Comentários e notas</h2><p class="mt-1 text-xs text-white/35">Notas e estatísticas ficam visíveis apenas para você e para a equipe da Academia.</p></div><span class="tag">' + getPlayerReviewCount() + ' registro(s)</span></div><div class="mt-5 grid gap-4 md:grid-cols-2">' + renderPlayerReviews() + '</div></section>',
+    '<section class="mt-6 panel"><div class="flex items-center justify-between"><div><span class="eyebrow">' + t('Olheiros') + '</span><h2 class="section-title">Comentários e notas</h2><p class="mt-1 text-xs text-white/35">Notas e estatísticas ficam visíveis apenas para você e para a equipe da Academia.</p></div><span class="tag">' + getPlayerReviewCount() + ' registro(s)</span></div><div class="mt-5 grid gap-4 md:grid-cols-2">' + renderPlayerReviews() + '</div></section>',
     { active: 'profile', role: 'player' },
   )
 }
@@ -539,138 +881,136 @@ function reviewCard(review, athleteId = null) {
 
 function tryoutsPage() {
   const role = state.user?.role === 'staff' ? 'staff' : 'player'
-  const createButton = role === 'staff' ? '<button type="button" class="btn-primary" data-action="openTryout">' + icon('plus', 'size-4') + ' Criar peneira</button>' : ''
+  const createButton = role === 'staff' ? '<button type="button" class="btn-primary" data-action="openTryout">' + icon('plus', 'size-4') + ' ' + t('Criar peneira') + '</button>' : ''
   return shell(
-    '<div class="flex flex-wrap items-end justify-between gap-4"><div><span class="eyebrow">Calendário</span><h1 class="page-title">Peneiras</h1><p class="page-subtitle">Veja oportunidades, posições, categoria, vagas e sua inscrição.</p></div>' + createButton + '</div>' +
+    '<div class="flex flex-wrap items-end justify-between gap-4"><div><span class="eyebrow">Calendário</span><h1 class="page-title">' + t('Peneiras') + '</h1><p class="page-subtitle">Veja oportunidades, posições, categoria, vagas e sua inscrição.</p></div>' + createButton + '</div>' +
     '<div class="mt-6 grid gap-4 lg:grid-cols-3">' + state.tryouts.map(tryoutCard).join('') + '</div>',
     { active: 'tryouts', role },
   )
 }
 
-function tryoutCard(t) {
+function tryoutCard(tryout) {
   const staff = state.user?.role === 'staff'
   const email = state.user?.email || ''
-  const list = Array.isArray(t.enrolled) ? t.enrolled : []
-  const seats = Math.max(1, Number(t.seats) || 1)
+  const list = Array.isArray(tryout.enrolled) ? tryout.enrolled : []
+  const seats = Math.max(1, Number(tryout.seats) || 1)
   const taken = list.length
   const vacancies = Math.max(0, seats - taken)
   const full = vacancies === 0
   const enrolled = list.includes(email)
   const playerCategory = getCategoryFromAge(getAgeFromProfile(state.profile?.birth))
   const playerPos = state.profile?.pos
-  const canEnroll = staff || ((t.positions.includes(playerPos) || t.positions.includes(state.profile?.secondary)) && (!t.category || t.category === playerCategory))
+  const canEnroll = staff || ((tryout.positions.includes(playerPos) || tryout.positions.includes(state.profile?.secondary)) && (!tryout.category || tryout.category === playerCategory))
   const incompatible = !staff && !enrolled && !canEnroll
 
   let actions
   if (staff) {
-    actions = '<button type="button" class="btn-secondary w-full" data-action="view-enrolled" data-id="' + t.id + '">Ver inscritos (' + taken + '/' + seats + ') ' + icon('arrow', 'size-4') + '</button>' +
-      '<button type="button" class="btn-danger w-full" data-action="cancel-tryout" data-id="' + t.id + '">' + icon('close', 'size-4') + ' Cancelar peneira</button>'
+    actions = '<button type="button" class="btn-secondary w-full" data-action="view-enrolled" data-id="' + tryout.id + '">' + t('Ver inscritos') + ' (' + taken + '/' + seats + ') ' + icon('arrow', 'size-4') + '</button>' +
+      '<button type="button" class="btn-danger w-full" data-action="cancel-tryout" data-id="' + tryout.id + '">' + icon('close', 'size-4') + ' ' + t('Cancelar peneira') + '</button>'
   } else if (enrolled) {
-    actions = '<div class="btn-secondary w-full cursor-default" role="status">Inscrição confirmada ' + icon('check', 'size-4') + '</div>' +
-      '<button type="button" class="btn-danger w-full" data-action="withdraw" data-id="' + t.id + '">Cancelar minha inscrição</button>'
+    actions = '<div class="btn-secondary w-full cursor-default" role="status">' + t('Inscrição confirmada') + ' ' + icon('check', 'size-4') + '</div>' +
+      '<button type="button" class="btn-danger w-full" data-action="withdraw" data-id="' + tryout.id + '">' + t('Cancelar minha inscrição') + '</button>'
   } else {
-    actions = '<button type="button" class="btn-' + (incompatible ? 'incompatible' : 'primary') + ' w-full" data-action="enroll" data-id="' + t.id + '" ' + (!canEnroll || full ? 'disabled' : '') + '>' +
-      (full ? 'Sem vagas' : canEnroll ? 'Inscrever-me' : 'Posição/categoria incompatível') + ' ' + icon('arrow', 'size-4') + '</button>'
+    actions = '<button type="button" class="btn-' + (incompatible ? 'incompatible' : 'primary') + ' w-full" data-action="enroll" data-id="' + tryout.id + '" ' + (!canEnroll || full ? 'disabled' : '') + '>' +
+      (full ? t('Sem vagas') : canEnroll ? t('Inscrever-me') : t('Posição/categoria incompatível')) + ' ' + icon('arrow', 'size-4') + '</button>'
   }
 
-  return '<article class="panel flex flex-col" data-tryout-card="' + t.id + '"><div class="flex flex-wrap gap-1.5">' + tag(t.category || 'Aberta') + tag(t.positions.join(' • '), true) + '</div>' +
-    '<h2 class="mt-4 text-xl font-black">' + escapeHtml(t.title) + '</h2><div class="mt-5 space-y-3 text-sm text-white/55">' +
-    '<p class="flex gap-2">' + icon('calendar', 'size-4 text-[#e2bb62]') + formatDate(t.date) + ' • ' + escapeHtml(t.time) + '</p>' +
-    '<p class="flex gap-2">' + icon('pin', 'size-4 text-[#e2bb62]') + escapeHtml(t.location) + ' — ' + escapeHtml(t.city) + '/' + escapeHtml(t.state) + '</p></div>' +
-    '<div class="mt-6 flex items-end justify-between gap-3"><div><p class="text-[11px] font-bold uppercase tracking-[.18em] text-white/35">Vagas preenchidas</p>' +
+  return '<article class="panel flex flex-col" data-tryout-card="' + tryout.id + '"><div class="flex flex-wrap gap-1.5">' + tag(tryout.category || t('Aberta')) + tag(tryout.positions.join(' • '), true) + '</div>' +
+    '<h2 class="mt-4 text-xl font-black">' + escapeHtml(tryout.title) + '</h2><div class="mt-5 space-y-3 text-sm text-white/55">' +
+    '<p class="flex gap-2">' + icon('calendar', 'size-4 text-[#e2bb62]') + formatDate(tryout.date) + ' • ' + escapeHtml(tryout.time) + '</p>' +
+    '<p class="flex gap-2">' + icon('pin', 'size-4 text-[#e2bb62]') + escapeHtml(tryout.location) + ' — ' + escapeHtml(tryout.city) + '/' + escapeHtml(tryout.state) + '</p></div>' +
+    '<div class="mt-6 flex items-end justify-between gap-3"><div><p class="text-[11px] font-bold uppercase tracking-[.18em] text-white/35">' + t('Vagas preenchidas') + '</p>' +
     '<p class="mt-1 text-3xl font-black leading-none" aria-label="' + taken + ' de ' + seats + ' vagas preenchidas"><span class="' + (full ? 'text-rose-300' : 'text-[#e6bd62]') + '">' + taken + '</span><span class="text-white/35">/' + seats + '</span></p></div>' +
-    '<span class="tag ' + (full ? 'red' : 'green') + '">' + (full ? 'Lotada' : vacancies + (vacancies === 1 ? ' vaga livre' : ' vagas livres')) + '</span></div>' +
+    '<span class="tag ' + (full ? 'red' : 'green') + '">' + (full ? t('Lotada') : vacancies + ' ' + t(vacancies === 1 ? 'vaga livre' : 'vagas livres')) + '</span></div>' +
     '<div class="mt-3 h-2 overflow-hidden rounded-full bg-white/8"><div class="h-full rounded-full ' + (full ? 'bg-rose-400' : 'bg-[#d4ad59]') + '" style="width:' + Math.min(100, taken / seats * 100) + '%"></div></div>' +
     '<div class="mt-6 grid gap-2">' + actions + '</div></article>'
 }
 
 function messagesPage() {
   const staff = state.user?.role === 'staff'
-  const me = staff ? null : getCurrentAthlete()
-  const conversations = staff
-    ? state.athletes.map((a) => ({ id: String(a.id), name: a.name, subtitle: a.pos + ' • ' + a.city, avatar: a.name }))
-    : state.accounts.filter((a) => a.role === 'staff').map((a) => ({
-      id: a.email,
-      name: a.profile?.name || a.email,
-      subtitle: (a.profile?.position || 'Profissional') + ' • ' + (a.profile?.city || 'Academia Pelé'),
-      avatar: a.profile?.name || a.email,
-    }))
+  const role = staff ? 'staff' : 'player'
+  const conversations = getConversations()
+  const heading = '<div class="chat-heading"><span class="eyebrow">Comunicação</span><h1 class="page-title">' + t('Conversas') + '</h1><p class="page-subtitle">' +
+    (staff ? 'Pesquise qualquer atleta do banco, abra a conversa e envie uma mensagem.' : 'Converse com treinadores e olheiros disponíveis.') + '</p></div>'
 
-  const selected = conversations.find((c) => c.id === activeThread) || conversations[0]
-  if (!selected || (!staff && !me)) {
+  if (!conversations.length) {
+    activeConversation = null
     activeThreadKey = null
     return shell(
-      '<div><span class="eyebrow">Comunicação</span><h1 class="page-title">Conversas</h1></div><div class="mt-6 rounded-2xl border border-dashed border-white/10 p-10 text-center text-white/40">Nenhuma conversa disponível no momento.</div>',
-      { active: 'messages', role: staff ? 'staff' : 'player' },
+      '<div><span class="eyebrow">Comunicação</span><h1 class="page-title">' + t('Conversas') + '</h1></div><div class="mt-6 rounded-2xl border border-dashed border-white/10 p-10 text-center text-white/40">' +
+      (remote.enabled && staff ? 'Nenhum jogador cadastrado ainda. Quando um atleta criar a conta, ele aparece aqui.' : 'Nenhuma conversa disponível no momento.') + '</div>',
+      { active: 'messages', role },
     )
   }
+
+  const selected = conversations.find((c) => c.id === activeThread) || conversations[0]
   activeThread = selected.id
-  activeThreadKey = staff ? threadKey(selected.id, state.user.email) : threadKey(me.id, selected.id)
-  const history = state.messages.filter((m) => m.thread === activeThreadKey)
-  const myRole = staff ? 'staff' : 'player'
+  activeConversation = selected
+  activeThreadKey = selected.key
+  if (!isMobileView() || mobileChatOpen) markRead(selected.key)
+  const history = state.messages.filter((m) => m.thread === selected.key).sort((a, b) => messageTs(a) - messageTs(b))
 
   return shell(
-    '<div><span class="eyebrow">Comunicação</span><h1 class="page-title">Conversas</h1><p class="page-subtitle">' + (staff ? 'Pesquise qualquer atleta do banco, abra a conversa e envie uma mensagem.' : 'Converse com treinadores e olheiros disponíveis.') + '</p></div>' +
-    '<section class="mt-6 grid min-h-[620px] overflow-hidden rounded-[28px] border border-white/10 bg-white/[.025] md:grid-cols-[300px_1fr]">' +
-    '<aside class="border-b border-white/8 bg-black/20 md:border-b-0 md:border-r"><div class="p-4"><label class="field-label">Pesquisar ' + (staff ? 'atleta' : 'profissional') + '<input id="conversation-search" class="field mt-2" placeholder="Digite um nome, posição ou cidade..." /></label></div>' +
-    '<div id="conversation-list" class="max-h-[520px] space-y-1 overflow-y-auto p-2">' + conversations.map((c) => '<button type="button" class="conversation-item ' + (c.id === selected.id ? 'selected' : '') + '" data-thread="' + escapeHtml(c.id) + '" data-name="' + escapeHtml(c.name) + '" data-subtitle="' + escapeHtml(c.subtitle) + '"><span class="avatar">' + avatar(c.avatar) + '</span><span class="min-w-0 text-left"><strong class="block truncate">' + escapeHtml(c.name) + '</strong><small class="block truncate text-white/35">' + escapeHtml(c.subtitle) + '</small></span></button>').join('') + '<p id="conversation-empty" class="p-4 text-center text-xs text-white/35" hidden>Nenhum resultado encontrado.</p></div></aside>' +
-    '<div class="flex min-w-0 flex-col"><header class="flex items-center justify-between gap-3 border-b border-white/8 px-5 py-4"><div class="flex items-center gap-3"><span class="avatar">' + avatar(selected.avatar) + '</span><div><p class="font-bold">' + escapeHtml(selected.name) + '</p><p class="text-xs text-emerald-300">Disponível para conversar</p></div></div>' + tag(staff ? selected.subtitle : 'Canal seguro') + '</header>' +
-    '<div id="chat-messages" class="flex-1 space-y-3 overflow-y-auto p-5">' + renderHistory(history, myRole) + '</div>' +
-    '<form id="message-form" class="border-t border-white/8 p-4"><div class="flex gap-2"><input id="message-input" class="field" placeholder="Escreva sua mensagem..." autocomplete="off" required/><button class="btn-primary shrink-0" aria-label="Enviar mensagem">' + icon('arrow', 'size-4') + '</button></div></form></div></section>',
-    { active: 'messages', role: myRole },
+    heading +
+    '<section class="chat-layout mt-6 grid min-h-[620px] overflow-hidden rounded-[28px] border border-white/10 bg-white/[.025] md:grid-cols-[300px_1fr]" data-mobile-view="' + (mobileChatOpen ? 'chat' : 'list') + '">' +
+    '<aside class="chat-list border-b border-white/8 bg-black/20 md:border-b-0 md:border-r"><div class="p-4"><label class="field-label">Pesquisar ' + (staff ? 'atleta' : 'profissional') + '<input id="conversation-search" class="field mt-2" placeholder="Digite um nome, posição ou cidade..." autocomplete="off" /></label></div>' +
+    '<div id="conversation-list" class="max-h-[520px] space-y-1 overflow-y-auto p-2">' + conversationItemsHtml(conversations, selected.id) + '</div></aside>' +
+    '<div class="chat-pane flex min-w-0 flex-col"><header class="chat-header flex items-center justify-between gap-3 border-b border-white/8 px-5 py-4"><div class="flex min-w-0 items-center gap-3">' +
+    '<button type="button" class="chat-back icon-button" data-action="chat-back" aria-label="Voltar para as conversas">' + icon('back') + '</button>' +
+    '<span class="avatar">' + avatar(selected.avatar) + '</span><div class="min-w-0"><p class="truncate font-bold">' + escapeHtml(selected.name) + '</p><p class="text-xs text-emerald-300">Disponível para conversar</p></div></div>' +
+    '<span class="chat-tag">' + tag(staff ? selected.subtitle : 'Canal seguro') + '</span></header>' +
+    '<div id="chat-messages" class="chat-messages flex-1 space-y-3 overflow-y-auto p-5">' + renderHistory(history, role) + '</div>' +
+    '<form id="message-form" class="chat-input-bar border-t border-white/8 p-4"><div class="flex gap-2"><input id="message-input" class="field" placeholder="Escreva sua mensagem..." autocomplete="off" maxlength="2000" required/><button class="btn-primary chat-send shrink-0" aria-label="Enviar mensagem">' + icon('arrow', 'size-4') + '</button></div></form></div></section>',
+    { active: 'messages', role },
   )
 }
 
-function renderHistory(history, myRole) {
+function renderHistory(history, role) {
   if (!history.length) {
-    return '<div class="grid h-full place-items-center rounded-2xl border border-dashed border-white/10 p-8 text-center text-sm text-white/40">Nenhuma mensagem ainda. Envie a primeira mensagem para iniciar a conversa.</div>'
+    return '<div data-empty-chat class="grid h-full place-items-center rounded-2xl border border-dashed border-white/10 p-8 text-center text-sm text-white/40">Nenhuma mensagem ainda. Envie a primeira mensagem para iniciar a conversa.</div>'
   }
-  return history.map((message) => messageBubble(message, myRole)).join('')
-}
-
-function messageBubble(message, myRole) {
-  const mine = message.senderRole === myRole
-  return '<div class="flex ' + (mine ? 'justify-end' : '') + '"><div class="max-w-[78%] rounded-2xl ' + (mine ? 'rounded-br-md bg-[#d8af58] text-black' : 'rounded-bl-md border border-white/8 bg-white/[.045] text-white') + ' px-4 py-3 text-sm leading-6"><p>' + escapeHtml(message.text) + '</p><p class="mt-1 text-[10px] opacity-50">' + escapeHtml(message.time || 'Agora') + '</p></div></div>'
+  return history.map((message) => messageBubble(message, role)).join('')
 }
 
 function loginPage() {
   return '<div class="min-h-screen bg-[radial-gradient(circle_at_center,_rgba(210,173,88,.12),_transparent_30%),#070707] px-4 py-8 text-white"><div class="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl overflow-hidden rounded-[32px] border border-white/10 bg-white/[.025] lg:grid-cols-[.95fr_1.05fr]">' +
     '<div class="relative hidden overflow-hidden border-r border-white/8 bg-[radial-gradient(circle_at_30%_20%,rgba(216,176,88,.24),transparent_25%),#0c0c0c] p-10 lg:flex lg:flex-col lg:justify-between"><div><img src="./assets/brand/simbolo.jpg" alt="Academia Pelé" class="h-28 w-28 rounded-3xl object-contain"/><span class="eyebrow mt-8">TF3 • Sprint 3</span><h1 class="mt-4 max-w-lg text-5xl font-black leading-tight">Onde o futebol encontra <span class="text-[#e1bb62]">o próximo talento.</span></h1><p class="mt-5 max-w-xl text-white/50">Uma experiência para atletas, treinadores, funcionários e olheiros se encontrarem.</p></div><div class="text-sm text-white/30">Academia Pelé • Plataforma de talentos</div></div>' +
-    '<div class="flex items-center justify-center p-6 sm:p-10"><div class="w-full max-w-md"><img src="./assets/brand/simbolo.jpg" alt="Academia Pelé" class="mx-auto h-24 w-24 rounded-3xl object-contain lg:hidden"/><span class="eyebrow mt-6">Acesso</span><h2 class="mt-3 text-3xl font-black">Entrar na Academia Pelé</h2><p class="mt-2 text-sm text-white/45">Escolha o tipo de conta antes de entrar.</p>' +
-    '<div class="mt-6 grid grid-cols-2 gap-2 rounded-2xl border border-white/8 bg-black/25 p-1"><button type="button" class="role-tab active" data-role="player">Jogador</button><button type="button" class="role-tab" data-role="staff">Funcionário</button></div>' +
-    '<form id="login-form" class="mt-6 space-y-4">' + input('E-mail', 'login-email', '', 'email', true) + input('Senha', 'login-password', '', 'password', true) + '<p id="login-error" class="hidden rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200"></p><button class="btn-primary w-full" type="submit">Entrar ' + icon('arrow', 'size-4') + '</button></form>' +
-    '<div class="my-6 flex items-center gap-3"><span class="h-px flex-1 bg-white/8"></span><span class="text-xs text-white/25">ou</span><span class="h-px flex-1 bg-white/8"></span></div>' +
-    '<button type="button" class="btn-secondary w-full" data-route="register">Criar conta de jogador</button><button type="button" class="mt-3 w-full text-center text-xs text-white/35 hover:text-white" data-action="demo">Entrar com conta demo</button>' +
+    '<div class="flex items-center justify-center p-6 sm:p-10"><div class="w-full max-w-md"><img src="./assets/brand/simbolo.jpg" alt="Academia Pelé" class="mx-auto h-24 w-24 rounded-3xl object-contain lg:hidden"/><span class="eyebrow mt-6">' + t('Acesso') + '</span><h2 class="mt-3 text-3xl font-black">' + t('Entrar na Academia Pelé') + '</h2><p class="mt-2 text-sm text-white/45">' + t('Escolha o tipo de conta antes de entrar.') + '</p>' +
+    '<div class="mt-6 grid grid-cols-2 gap-2 rounded-2xl border border-white/8 bg-black/25 p-1"><button type="button" class="role-tab active" data-role="player">' + t('Jogador') + '</button><button type="button" class="role-tab" data-role="staff">' + t('Funcionário') + '</button></div>' +
+    '<form id="login-form" class="mt-6 space-y-4">' + input(t('E-mail'), 'login-email', '', 'email', true) + input(t('Senha'), 'login-password', '', 'password', true) + '<p id="login-error" class="hidden rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200"></p><button class="btn-primary w-full" type="submit">' + t('Entrar') + ' ' + icon('arrow', 'size-4') + '</button></form>' +
+    '<div class="my-6 flex items-center gap-3"><span class="h-px flex-1 bg-white/8"></span><span class="text-xs text-white/25">' + t('ou') + '</span><span class="h-px flex-1 bg-white/8"></span></div>' +
+    '<button type="button" class="btn-secondary w-full" data-route="register">' + t('Criar conta de jogador') + '</button><button type="button" class="mt-3 w-full text-center text-xs text-white/35 hover:text-white" data-action="demo">' + t('Entrar com conta demo') + '</button>' +
+    '<button type="button" class="mt-4 w-full text-center text-xs text-white/30 hover:text-white" data-action="change-lang">' + icon('globe', 'size-3.5') + ' ' + LANGS.find((l) => l.code === getLang())?.label + '</button>' +
     '<p class="mt-5 text-center text-[11px] leading-5 text-white/30">Funcionário (teste): funcionario@academiapele.com / Academia123!<br/>Jogador (teste): gabriel@academiapele.com / Demo123!</p></div></div></div></div>'
 }
 
 function registerPage() {
   return '<div class="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(216,176,88,.1),transparent_28%),#070707] px-4 py-8 text-white"><div class="mx-auto max-w-5xl rounded-[32px] border border-white/10 bg-white/[.025] p-6 sm:p-10">' +
-    '<div class="flex flex-wrap items-center justify-between gap-4"><div class="flex items-center gap-3"><img src="./assets/brand/simbolo.jpg" alt="Academia Pelé" class="h-16 w-16 rounded-2xl object-contain"/><div><span class="eyebrow">Cadastro</span><h1 class="mt-1 text-3xl font-black">Criar conta de jogador</h1></div></div><button type="button" class="btn-ghost" data-route="login">Voltar</button></div>' +
+    '<div class="flex flex-wrap items-center justify-between gap-4"><div class="flex items-center gap-3"><img src="./assets/brand/simbolo.jpg" alt="Academia Pelé" class="h-16 w-16 rounded-2xl object-contain"/><div><span class="eyebrow">' + t('Cadastro') + '</span><h1 class="mt-1 text-3xl font-black">' + t('Criar conta de jogador') + '</h1></div></div><button type="button" class="btn-ghost" data-route="login">' + t('Voltar') + '</button></div>' +
     '<p class="mt-3 max-w-3xl text-sm leading-6 text-white/45">Preencha seus dados pessoais, categoria esportiva, gênero, posições e endereço. A idade e a categoria são calculadas automaticamente pela data de nascimento.</p>' +
     '<form id="register-form" class="mt-8 grid gap-4 sm:grid-cols-2">' +
-    input('Nome completo', 'reg-name', '', 'text', true) +
+    input(t('Nome completo'), 'reg-name', '', 'text', true) +
     input('CPF', 'reg-cpf', '', 'text', true) +
-    input('Data de nascimento', 'reg-birth', '', 'date', true) +
-    input('Idade', 'reg-age', '', 'number', false, false, true) +
+    input(t('Data de nascimento'), 'reg-birth', '', 'date', true) +
+    input(t('Idade'), 'reg-age', '', 'number', false, false, true) +
     '<label class="field-label">Categoria<select id="reg-category" class="field" disabled><option>Preencha a data de nascimento</option></select></label>' +
-    selectField('Gênero', 'reg-gender', GENDERS, '') +
-    input('E-mail', 'reg-email', '', 'email', true) +
-    input('Telefone', 'reg-phone', '', 'tel', true) +
-    selectField('Posição principal', 'reg-pos', POSITIONS, '') +
-    selectField('Posição secundária', 'reg-secondary', ['—'].concat(POSITIONS), '—') +
-    selectField('Perna dominante', 'reg-foot', FEET, '') +
+    selectField(t('Gênero'), 'reg-gender', GENDERS, '') +
+    input(t('E-mail'), 'reg-email', '', 'email', true) +
+    input(t('Telefone'), 'reg-phone', '', 'tel', true) +
+    selectField(t('Posição principal'), 'reg-pos', POSITIONS, '') +
+    selectField(t('Posição secundária'), 'reg-secondary', ['—'].concat(POSITIONS), '—') +
+    selectField(t('Perna dominante'), 'reg-foot', FEET, '') +
     '<div class="sm:col-span-2 mt-2 rounded-2xl border border-white/8 bg-black/15 p-4"><p class="text-sm font-bold">Endereço</p><p class="mt-1 text-xs text-white/35">A cidade informada aqui será usada também nos filtros de região.</p></div>' +
-    input('CEP', 'reg-zip', '', 'text', true) +
-    input('Cidade', 'reg-city', '', 'text', true) +
-    input('Estado', 'reg-state', '', 'text', true) +
-    input('Bairro', 'reg-district', '', 'text', true) +
-    input('Endereço', 'reg-address', '', 'text', true) +
-    input('Número', 'reg-number', '', 'text', true) +
-    input('Senha', 'reg-password', '', 'password', true) +
-    input('Confirmar senha', 'reg-confirm', '', 'password', true) +
+    input(t('CEP'), 'reg-zip', '', 'text', true) +
+    input(t('Cidade'), 'reg-city', '', 'text', true) +
+    input(t('Estado'), 'reg-state', '', 'text', true) +
+    input(t('Bairro'), 'reg-district', '', 'text', true) +
+    input(t('Endereço'), 'reg-address', '', 'text', true) +
+    input(t('Número'), 'reg-number', '', 'text', true) +
+    input(t('Senha'), 'reg-password', '', 'password', true) +
+    input(t('Confirmar senha'), 'reg-confirm', '', 'password', true) +
     '<div id="reg-feedback" class="sm:col-span-2 hidden rounded-2xl border px-4 py-3 text-sm" role="alert"></div>' +
-    '<div class="sm:col-span-2 flex flex-wrap items-center justify-between gap-3 pt-3"><p class="max-w-2xl text-xs leading-5 text-white/35">Nesta versão front-end, os dados são armazenados localmente no navegador para permitir a demonstração do fluxo. Não use senhas reais.</p><button class="btn-primary" type="submit">Criar conta ' + icon('check', 'size-4') + '</button></div>' +
+    '<div class="sm:col-span-2 flex flex-wrap items-center justify-between gap-3 pt-3"><p class="max-w-2xl text-xs leading-5 text-white/35">Nesta versão front-end, os dados são armazenados localmente no navegador para permitir a demonstração do fluxo. Não use senhas reais.</p><button class="btn-primary" type="submit">' + t('Criar conta') + ' ' + icon('check', 'size-4') + '</button></div>' +
     '</form></div></div>'
 }
 
@@ -748,10 +1088,10 @@ function openAthleteModal(athleteId) {
     '<div class="flex items-start justify-between gap-4"><div class="flex items-center gap-4"><div class="avatar-xl bg-gradient-to-br ' + athlete.color + '">' + avatar(athlete.name) + '</div><div><span class="eyebrow">Perfil do atleta</span><h2 id="athlete-modal-title" class="mt-1 text-2xl font-black">' + escapeHtml(athlete.name) + '</h2><p class="text-sm text-white/45">' + athlete.age + ' anos • ' + escapeHtml(athlete.city) + '/' + escapeHtml(athlete.state) + '</p></div></div><button type="button" class="icon-button" data-close-modal aria-label="Fechar">' + icon('close') + '</button></div>' +
     '<div class="mt-6 flex flex-wrap gap-2">' + tag(athlete.pos) + tag(athlete.secondary, true) + footTag(athlete.foot) + tag(getCategoryFromAge(athlete.age)) + tag(athlete.gender || 'Não informado', true) + '</div>' +
     '<div class="mt-6 grid gap-4 md:grid-cols-3"><div class="panel"><p class="text-xs text-white/35">Avaliação média</p><p class="mt-2 text-3xl font-black text-[#e6bd62]">' + formatRating(ratingOf(athlete)) + '</p></div><div class="panel"><p class="text-xs text-white/35">Votos</p><p id="modal-votes" class="mt-2 text-3xl font-black">' + (athlete.votes + (state.votes[athlete.id] || 0)) + '</p></div><div class="panel"><p class="text-xs text-white/35">Status</p><p class="mt-2 text-lg font-black">' + escapeHtml(athlete.status) + '</p></div></div>' +
-    '<div class="mt-6"><span class="eyebrow">Atributos</span><div class="mt-3 flex flex-wrap gap-2">' + (athlete.tags || []).map((item) => tag(item)).join('') + '</div></div>' +
-    '<div class="mt-6 flex flex-wrap gap-2"><button type="button" class="btn-primary" data-message-athlete="' + athlete.id + '">' + icon('message', 'size-4') + ' Abrir conversa</button><button type="button" class="btn-secondary" data-vote="' + athlete.id + '">' + icon('star', 'size-4') + '<span>' + (hasVoted(state, athlete.id, state.user?.email || 'anon') ? 'Retirar voto' : 'Votar') + '</span></button>' +
+    '<div class="mt-6"><span class="eyebrow">' + t('Atributos') + '</span><div class="mt-3 flex flex-wrap gap-2">' + (athlete.tags || []).map((item) => tag(item)).join('') + '</div></div>' +
+    '<div class="mt-6 flex flex-wrap gap-2"><button type="button" class="btn-primary" data-message-athlete="' + athlete.id + '">' + icon('message', 'size-4') + ' Abrir conversa</button><button type="button" class="btn-secondary" data-vote="' + athlete.id + '">' + icon('star', 'size-4') + '<span>' + (hasVoted(state, athlete.id, state.user?.email || 'anon') ? 'Retirar voto' : t('Votar')) + '</span></button>' +
     (state.user?.role === 'staff' ? '<button type="button" class="btn-secondary" data-review-athlete="' + athlete.id + '">' + icon('edit', 'size-4') + ' Registrar avaliação</button>' : '') + '</div>' +
-    '<section class="mt-8"><div class="flex items-center justify-between gap-3"><div><span class="eyebrow">Avaliações</span><h3 class="section-title">' + reviews.length + ' registro(s)</h3></div></div><div class="mt-4 grid gap-4 md:grid-cols-2">' + (reviews.length ? reviews.map((review) => reviewCard(review, athlete.id)).join('') : '<div class="md:col-span-2 rounded-2xl border border-dashed border-white/10 p-8 text-center text-white/40">Nenhuma avaliação registrada ainda.</div>') + '</div></section>' +
+    '<section class="mt-8"><div class="flex items-center justify-between gap-3"><div><span class="eyebrow">' + t('Avaliações') + '</span><h3 class="section-title">' + reviews.length + ' registro(s)</h3></div></div><div class="mt-4 grid gap-4 md:grid-cols-2">' + (reviews.length ? reviews.map((review) => reviewCard(review, athlete.id)).join('') : '<div class="md:col-span-2 rounded-2xl border border-dashed border-white/10 p-8 text-center text-white/40">Nenhuma avaliação registrada ainda.</div>') + '</div></section>' +
     '</div>'
 
   document.body.appendChild(wrapper)
@@ -764,7 +1104,7 @@ function openAthleteModal(athleteId) {
   }))
   wrapper.querySelectorAll('[data-vote]').forEach((button) => button.addEventListener('click', () => {
     const voted = castVote(Number(button.dataset.vote))
-    button.querySelector('span').textContent = voted ? 'Retirar voto' : 'Votar'
+    button.querySelector('span').textContent = t(voted ? 'Retirar voto' : 'Votar')
     const counter = wrapper.querySelector('#modal-votes')
     if (counter) counter.textContent = athlete.votes + (state.votes[athlete.id] || 0)
   }))
@@ -773,14 +1113,14 @@ function openAthleteModal(athleteId) {
       eyebrow: 'Avaliação',
       title: 'Excluir sua avaliação?',
       message: 'A avaliação será removida do perfil de ' + athlete.name + ' e a nota média será recalculada.',
-      confirmLabel: 'Excluir avaliação',
+      confirmLabel: t('Excluir avaliação'),
       onConfirm: () => {
         state.reviews[athlete.id] = (state.reviews[athlete.id] || []).filter((review) => review.id !== Number(button.dataset.deleteReview))
         persist()
         wrapper.remove()
         refreshAthleteViews()
         openAthleteModal(athlete.id)
-        toast('Avaliação excluída.')
+        toast(t('Avaliação excluída.'))
       },
     })
   }))
@@ -791,11 +1131,14 @@ function openAthleteModal(athleteId) {
 }
 
 function startConversationForAthlete(id) {
-  activeThread = 'a' + id
+  const athlete = state.athletes.find((a) => a.id === Number(id))
+  if (remote.enabled && !athlete?.profileId) return toast('Este atleta de exemplo não tem conta para receber mensagens.', 'error')
+  activeThread = String(id)
+  openChatOnArrive = true
   go('messages')
 }
 
-function confirmDialog({ eyebrow = 'Confirmação', title, message, confirmLabel = 'Confirmar', onConfirm }) {
+function confirmDialog({ eyebrow = 'Confirmação', title, message, confirmLabel = t('Confirmar'), onConfirm }) {
   const wrapper = document.createElement('div')
   wrapper.className = 'fixed inset-0 z-[110] grid place-items-center bg-black/75 p-4'
   wrapper.innerHTML =
@@ -820,14 +1163,14 @@ function openReviewModal(athleteId) {
   wrapper.className = 'fixed inset-0 z-[95] grid place-items-center bg-black/75 p-4 backdrop-blur-md'
   wrapper.innerHTML =
     '<div class="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[28px] border border-white/10 bg-[#111] p-6 shadow-2xl sm:p-8" role="dialog" aria-modal="true" aria-labelledby="review-modal-title">' +
-    '<div class="flex items-start justify-between gap-4"><div><span class="eyebrow">Avaliação</span><h2 id="review-modal-title" class="mt-2 text-2xl font-black">Avaliar ' + escapeHtml(athlete.name) + '</h2><p class="mt-1 text-sm text-white/45">Dê uma nota de 0 a 10 para cada característica. A nota base é uma média ponderada pela posição avaliada; as estatísticas da partida ajustam a nota em até ±' + String(MAX_ADJUSTMENT).replace('.', ',') + ' ponto.</p></div><button type="button" class="icon-button" data-close aria-label="Fechar">' + icon('close') + '</button></div>' +
+    '<div class="flex items-start justify-between gap-4"><div><span class="eyebrow">' + t('Avaliação') + '</span><h2 id="review-modal-title" class="mt-2 text-2xl font-black">Avaliar ' + escapeHtml(athlete.name) + '</h2><p class="mt-1 text-sm text-white/45">Dê uma nota de 0 a 10 para cada característica. A nota base é uma média ponderada pela posição avaliada; as estatísticas da partida ajustam a nota em até ±' + String(MAX_ADJUSTMENT).replace('.', ',') + ' ponto.</p></div><button type="button" class="icon-button" data-close aria-label="Fechar">' + icon('close') + '</button></div>' +
     '<form id="review-form" class="mt-6 space-y-6">' +
-    '<label class="field-label">Posição avaliada<select id="review-position" class="field">' + positions.map((p, i) => '<option value="' + escapeHtml(p) + '">' + escapeHtml(p) + (i === 0 ? ' (principal)' : ' (secundária)') + '</option>').join('') + '</select></label>' +
+    '<label class="field-label">' + t('Posição avaliada') + '<select id="review-position" class="field">' + positions.map((p, i) => '<option value="' + escapeHtml(p) + '">' + escapeHtml(p) + (i === 0 ? ' (principal)' : ' (secundária)') + '</option>').join('') + '</select></label>' +
     '<section><div class="flex items-center justify-between gap-3"><h3 class="font-bold">Características <span class="text-xs font-normal text-white/35">(0 a 10)</span></h3><span class="text-[11px] text-white/35">O “peso” mostra a importância na posição</span></div><div id="review-criteria" class="mt-3 grid gap-3 sm:grid-cols-2"></div>' +
     '<div class="mt-4 flex items-center justify-between gap-4 rounded-2xl border border-[#d4ad59]/20 bg-[#d4ad59]/7 p-4"><div><p class="text-sm font-bold text-[#e2bb62]">Nota final ponderada</p><p id="review-score-hint" class="mt-1 text-xs text-white/45"></p></div><p id="review-score" class="text-4xl font-black text-[#e6bd62]">—</p></div></section>' +
     '<section><h3 class="font-bold">Estatísticas da partida <span class="text-xs font-normal text-white/35">(opcional • visível só para o atleta e para a equipe)</span></h3><div id="review-stats" class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"></div></section>' +
     '<section><h3 class="font-bold">Pontos fortes <span class="text-xs font-normal text-white/35">(opcional)</span></h3><div class="mt-3 flex flex-wrap gap-2">' + STRENGTHS.map((item) => '<label class="check-pill"><input type="checkbox" name="strength" value="' + escapeHtml(item) + '"/><span>' + escapeHtml(item) + '</span></label>').join('') + '</div></section>' +
-    '<label class="field-label">Comentário<textarea id="review-comment" class="field min-h-28 resize-y" required placeholder="Descreva o que observou no jogo, atitude, evolução..."></textarea></label>' +
+    '<label class="field-label">' + t('Comentário') + '<textarea id="review-comment" class="field min-h-28 resize-y" required placeholder="Descreva o que observou no jogo, atitude, evolução..."></textarea></label>' +
     '<p id="review-error" class="hidden rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200" role="alert"></p>' +
     '<div class="flex justify-end gap-2"><button type="button" class="btn-secondary" data-close>Cancelar</button><button type="submit" class="btn-primary">Salvar avaliação ' + icon('check', 'size-4') + '</button></div></form></div>'
   document.body.appendChild(wrapper)
@@ -939,7 +1282,7 @@ function openLocationModal(onSelect) {
   panel.className = 'fixed inset-0 z-[100] grid place-items-center bg-black/70 p-4'
   panel.innerHTML =
     '<div class="w-full max-w-md rounded-3xl border border-white/10 bg-[#151515] p-6" role="dialog" aria-modal="true" aria-labelledby="location-title">' +
-    '<div class="flex items-center justify-between"><div><span class="eyebrow">Localidade</span><h3 id="location-title" class="mt-1 text-xl font-black">Confirmar local da peneira</h3></div><button type="button" class="icon-button" data-close>' + icon('close') + '</button></div>' +
+    '<div class="flex items-center justify-between"><div><span class="eyebrow">' + t('Localidade') + '</span><h3 id="location-title" class="mt-1 text-xl font-black">Confirmar local da peneira</h3></div><button type="button" class="icon-button" data-close>' + icon('close') + '</button></div>' +
     '<div class="mt-5 space-y-2">' +
     [
       ['Centro de Treinamento Pelé', 'São Paulo/SP'],
@@ -967,7 +1310,7 @@ function openTryoutModal() {
   wrapper.className = 'fixed inset-0 z-[90] grid place-items-center bg-black/75 p-4 backdrop-blur-md'
   wrapper.innerHTML =
     '<div class="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[28px] border border-white/10 bg-[#111] p-6 shadow-2xl sm:p-8" role="dialog" aria-modal="true" aria-labelledby="tryout-title">' +
-    '<div class="flex items-start justify-between gap-4"><div><span class="eyebrow">Nova peneira</span><h2 id="tryout-title" class="mt-2 text-2xl font-black">Criar e agendar</h2></div><button type="button" class="icon-button" data-close>' + icon('close') + '</button></div>' +
+    '<div class="flex items-start justify-between gap-4"><div><span class="eyebrow">' + t('Nova peneira') + '</span><h2 id="tryout-title" class="mt-2 text-2xl font-black">Criar e agendar</h2></div><button type="button" class="icon-button" data-close>' + icon('close') + '</button></div>' +
     '<form id="tryout-form" class="mt-6 grid gap-4 sm:grid-cols-2">' +
     input('Nome da peneira', 'try-title', '', 'text', true) +
     input('Data', 'try-date', '', 'date', true) +
@@ -975,11 +1318,11 @@ function openTryoutModal() {
     input('Quantidade de vagas', 'try-seats', '12', 'number', true) +
     '<label class="field-label">Categoria<select id="try-category" class="field" required><option>Sub-7</option><option>Sub-9</option><option>Sub-11</option><option>Sub-13</option><option>Sub-15</option><option selected>Sub-20</option></select></label>' +
     '<div class="sm:col-span-2"><p class="field-label mb-2">Localidade</p><button type="button" id="location-button" class="field flex items-center justify-between text-left"><span id="location-value" class="text-white/35">Selecionar local...</span>' + icon('pin', 'size-4 text-[#e2bb62]') + '</button></div>' +
-    '<div class="sm:col-span-2"><p class="field-label">Posições disponíveis</p><div class="mt-2 grid grid-cols-2 gap-2 rounded-2xl border border-white/8 bg-black/20 p-3 sm:grid-cols-3">' +
+    '<div class="sm:col-span-2"><p class="field-label">' + t('Posições disponíveis') + '</p><div class="mt-2 grid grid-cols-2 gap-2 rounded-2xl border border-white/8 bg-black/20 p-3 sm:grid-cols-3">' +
     POSITIONS.map((p, i) => '<label class="check-pill"><input type="checkbox" name="position" value="' + escapeHtml(p) + '" ' + (i === 6 ? 'checked' : '') + '/><span>' + escapeHtml(p) + '</span></label>').join('') +
     '</div></div>' +
     '<div id="tryout-error" class="sm:col-span-2 hidden rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-200" role="alert"></div>' +
-    '<div class="flex justify-end gap-2 sm:col-span-2"><button type="button" class="btn-secondary" data-close>Cancelar</button><button class="btn-primary" type="submit">Criar peneira ' + icon('check', 'size-4') + '</button></div></form></div>'
+    '<div class="flex justify-end gap-2 sm:col-span-2"><button type="button" class="btn-secondary" data-close>' + t('Cancelar') + '</button><button class="btn-primary" type="submit">' + t('Criar peneira') + ' ' + icon('check', 'size-4') + '</button></div></form></div>'
 
   document.body.appendChild(wrapper)
   wrapper.querySelectorAll('[data-close]').forEach((button) => button.addEventListener('click', () => wrapper.remove()))
@@ -1021,7 +1364,7 @@ function openTryoutModal() {
     persist()
     wrapper.remove()
     render()
-    toast('Peneira criada e publicada.')
+    toast(t('Peneira criada e publicada.'))
   })
 }
 
@@ -1052,7 +1395,7 @@ function withdrawFromTryout(tryoutId) {
   notifyTryoutStaff(tryout, 'Vaga liberada', state.user.name + ' cancelou a inscrição em "' + tryout.title + '" (' + tryout.enrolled.length + '/' + tryout.seats + ').')
   persist()
   render()
-  toast('Inscrição cancelada. A vaga foi liberada.')
+  toast(t('Inscrição cancelada. A vaga foi liberada.'))
 }
 
 function openCancelTryoutModal(tryoutId) {
@@ -1064,7 +1407,7 @@ function openCancelTryoutModal(tryoutId) {
   wrapper.innerHTML =
     '<div class="w-full max-w-lg rounded-[28px] border border-white/10 bg-[#111] p-6" role="dialog" aria-modal="true" aria-labelledby="cancel-title"><span class="eyebrow">Cancelar peneira</span><h2 id="cancel-title" class="mt-2 text-2xl font-black">' + escapeHtml(tryout.title) + '</h2>' +
     '<p class="mt-3 text-sm leading-6 text-white/55">' + (total ? '<strong class="text-white">' + total + ' inscrito(s)</strong> receberão um aviso automático com o motivo abaixo.' : 'Não há inscritos nesta peneira, então nenhum aviso será enviado.') + ' Esta ação remove a peneira da lista e não pode ser desfeita.</p>' +
-    '<form id="cancel-tryout-form" class="mt-5"><label class="field-label">Motivo do cancelamento (opcional)<textarea id="cancel-reason" class="field min-h-24 resize-y" maxlength="240" placeholder="Ex.: chuva forte, campo indisponível, nova data será divulgada."></textarea></label>' +
+    '<form id="cancel-tryout-form" class="mt-5"><label class="field-label">' + t('Motivo do cancelamento (opcional)') + '<textarea id="cancel-reason" class="field min-h-24 resize-y" maxlength="240" placeholder="Ex.: chuva forte, campo indisponível, nova data será divulgada."></textarea></label>' +
     '<div class="mt-6 flex justify-end gap-2"><button type="button" class="btn-secondary" data-close>Manter peneira</button><button type="submit" class="btn-danger">Cancelar peneira e avisar inscritos</button></div></form></div>'
   document.body.appendChild(wrapper)
   wrapper.querySelector('[data-close]').addEventListener('click', () => wrapper.remove())
@@ -1119,7 +1462,7 @@ function openNotifications() {
   wrapper.className = 'fixed inset-0 z-[90] grid place-items-center bg-black/70 p-4'
   wrapper.innerHTML =
     '<div class="w-full max-w-lg rounded-[28px] border border-white/10 bg-[#111] p-6" role="dialog" aria-modal="true" aria-labelledby="notifications-title">' +
-    '<div class="flex items-center justify-between gap-3"><div><span class="eyebrow">Central</span><h2 id="notifications-title" class="mt-1 text-2xl font-black">Notificações</h2></div><button type="button" class="icon-button" data-close>' + icon('close') + '</button></div>' +
+    '<div class="flex items-center justify-between gap-3"><div><span class="eyebrow">' + t('Central') + '</span><h2 id="notifications-title" class="mt-1 text-2xl font-black">Notificações</h2></div><button type="button" class="icon-button" data-close>' + icon('close') + '</button></div>' +
     '<div class="mt-5 space-y-2">' +
     (myNotifications().length ? myNotifications().map((n) => '<article class="rounded-2xl border border-white/8 bg-white/[.03] p-4"><div class="flex items-start justify-between gap-3"><div><p class="font-semibold">' + escapeHtml(n.title) + '</p><p class="mt-1 text-sm text-white/50">' + escapeHtml(n.text) + '</p></div><span class="text-xs text-white/30">' + escapeHtml(n.time) + '</span></div></article>').join('') : '<div class="rounded-2xl border border-dashed border-white/10 p-8 text-center text-white/40">Nenhuma notificação.</div>') +
     '</div><button type="button" class="btn-secondary mt-5 w-full" data-clear-notifications>Marcar como lidas</button></div>'
@@ -1132,7 +1475,7 @@ function openNotifications() {
     persist()
     wrapper.remove()
     updateNotificationBadge()
-    toast('Notificações limpas.')
+    toast(t('Notificações limpas.'))
   })
 }
 
@@ -1142,8 +1485,8 @@ function openMobileMenu() {
   root.innerHTML =
     '<div class="fixed inset-0 z-[70] bg-black/70 p-4 backdrop-blur-sm" data-close-mobile><div class="ml-auto w-[min(86vw,340px)] rounded-3xl border border-white/10 bg-[#111] p-4 shadow-2xl" role="dialog" aria-modal="true"><div class="flex items-center justify-between"><p class="font-bold">Navegação</p><button type="button" class="icon-button" data-close-mobile aria-label="Fechar menu">' + icon('close') + '</button></div><div class="mt-4 grid gap-2">' +
     (state.user?.role === 'staff'
-      ? [['dashboard','Visão geral'],['athletes','Atletas'],['tryouts','Peneiras'],['messages','Conversas'],['profile','Perfil']]
-      : [['dashboard','Início'],['profile','Meu perfil'],['tryouts','Peneiras'],['messages','Conversas']]
+      ? [['dashboard',t('Visão geral')],['athletes',t('Atletas')],['tryouts',t('Peneiras')],['messages',t('Conversas')],['profile',t('Perfil')]]
+      : [['dashboard',t('Início')],['profile',t('Meu perfil')],['tryouts',t('Peneiras')],['messages',t('Conversas')]]
     ).map((item) => '<button type="button" class="nav-link justify-start" data-route="' + item[0] + '" data-close-mobile>' + item[1] + '</button>').join('') +
     '</div></div></div>'
   root.querySelectorAll('[data-route]').forEach((button) => button.addEventListener('click', () => { root.innerHTML = ''; go(button.dataset.route) }))
@@ -1152,7 +1495,7 @@ function openMobileMenu() {
 
 function exportSelection() {
   const athletes = state.filteredAthletes || state.athletes
-  const header = ['Nome', 'Idade', 'Categoria', 'Gênero', 'Perna dominante', 'Posição principal', 'Posição secundária', 'Cidade', 'Estado', 'Nota média', 'Avaliações', 'Votos']
+  const header = ['Nome', t('Idade'), t('Categoria'), t('Gênero'), t('Perna dominante'), t('Posição principal'), t('Posição secundária'), t('Cidade'), t('Estado'), 'Nota média', 'Avaliações', 'Votos']
   const rows = athletes.map((a) => [
     a.name,
     a.age,
@@ -1217,7 +1560,7 @@ function updateCategoryPreview(prefix) {
   }
 }
 
-function saveProfile() {
+async function saveProfile() {
   const p = state.profile || {}
   const birth = document.querySelector('#profile-birth').value
   const age = getAgeFromBirth(birth)
@@ -1230,7 +1573,7 @@ function saveProfile() {
   const newEmail = normalizeEmail(document.querySelector('#profile-email').value)
   const oldEmail = state.user.email
   if (newEmail !== oldEmail && state.accounts.some((entry) => entry.email === newEmail)) return showFeedback('profile-feedback', 'Já existe uma conta com esse e-mail.', true)
-  Object.assign(p, {
+  const next = {
     name: document.querySelector('#profile-name').value.trim(),
     cpf: document.querySelector('#profile-cpf').value.trim(),
     birth,
@@ -1246,7 +1589,16 @@ function saveProfile() {
     district: document.querySelector('#profile-district').value.trim(),
     address: document.querySelector('#profile-address').value.trim(),
     number: document.querySelector('#profile-number').value.trim(),
-  })
+  }
+  if (remote.enabled) {
+    const failure = await updateOwnProfile(state.user.uid, {
+      name: next.name,
+      data: { birth: next.birth, gender: next.gender, foot: next.foot, pos: next.pos, secondary: next.secondary, city: next.city, state: next.state },
+      privateData: { cpf: next.cpf, phone: next.phone, zip: next.zip, district: next.district, address: next.address, number: next.number },
+    })
+    if (failure) return showFeedback('profile-feedback', describeError(failure), true)
+  }
+  Object.assign(p, next)
   state.profile = p
   const account = state.accounts.find((entry) => entry.email === state.user.email)
   if (account) {
@@ -1264,10 +1616,10 @@ function saveProfile() {
   syncAthletes()
   persist()
   render()
-  toast('Dados do jogador atualizados.')
+  toast(t('Dados do jogador atualizados.'))
 }
 
-function registerAccount() {
+async function registerAccount() {
   const name = document.querySelector('#reg-name').value.trim()
   const cpf = document.querySelector('#reg-cpf').value.trim()
   const birth = document.querySelector('#reg-birth').value
@@ -1301,8 +1653,10 @@ function registerAccount() {
   if (!zip || !city || !region || !district || !address || !number) return showFeedback('reg-feedback', 'Preencha todo o endereço, incluindo cidade e estado.', true)
   if (password.length < 6) return showFeedback('reg-feedback', 'A senha precisa ter pelo menos 6 caracteres.', true)
   if (password !== confirm) return showFeedback('reg-feedback', 'As senhas não coincidem.', true)
-  if (state.accounts.some((account) => account.email === email)) return showFeedback('reg-feedback', 'Já existe uma conta com esse e-mail.', true)
-  if (state.accounts.some((account) => account.cpf && account.cpf === cpf.replace(/\D/g, ''))) return showFeedback('reg-feedback', 'Já existe uma conta com esse CPF.', true)
+  if (!remote.enabled) {
+    if (state.accounts.some((account) => account.email === email)) return showFeedback('reg-feedback', 'Já existe uma conta com esse e-mail.', true)
+    if (state.accounts.some((account) => account.cpf && account.cpf === cpf.replace(/\D/g, ''))) return showFeedback('reg-feedback', 'Já existe uma conta com esse CPF.', true)
+  }
 
   const profile = {
     name,
@@ -1322,6 +1676,37 @@ function registerAccount() {
     zip,
   }
 
+  if (remote.enabled) {
+    const submit = document.querySelector('#register-form button[type="submit"]')
+    submit?.setAttribute('disabled', '')
+    const result = await remoteSignUp({
+      email,
+      password,
+      name,
+      publicData: { birth, gender, foot, pos, secondary, city, state: region },
+      privateData: { cpf: profile.cpf, phone, zip, district, address, number },
+    })
+    if (result.error) {
+      submit?.removeAttribute('disabled')
+      return showFeedback('reg-feedback', describeError(result.error), true)
+    }
+    if (!result.session) {
+      submit?.removeAttribute('disabled')
+      return showFeedback('reg-feedback', 'Conta criada! Enviamos um e-mail de confirmação: confirme o endereço e depois faça login.')
+    }
+    try {
+      await hydrateRemote(result.session.user.id)
+    } catch (error) {
+      submit?.removeAttribute('disabled')
+      return showFeedback('reg-feedback', describeError(error), true)
+    }
+    notify(email, 'Conta criada', 'Seu cadastro foi concluído com categoria ' + getCategoryFromAge(age) + '.')
+    persist()
+    go('dashboard')
+    toast(t('Conta criada com sucesso.'))
+    return
+  }
+
   const athleteId = Date.now()
   state.accounts.push({ email, password, role: 'player', cpf: profile.cpf, athleteId, profile })
   state.profile = profile
@@ -1330,16 +1715,48 @@ function registerAccount() {
   notify(email, 'Conta criada', 'Seu cadastro foi concluído com categoria ' + getCategoryFromAge(age) + '.')
   persist()
   go('dashboard')
-  toast('Conta criada com sucesso.')
+  toast(t('Conta criada com sucesso.'))
 }
 
-function loginAccount() {
+async function finishRemoteLogin(uid, role, errorId) {
+  try {
+    await hydrateRemote(uid)
+  } catch (error) {
+    await clearRemoteSession()
+    showFeedback(errorId, describeError(error), true)
+    return false
+  }
+  if (state.user.role !== role) {
+    const actual = state.user.role
+    await clearRemoteSession()
+    showFeedback(errorId, 'Esta conta é de ' + (actual === 'staff' ? 'funcionário' : 'jogador') + '. Selecione a aba correta acima.', true)
+    return false
+  }
+  persist()
+  go('dashboard')
+  toast('Login realizado como ' + (role === 'staff' ? 'funcionário' : 'jogador') + '.')
+  return true
+}
+
+async function loginAccount() {
   const email = normalizeEmail(document.querySelector('#login-email').value)
   const password = document.querySelector('#login-password').value
   const role = document.querySelector('.role-tab.active')?.dataset.role || 'player'
   const errorId = 'login-error'
 
   if (!email || !email.includes('@')) return showFeedback(errorId, 'Informe um e-mail válido.', true)
+
+  if (remote.enabled) {
+    const submit = document.querySelector('#login-form button[type="submit"]')
+    submit?.setAttribute('disabled', '')
+    const result = await remoteSignIn(email, password)
+    if (result.error || !result.user) {
+      submit?.removeAttribute('disabled')
+      return showFeedback(errorId, describeError(result.error), true)
+    }
+    if (!(await finishRemoteLogin(result.user.id, role, errorId))) submit?.removeAttribute('disabled')
+    return
+  }
 
   const anyRole = state.accounts.find((entry) => entry.email === email)
   if (anyRole && anyRole.role !== role && anyRole.password === password) {
@@ -1359,8 +1776,32 @@ function loginAccount() {
   toast('Login realizado como ' + (role === 'staff' ? 'funcionário' : 'jogador') + '.')
 }
 
-function loginDemo() {
+async function loginDemo() {
   const role = document.querySelector('.role-tab.active')?.dataset.role || 'player'
+  const errorId = 'login-error'
+
+  if (remote.enabled) {
+    const demo = role === 'staff'
+      ? { email: 'funcionario@academiapele.com', password: 'Academia123!', name: 'Marina Lopes', publicData: { position: 'Olheira', phone: '(11) 99999-0000', city: 'São Paulo', state: 'SP' }, privateData: {} }
+      : {
+        email: 'gabriel@academiapele.com',
+        password: 'Demo123!',
+        name: defaultProfile.name,
+        publicData: { birth: defaultProfile.birth, gender: defaultProfile.gender, foot: defaultProfile.foot, pos: defaultProfile.pos, secondary: defaultProfile.secondary, city: defaultProfile.city, state: defaultProfile.state },
+        privateData: { cpf: '11144477735', phone: defaultProfile.phone, zip: defaultProfile.zip, district: defaultProfile.district, address: defaultProfile.address, number: defaultProfile.number },
+      }
+    let result = await remoteSignIn(demo.email, demo.password)
+    if (result.error) {
+      // primeira vez: cria a conta demo no Supabase e entra
+      const created = await remoteSignUp(demo)
+      if (created.error) return showFeedback(errorId, describeError(created.error), true)
+      result = await remoteSignIn(demo.email, demo.password)
+      if (result.error) return showFeedback(errorId, describeError(result.error), true)
+    }
+    if (await finishRemoteLogin(result.user.id, role, errorId)) toast(t('Conta demo carregada.'))
+    return
+  }
+
   const email = role === 'staff' ? 'funcionario@academiapele.com' : 'gabriel@academiapele.com'
   const account = state.accounts.find((entry) => entry.email === email)
   if (!account) return
@@ -1368,7 +1809,16 @@ function loginDemo() {
   state.profile = role === 'player' ? account.profile : null
   persist()
   go('dashboard')
-  toast('Conta demo carregada.')
+  toast(t('Conta demo carregada.'))
+}
+
+// Evita erros silenciosos em operações assíncronas (rede, Supabase...)
+function safely(promise) {
+  promise.catch((error) => {
+    console.error(error)
+    toast(describeError(error), 'error')
+    document.querySelectorAll('form button[type="submit"][disabled]').forEach((button) => button.removeAttribute('disabled'))
+  })
 }
 
 function initLoginRoleButtons() {
@@ -1390,11 +1840,11 @@ function castVote(athleteId) {
   if (hasVoted(state, athleteId, voter)) {
     removeVote(state, athleteId, voter)
     voted = false
-    toast('Voto retirado.')
+    toast(t('Voto retirado.'))
   } else {
     registerVote(state, athleteId, voter)
     voted = true
-    toast('Voto registrado com sucesso.')
+    toast(t('Voto registrado com sucesso.'))
   }
   persist()
   refreshAthleteViews()
@@ -1410,7 +1860,7 @@ function bindDynamicCards() {
     toggleFavorite(state, id)
     persist()
     refreshAthleteViews()
-    toast(state.favorites.includes(id) ? 'Atleta adicionado aos favoritos.' : 'Atleta removido dos favoritos.')
+    toast(t(state.favorites.includes(id) ? 'Atleta adicionado aos favoritos.' : 'Atleta removido dos favoritos.'))
   }))
   app.querySelectorAll('[data-vote]').forEach((button) => button.addEventListener('click', (event) => {
     event.stopPropagation()
@@ -1423,6 +1873,11 @@ function bind() {
   initLoginRoleButtons()
   bindDynamicCards()
 
+  document.querySelectorAll('[data-action="change-lang"]').forEach((button) => button.addEventListener('click', () => {
+    document.body.dataset.langChosen = ''
+    localStorage.removeItem('ap_lang')
+    render()
+  }))
   document.querySelectorAll('[data-action="home"]').forEach((button) => button.addEventListener('click', () => {
     document.querySelectorAll('body > div.fixed.inset-0').forEach((modal) => modal.remove())
     if (currentRoute() === 'dashboard') window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -1440,12 +1895,16 @@ function bind() {
   }))
 
   document.querySelectorAll('[data-action="export"]').forEach((button) => button.addEventListener('click', exportSelection))
-  document.querySelectorAll('[data-action="logout"]').forEach((button) => button.addEventListener('click', () => {
-    state.user = null
-    state.profile = null
-    persist()
-    go('login')
-    toast('Sessão encerrada.')
+  document.querySelectorAll('[data-action="logout"]').forEach((button) => button.addEventListener('click', async () => {
+    if (remote.enabled) {
+      await clearRemoteSession({ navigate: true })
+    } else {
+      state.user = null
+      state.profile = null
+      persist()
+      go('login')
+    }
+    toast(t('Sessão encerrada.'))
   }))
 
   document.querySelectorAll('[data-action="openTryout"]').forEach((button) => button.addEventListener('click', openTryoutModal))
@@ -1466,10 +1925,10 @@ function bind() {
     if (vacancies <= 0) return toast('Não há mais vagas nesta peneira.', 'error')
     enrolled.push(state.user.email)
     notifyTryoutStaff(tryout, 'Nova inscrição', state.user.name + ' se inscreveu em "' + tryout.title + '" (' + enrolled.length + '/' + tryout.seats + ').')
-    notify(state.user.email, 'Inscrição confirmada', 'Você se inscreveu em ' + tryout.title + '.')
+    notify(state.user.email, t('Inscrição confirmada'), 'Você se inscreveu em ' + tryout.title + '.')
     persist()
     render()
-    toast('Inscrição confirmada.')
+    toast(t('Inscrição confirmada.'))
   }))
 
   const filterIds = ['filter-name', 'filter-pos', 'filter-foot', 'filter-city', 'filter-age', 'filter-category']
@@ -1483,18 +1942,18 @@ function bind() {
     document.querySelector('#reg-cpf').addEventListener('input', (event) => formatCPF(event.target))
     document.querySelector('#reg-birth').addEventListener('change', () => updateCategoryPreview('reg'))
     document.querySelector('#reg-birth').addEventListener('input', () => updateCategoryPreview('reg'))
-    registerForm.addEventListener('submit', (event) => { event.preventDefault(); registerAccount() })
+    registerForm.addEventListener('submit', (event) => { event.preventDefault(); safely(registerAccount()) })
   }
 
   const profileForm = document.querySelector('#profile-form')
   if (profileForm) {
     document.querySelector('#profile-birth').addEventListener('change', () => updateCategoryPreview('profile'))
-    profileForm.addEventListener('submit', (event) => { event.preventDefault(); saveProfile() })
+    profileForm.addEventListener('submit', (event) => { event.preventDefault(); safely(saveProfile()) })
   }
 
   const loginForm = document.querySelector('#login-form')
-  if (loginForm) loginForm.addEventListener('submit', (event) => { event.preventDefault(); loginAccount() })
-  document.querySelectorAll('[data-action="demo"]').forEach((button) => button.addEventListener('click', loginDemo))
+  if (loginForm) loginForm.addEventListener('submit', (event) => { event.preventDefault(); safely(loginAccount()) })
+  document.querySelectorAll('[data-action="demo"]').forEach((button) => button.addEventListener('click', () => safely(loginDemo())))
 
   const conversationSearch = document.querySelector('#conversation-search')
   if (conversationSearch) conversationSearch.addEventListener('input', () => {
@@ -1506,35 +1965,58 @@ function bind() {
     if (empty) empty.hidden = visibleSet.size > 0
   })
 
-  document.querySelectorAll('[data-thread]').forEach((button) => button.addEventListener('click', () => {
-    activeThread = button.dataset.thread
-    render()
-  }))
+  bindConversationItems()
+  document.querySelectorAll('[data-action="chat-back"]').forEach((button) => button.addEventListener('click', closeMobileChat))
 
   const chat = document.querySelector('#chat-messages')
   if (chat) chat.scrollTop = chat.scrollHeight
 
   const messageForm = document.querySelector('#message-form')
-  if (messageForm) messageForm.addEventListener('submit', (event) => {
+  if (messageForm) messageForm.addEventListener('submit', async (event) => {
     event.preventDefault()
-    const inputField = document.querySelector('#message-input')
-    const textValue = inputField.value.trim()
-    if (!textValue || !activeThreadKey) return
-    state.messages.push({
-      id: Date.now(),
-      thread: activeThreadKey,
-      senderRole: state.user.role === 'staff' ? 'staff' : 'player',
-      text: textValue,
-      time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-    })
-    persist()
-    render()
-    document.querySelector('#message-input')?.focus()
+    const field = document.querySelector('#message-input')
+    const text = field.value.trim()
+    if (!text) return
+    field.value = ''
+    field.focus()
+    const sent = await sendChatMessage(text)
+    if (sent === false && !field.value) field.value = text
   })
+}
+
+// Tela mostrada uma única vez (antes do login) para escolher o idioma. Pode ser
+// reaberta pelo botão de idioma no cabeçalho ou no rodapé da tela de login.
+function languagePage() {
+  return '<div class="grid min-h-screen place-items-center bg-[radial-gradient(circle_at_center,_rgba(210,173,88,.12),_transparent_30%),#070707] px-4 py-8 text-white">' +
+    '<div class="w-full max-w-md rounded-[32px] border border-white/10 bg-white/[.025] p-8 text-center">' +
+    '<img src="./assets/brand/simbolo.jpg" alt="Academia Pelé" class="mx-auto h-20 w-20 rounded-3xl object-contain"/>' +
+    '<h1 class="mt-6 text-2xl font-black">Escolha seu idioma<br/><span class="text-[#e1bb62]">Elige tu idioma</span></h1>' +
+    '<div class="mt-8 grid gap-3">' + LANGS.map((lang) =>
+      '<button type="button" class="btn-secondary w-full !justify-center !py-4 text-base" data-lang="' + lang.code + '"><span class="mr-2 text-xl">' + lang.flag + '</span>' + lang.label + '</button>'
+    ).join('') + '</div>' +
+    '<p class="mt-6 text-xs text-white/35">Você pode mudar isso depois, a qualquer momento.<br/>Puedes cambiarlo después, en cualquier momento.</p>' +
+    '</div></div>'
 }
 
 function render() {
   const route = currentRoute()
+  if (!getLang() && !document.body.dataset.langChosen) {
+    app.innerHTML = languagePage()
+    app.querySelectorAll('[data-lang]').forEach((button) => button.addEventListener('click', () => {
+      setLang(button.dataset.lang)
+      render()
+    }))
+    return
+  }
+  if (route !== 'messages') mobileChatOpen = false
+  let pushChatEntry = false
+  if (route === 'messages' && openChatOnArrive) {
+    openChatOnArrive = false
+    if (isMobileView()) {
+      mobileChatOpen = true
+      pushChatEntry = true
+    }
+  }
   if (!state.user && !['login', 'register'].includes(route)) {
     go('login')
     return
@@ -1560,8 +2042,12 @@ function render() {
 
   app.innerHTML = view
   bind()
+  if (pushChatEntry) history.pushState({ apChat: true }, '')
+  document.body.classList.toggle('chat-open', route === 'messages' && mobileChatOpen)
+  updateMessageBadge()
   if (route !== lastRoute) window.scrollTo(0, 0)
   lastRoute = route
+  if (['athletes', 'messages', 'dashboard'].includes(route)) refreshRemote()
 }
 
 // Atualização automática: quando outra aba/janela altera os dados (inscrição, cancelamento,
@@ -1569,8 +2055,10 @@ function render() {
 function reloadSharedState() {
   state.tryouts = readStorage('ap_tryouts', state.tryouts)
   state.notifications = readStorage('ap_notifications', state.notifications)
-  state.messages = readStorage('ap_messages', state.messages)
-  state.accounts = readStorage('ap_accounts', state.accounts)
+  if (!remote.enabled) {
+    state.messages = readStorage('ap_messages', state.messages)
+    state.accounts = readStorage('ap_accounts', state.accounts)
+  }
   state.reviews = readStorage('ap_reviews', state.reviews)
   state.votes = readStorage('ap_votes', state.votes)
   state.voted = readStorage('ap_voted', state.voted)
@@ -1579,23 +2067,57 @@ function reloadSharedState() {
 }
 
 window.addEventListener('storage', (event) => {
-  if (!state.user || !event.key || !event.key.startsWith('ap_') || ['ap_user', 'ap_profile'].includes(event.key)) return
+  if (!state.user || !event.key || !event.key.startsWith('ap_') || ['ap_user', 'ap_profile', 'ap_lastread'].includes(event.key)) return
+  if (remote.enabled && ['ap_accounts', 'ap_messages'].includes(event.key)) return
   const before = myNotifications().length
   reloadSharedState()
   const after = myNotifications().length
   const route = currentRoute()
   if (route === 'athletes') applyFilters()
-  else if (route === 'messages') { if (!document.querySelector('#message-input')?.value) render() }
+  else if (route === 'messages') { if (!remote.enabled && !document.querySelector('#message-input')?.value) render() }
   else if (route !== 'profile') render()
   updateNotificationBadge()
-  if (after > before) toast('Você recebeu uma nova notificação.')
+  if (after > before) toast(t('Você recebeu uma nova notificação.'))
 })
 
-window.addEventListener('hashchange', render)
+window.addEventListener('hashchange', () => { if (booted) render() })
+// Botão "voltar" do celular: sai da conversa aberta e volta para a lista de contatos
+window.addEventListener('popstate', () => {
+  if (booted && mobileChatOpen && !history.state?.apChat) {
+    mobileChatOpen = false
+    render()
+  }
+})
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refreshRemote(true) })
+window.addEventListener('online', () => refreshRemote(true))
+setInterval(() => { if (document.visibilityState === 'visible') refreshRemote() }, 30000)
 // ESC fecha o modal aberto mais recentemente
 document.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return
   const modals = document.querySelectorAll('body > div.fixed.inset-0')
   if (modals.length) modals[modals.length - 1].remove()
 })
-render()
+
+async function boot() {
+  app.innerHTML = '<div class="grid min-h-screen place-items-center text-sm text-white/40">Carregando...</div>'
+  if (await initRemote()) {
+    // Com o Supabase, a sessão vem do servidor (não do localStorage)
+    state.user = null
+    state.profile = null
+    state.accounts = []
+    state.messages = []
+    try {
+      const session = await getSessionUser()
+      if (session) await hydrateRemote(session.uid)
+    } catch (error) {
+      console.warn('[Supabase] não foi possível restaurar a sessão:', error)
+      await clearRemoteSession()
+    }
+  } else {
+    ensureReadBaseline('local')
+  }
+  syncAthletes()
+  booted = true
+  render()
+}
+boot()

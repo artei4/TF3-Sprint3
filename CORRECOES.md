@@ -66,3 +66,24 @@ Os pesos ficam na constante `WEIGHTS` em `assets/js/evaluation.js` e podem ser a
   - A avaliação mostra nota base, ajuste e as estatísticas; a nota aparece ao vivo no formulário.
 - **Privacidade**: notas, comentários e estatísticas ficam visíveis apenas para o jogador avaliado (no próprio perfil, com aviso na tela) e para a equipe (funcionários). Um jogador não vê avaliações de outro e não acessa o banco de atletas.
 - **Painel do funcionário com números reais**: "Atletas ativos" = total de atletas do banco (exemplos + todos os jogadores cadastrados), igual ao número da tela Atletas; "Perfis avaliados" só conta perfis com avaliação; "Mensagens" conta as conversas do próprio funcionário.
+
+## Atualização 6
+- **Chat mobile estilo WhatsApp**: no celular, abrir uma conversa preenche a tela inteira e
+  esconde a lista de contatos; um botão de seta volta para a lista, e o botão "voltar" do
+  celular/navegador também funciona. No computador, o layout lado a lado continua como estava.
+  A lista de contatos agora mostra a prévia da última mensagem.
+- **Supabase (sincronização entre aparelhos)**: `assets/js/remote.js` conecta contas, perfis
+  e conversas a um banco de dados na nuvem (com tempo real), então um funcionário no
+  computador e um jogador no celular passam a ver a mesma conversa. A URL e a chave pública
+  já estão em `assets/js/config.js`; falta rodar o SQL de `supabase/migrations/` (veja o
+  passo a passo em `SUPABASE_SETUP.md`). Sem internet ou sem configurar, o site continua
+  funcionando sozinho no modo local de antes (pode ser forçado com `?local=1` na URL).
+- **Idioma espanhol**: uma tela de seleção (Português/Español) aparece antes do login na
+  primeira vez; a escolha fica salva e pode ser trocada a qualquer momento pelo ícone de
+  globo no cabeçalho (ou no rodapé da tela de login). Já estão traduzidas: a tela de idioma,
+  login, cadastro, navegação, títulos das páginas principais, os modais de avaliação e de
+  criação/cancelamento de peneira, os rótulos dos filtros de atletas, botões de ação (votar,
+  inscrever, cancelar peneira, sair etc.) e os toasts mais comuns. **Ainda faltam**: telas de
+  perfil e de detalhe de atleta com textos mais longos, e alguns toasts de erro mais
+  específicos — a infraestrutura em `assets/js/i18n.js` (função `t('texto em português')`)
+  já está pronta para isso, é só continuar envolvendo os textos que faltam.

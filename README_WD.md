@@ -49,11 +49,13 @@ npm run dev
 Preencher antes da entrega:
 
 - GitHub: `[INSERIR LINK]`
-- Deploy: `[INSERIR LINK]`
+- Deploy: `(https://tf-3-sprint3.vercel.app)`
 - Figma: `[INSERIR LINK]`
 
 | Integrante | RM | Branch | PR | Funcionalidades |
 |---|---|---|---|---|
-| `[Nome]` | `[RM]` | `[branch]` | `#[PR]` | `[funcionalidades]` |
-| `[Nome]` | `[RM]` | `[branch]` | `#[PR]` | `[funcionalidades]` |
-| `[Nome]` | `[RM]` | `[branch]` | `#[PR]` | `[funcionalidades]` |
+| `[Arthur Bergami]` | `[570679]` | `[Main]` | `#[PR]` | `[login dos usarios]` |
+| `[Davi Martins]` | `[572699]` | `[branch]` | `#[PR]` | `[funcionalidades]` |
+| `[Felipe Braga]` | `[573529]` | `[branch]` | `#[PR]` | `[funcionalidades]` |
+| `[Marcos Vinícios]` | `[571080]` | `[branch]` | `#[PR]` | `[funcionalidades]` |
+| `[Victor Lopes]` | `[571315]` | `[branch]` | `#[PR]` | `[funcionalidades]` |

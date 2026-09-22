@@ -48,6 +48,8 @@ Preencher os links reais antes da entrega:
 
 | Integrante | RM | Branch | PR | Entregas |
 |---|---|---|---|---|
-| `[Nome]` | `[RM]` | `[branch]` | `#[PR]` | `[entregas]` |
-| `[Nome]` | `[RM]` | `[branch]` | `#[PR]` | `[entregas]` |
-| `[Nome]` | `[RM]` | `[branch]` | `#[PR]` | `[entregas]` |
+| `[Arthur Bergami]` | `[570679]` | `[Main]` | `#[PR]` | `[telas de cadastro, telas de login, telas após login dos funcionarios]` |
+| `[Davi Martins]` | `[572699]` | `[branch]` | `#[PR]` | `[funcionalidades]` |
+| `[Felipe Braga]` | `[573529]` | `[branch]` | `#[PR]` | `[funcionalidades]` |
+| `[Marcos Vinícios]` | `[571080]` | `[branch]` | `#[PR]` | `[funcionalidades]` |
+| `[Victor Lopes]` | `[571315]` | `[branch]` | `#[PR]` | `[funcionalidades]` |
