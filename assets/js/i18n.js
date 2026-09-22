@@ -84,6 +84,8 @@ const ES = {
   'O banco ainda não foi configurado. Execute o SQL da pasta supabase/migrations.': 'La base de datos aún no está configurada. Ejecuta el SQL de la carpeta supabase/migrations.',
   'Sem conexão com o servidor. Verifique sua internet.': 'Sin conexión con el servidor. Verifica tu conexión a internet.',
   'Não foi possível concluir a operação. Tente novamente.': 'No fue posible completar la operación. Vuelve a intentarlo.',
+  'O banco ainda não foi atualizado. Execute a migration mais recente no Supabase.': 'La base de datos aún no está actualizada. Ejecuta la migración más reciente en Supabase.',
+  'O perfil desta conta ainda não foi criado. Execute a migration de contas no Supabase e tente novamente.': 'El perfil de esta cuenta aún no se ha creado. Ejecuta la migración de cuentas en Supabase y vuelve a intentarlo.',
   'Entrar com conta demo': 'Entrar con cuenta demo',
   'Pesquisar atletas': 'Buscar atletas',
   'Abrir banco completo': 'Ver todos los atletas',

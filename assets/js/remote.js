@@ -43,6 +43,8 @@ export function describeError(error) {
   if (text.includes('database error saving new user') || code === 'unexpected_failure') return t('Não foi possível criar a conta. O CPF ou o e-mail já pode estar cadastrado.')
   if (text.includes('rate limit') || code.includes('rate_limit')) return t('Muitas tentativas. Aguarde alguns minutos e tente novamente.')
   if (text.includes('relation') && text.includes('does not exist')) return t('O banco ainda não foi configurado. Execute o SQL da pasta supabase/migrations.')
+  if (text.includes('schema cache') || text.includes('could not find the table')) return t('O banco ainda não foi atualizado. Execute a migration mais recente no Supabase.')
+  if (text.includes('perfil não encontrado') || text.includes('profile not found')) return t('O perfil desta conta ainda não foi criado. Execute a migration de contas no Supabase e tente novamente.')
   if (text.includes('failed to fetch') || text.includes('network')) return t('Sem conexão com o servidor. Verifique sua internet.')
   return t('Não foi possível concluir a operação. Tente novamente.')
 }

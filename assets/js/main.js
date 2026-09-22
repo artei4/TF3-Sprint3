@@ -527,7 +527,13 @@ async function hydrateRemote(uid) {
   stopAuthWatch = onSignedOut(() => { if (state.user && remote.enabled) clearRemoteSession({ navigate: true, signOut: false }) })
   lastRemoteRefresh = Date.now()
   syncAthletes()
-  await refreshRemoteEvaluations()
+  try {
+    await refreshRemoteEvaluations()
+  } catch (error) {
+    // A conta deve conseguir entrar mesmo antes de a migration de avaliações
+    // ser aplicada; a sincronização será tentada novamente na próxima atualização.
+    console.warn('[Supabase] não foi possível carregar avaliações:', error)
+  }
 }
 
 function mapRemoteEvaluation(row) {
@@ -1986,7 +1992,10 @@ function bindDynamicCards() {
 }
 
 function bind() {
-  document.querySelectorAll('[data-route]').forEach((button) => button.addEventListener('click', () => go(button.dataset.route)))
+  document.querySelectorAll('[data-route]').forEach((button) => button.addEventListener('click', (event) => {
+    event.preventDefault()
+    go(button.dataset.route)
+  }))
   initLoginRoleButtons()
   bindDynamicCards()
 
