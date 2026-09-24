@@ -34,9 +34,7 @@ O projeto mantém foco visível com `:focus-visible`, labels associados aos camp
 
 Preencher os links reais antes da entrega:
 
-- GitHub: `[INSERIR LINK]`
-- Deploy: `[INSERIR LINK]`
-- Figma: `[INSERIR LINK]`
+- Deploy: `[https://tf-3-sprint3.vercel.app]`
 
 ### Responsividade validada
 
