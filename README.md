@@ -1,6 +1,6 @@
-# Academia Pelé — TF3-Sprint3
+# Pelé Academia — TF3-Sprint3
 
-Aplicação front-end da Sprint 3 do Challenge Academia Pelé.
+Aplicação front-end da Sprint 3 do Challenge Pelé Academia.
 
 ## Stack
 
@@ -21,8 +21,7 @@ A aplicação também funciona como site estático. Para abrir no endereço `htt
 
 | Tipo | E-mail | Senha |
 |---|---|---|
-| Funcionário (olheira) | `funcionario@academiapele.com` | `Academia123!` |
-| Funcionário (treinador) | `treinador@academiapele.com` | `Academia123!` |
+| Funcionário | `treinador@academiapele.com` | `Academia123!` |
 | Jogador | `gabriel@academiapele.com` | `Demo123!` |
 
 Novos jogadores criados em "Criar conta de jogador" entram automaticamente no banco de atletas.
@@ -60,7 +59,7 @@ npm run preview
 
 ## Identidade visual
 
-A logo fornecida da **Academia Pelé** está em `assets/brand/simbolo.jpg` e é utilizada no cabeçalho e nas telas de acesso.
+A logo fornecida da **Pelé Academia** está em `assets/brand/simbolo.jpg` e é utilizada no cabeçalho e nas telas de acesso.
 
 ## Documentação acadêmica
 

@@ -1,5 +1,5 @@
 -- =====================================================================================
--- Academia Pelé — contas, perfis e conversas (Supabase)
+-- Pelé Academia — contas, perfis e conversas (Supabase)
 -- Como usar: Supabase → SQL Editor → cole este arquivo inteiro → Run.
 -- (ou, pelo terminal: supabase link --project-ref delhjdfecknikusehrga && supabase db push)
 -- Pode ser executado mais de uma vez sem quebrar nada.

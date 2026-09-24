@@ -1,6 +1,6 @@
 # README — Front-End Design | Sprint 3
 
-## Academia Pelé — TF3-Sprint3
+## Pelé Academia — TF3-Sprint3
 
 A aplicação utiliza Tailwind CSS como camada principal de estilo e traduz o design system definido nas sprints anteriores para tokens de tema: cores institucionais, tipografia, espaçamento, raios e breakpoints.
 
@@ -16,7 +16,7 @@ A aplicação utiliza Tailwind CSS como camada principal de estilo e traduz o de
 - Avaliações, notas e comentários de olheiros.
 - Conversas entre atletas e profissionais.
 - Responsividade mobile/tablet/desktop.
-- Identidade visual da Academia Pelé aplicada ao produto.
+- Identidade visual da Pelé Academia aplicada ao produto.
 
 ### Design system
 

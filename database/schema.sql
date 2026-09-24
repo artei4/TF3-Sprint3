@@ -1,4 +1,4 @@
--- Academia Pelé — modelo inicial do banco de dados da Sprint 3
+-- Pelé Academia — modelo inicial do banco de dados da Sprint 3
 CREATE TABLE users (
   id INTEGER PRIMARY KEY,
   name TEXT NOT NULL,

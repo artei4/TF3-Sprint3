@@ -124,7 +124,7 @@ const ES = {
 
   // Login / cadastro
   'Acesso': 'Acceso',
-  'Entrar na Academia Pelé': 'Entrar en Academia Pelé',
+  'Entrar na Pelé Academia': 'Entrar en Pelé Academia',
   'Escolha o tipo de conta antes de entrar.': 'Elige el tipo de cuenta antes de entrar.',
   'Jogador': 'Jugador',
   'Funcionário': 'Empleado',
@@ -150,7 +150,7 @@ const ES = {
   'Número': 'Número',
   'CEP': 'Código postal',
 
-  'Entrar na Academia Pelé': 'Entrar en Academia Pelé',
+  'Entrar na Pelé Academia': 'Entrar en Pelé Academia',
   'Escolha o tipo de conta antes de entrar.': 'Elige el tipo de cuenta antes de entrar.',
   'Clique para retirar seu voto': 'Haz clic para quitar tu voto',
   'Votar neste atleta': 'Votar por este atleta',

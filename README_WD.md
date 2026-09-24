@@ -1,6 +1,6 @@
 # README — Web Development | Sprint 3
 
-## Academia Pelé — TF3-Sprint3
+## Pelé Academia — TF3-Sprint3
 
 A Sprint 3 de Web Development foi construída com JavaScript Vanilla, manipulação direta do DOM e eventos do navegador.
 

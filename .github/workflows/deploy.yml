@@ -1,4 +1,4 @@
-name: Deploy Academia Pelé
+name: Deploy Pelé Academia
 
 on:
   push:

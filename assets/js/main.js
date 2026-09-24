@@ -314,7 +314,7 @@ function getConversations() {
   return state.accounts.filter((a) => a.role === 'staff').map((a) => ({
     id: remote.enabled ? a.uid : a.email,
     name: a.profile?.name || a.email,
-    subtitle: (a.profile?.position || 'Profissional') + ' • ' + (a.profile?.city || 'Academia Pelé'),
+    subtitle: (a.profile?.position || 'Profissional') + ' • ' + (a.profile?.city || 'Pelé Academia'),
     avatar: a.profile?.name || a.email,
     key: remote.enabled ? threadKey(state.user.uid, a.uid) : threadKey(me.id, a.email),
     athleteRef: state.user.uid,
@@ -725,8 +725,8 @@ function shell(content, options = {}) {
     '<header class="sticky top-0 z-40 border-b border-white/8 bg-[#090909]/90 backdrop-blur-xl">' +
     '<div class="mx-auto flex min-h-[4.5rem] max-w-[1440px] items-center justify-between gap-3 px-4 py-2 sm:px-6 lg:px-10">' +
     '<button type="button" class="flex items-center gap-3" data-action="home" aria-label="Ir para o início">' +
-    '<img src="./assets/brand/simbolo.jpg" alt="Academia Pelé" class="h-11 w-11 rounded-xl object-contain bg-black ring-1 ring-white/10" />' +
-    '<div class="hidden sm:block text-left"><p class="text-sm font-black uppercase tracking-[.28em] text-[#e1bb62]">Academia Pelé</p><p class="text-[11px] text-white/40">Plataforma de talentos</p></div></button>' +
+    '<img src="./assets/brand/simbolo.jpg" alt="Pelé Academia" class="h-11 w-11 rounded-xl object-contain bg-black ring-1 ring-white/10" />' +
+    '<div class="hidden sm:block text-left"><p class="text-sm font-black uppercase tracking-[.28em] text-[#e1bb62]">Pelé Academia</p><p class="text-[11px] text-white/40">Plataforma de talentos</p></div></button>' +
     '<nav class="hidden md:flex items-center gap-1" aria-label="Navegação principal">' +
     nav.map((item) => '<button type="button" data-route="' + item[0] + '" class="nav-link ' + (active === item[0] ? 'active' : '') + '">' + icon(item[2], 'size-4') + item[1] + '</button>').join('') +
     '</nav>' +
@@ -765,8 +765,8 @@ function playerDashboard() {
   return shell(
     '<section class="grid gap-6 xl:grid-cols-[1.55fr_.8fr]">' +
     '<div class="overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(135deg,#17130c_0%,#0d0d0d_55%,#18120a_100%)] p-6 shadow-2xl sm:p-8">' +
-    '<div class="flex flex-wrap items-center justify-between gap-4"><div><span class="eyebrow">' + t('Painel do atleta') + '</span><h1 class="mt-3 max-w-xl text-3xl font-black leading-tight tracking-tight sm:text-5xl">Olá, ' + name + '. <span class="text-[#e6bd62]">Sua carreira em movimento.</span></h1><p class="mt-4 max-w-2xl text-base leading-7 text-white/55">Acompanhe oportunidades, avaliações e conversas com profissionais da Academia Pelé.</p></div>' +
-    '<div class="hidden sm:flex h-28 w-28 items-center justify-center rounded-3xl border border-[#d4ad59]/25 bg-[#d4ad59]/10"><img src="./assets/brand/simbolo.jpg" alt="Logo Academia Pelé" class="h-24 w-24 rounded-2xl object-contain" /></div></div>' +
+    '<div class="flex flex-wrap items-center justify-between gap-4"><div><span class="eyebrow">' + t('Painel do atleta') + '</span><h1 class="mt-3 max-w-xl text-3xl font-black leading-tight tracking-tight sm:text-5xl">Olá, ' + name + '. <span class="text-[#e6bd62]">Sua carreira em movimento.</span></h1><p class="mt-4 max-w-2xl text-base leading-7 text-white/55">Acompanhe oportunidades, avaliações e conversas com profissionais da Pelé Academia.</p></div>' +
+    '<div class="hidden sm:flex h-28 w-28 items-center justify-center rounded-3xl border border-[#d4ad59]/25 bg-[#d4ad59]/10"><img src="./assets/brand/simbolo.jpg" alt="Logo Pelé Academia" class="h-24 w-24 rounded-2xl object-contain" /></div></div>' +
     '<div class="mt-8 grid gap-3 sm:grid-cols-3">' +
     stat(averagePlayerRating(profile), t('Avaliação média'), 'notas registradas') +
     stat(String(state.tryouts.filter((t) => Array.isArray(t.enrolled) && t.enrolled.includes(state.user?.email)).length).padStart(2, '0'), t('Peneiras inscritas'), 'acompanhe suas vagas') +
@@ -1030,8 +1030,8 @@ function renderHistory(history, role) {
 
 function loginPage() {
   return '<div class="min-h-screen bg-[radial-gradient(circle_at_center,_rgba(210,173,88,.12),_transparent_30%),#070707] px-4 py-8 text-white"><div class="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl overflow-hidden rounded-[32px] border border-white/10 bg-white/[.025] lg:grid-cols-[.95fr_1.05fr]">' +
-    '<div class="relative hidden overflow-hidden border-r border-white/8 bg-[radial-gradient(circle_at_30%_20%,rgba(216,176,88,.24),transparent_25%),#0c0c0c] p-10 lg:flex lg:flex-col lg:justify-between"><div><img src="./assets/brand/simbolo.jpg" alt="Academia Pelé" class="h-28 w-28 rounded-3xl object-contain"/><span class="eyebrow mt-8">TIER-ZERO</span><h1 class="mt-4 max-w-lg text-5xl font-black leading-tight">Onde o futebol encontra <span class="text-[#e1bb62]">o próximo talento.</span></h1><p class="mt-5 max-w-xl text-white/50">Uma experiência para atletas, treinadores, funcionários e olheiros se encontrarem.</p></div><div class="text-sm text-white/30">Academia Pelé • Plataforma de talentos</div></div>' +
-    '<div class="flex items-center justify-center p-6 sm:p-10"><div class="w-full max-w-md"><img src="./assets/brand/simbolo.jpg" alt="Academia Pelé" class="mx-auto h-24 w-24 rounded-3xl object-contain lg:hidden"/><span class="eyebrow mt-6">' + t('Acesso') + '</span><h2 class="mt-3 text-3xl font-black">' + t('Entrar na Academia Pelé') + '</h2><p class="mt-2 text-sm text-white/45">' + t('Escolha o tipo de conta antes de entrar.') + '</p>' +
+    '<div class="relative hidden overflow-hidden border-r border-white/8 bg-[radial-gradient(circle_at_30%_20%,rgba(216,176,88,.24),transparent_25%),#0c0c0c] p-10 lg:flex lg:flex-col lg:justify-between"><div><img src="./assets/brand/simbolo.jpg" alt="Pelé Academia" class="h-28 w-28 rounded-3xl object-contain"/><span class="eyebrow mt-8">TIER-ZERO</span><h1 class="mt-4 max-w-lg text-5xl font-black leading-tight">Onde o futebol encontra <span class="text-[#e1bb62]">o próximo talento.</span></h1><p class="mt-5 max-w-xl text-white/50">Uma experiência para atletas, treinadores, funcionários e olheiros se encontrarem.</p></div><div class="text-sm text-white/30">Pelé Academia • Plataforma de talentos</div></div>' +
+    '<div class="flex items-center justify-center p-6 sm:p-10"><div class="w-full max-w-md"><img src="./assets/brand/simbolo.jpg" alt="Pelé Academia" class="mx-auto h-24 w-24 rounded-3xl object-contain lg:hidden"/><span class="eyebrow mt-6">' + t('Acesso') + '</span><h2 class="mt-3 text-3xl font-black">' + t('Entrar na Pelé Academia') + '</h2><p class="mt-2 text-sm text-white/45">' + t('Escolha o tipo de conta antes de entrar.') + '</p>' +
     '<div class="mt-6 grid grid-cols-2 gap-2 rounded-2xl border border-white/8 bg-black/25 p-1"><button type="button" class="role-tab active" data-role="player">' + t('Jogador') + '</button><button type="button" class="role-tab" data-role="staff">' + t('Funcionário') + '</button></div>' +
     '<form id="login-form" class="mt-6 space-y-4">' + input(t('E-mail'), 'login-email', '', 'email', true) + input(t('Senha'), 'login-password', '', 'password', true) + '<p id="login-error" class="hidden rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200"></p><button class="btn-primary w-full" type="submit">' + t('Entrar') + ' ' + icon('arrow', 'size-4') + '</button></form>' +
     '<button type="button" class="mt-3 w-full text-center text-xs text-[#e2bb62] hover:text-[#f0d58c]" data-action="forgot-password">' + t('Esqueci minha senha') + '</button>' +
@@ -1079,7 +1079,7 @@ async function saveRecoveredPassword() {
 
 function registerPage() {
   return '<div class="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(216,176,88,.1),transparent_28%),#070707] px-4 py-8 text-white"><div class="mx-auto max-w-5xl rounded-[32px] border border-white/10 bg-white/[.025] p-6 sm:p-10">' +
-    '<div class="flex flex-wrap items-center justify-between gap-4"><div class="flex items-center gap-3"><img src="./assets/brand/simbolo.jpg" alt="Academia Pelé" class="h-16 w-16 rounded-2xl object-contain"/><div><span class="eyebrow">' + t('Cadastro') + '</span><h1 class="mt-1 text-3xl font-black">' + t('Criar conta de jogador') + '</h1></div></div><button type="button" class="btn-ghost" data-route="login">' + t('Voltar') + '</button></div>' +
+    '<div class="flex flex-wrap items-center justify-between gap-4"><div class="flex items-center gap-3"><img src="./assets/brand/simbolo.jpg" alt="Pelé Academia" class="h-16 w-16 rounded-2xl object-contain"/><div><span class="eyebrow">' + t('Cadastro') + '</span><h1 class="mt-1 text-3xl font-black">' + t('Criar conta de jogador') + '</h1></div></div><button type="button" class="btn-ghost" data-route="login">' + t('Voltar') + '</button></div>' +
     '<p class="mt-3 max-w-3xl text-sm leading-6 text-white/45">Preencha seus dados pessoais, categoria esportiva, gênero, posições e endereço. A idade e a categoria são calculadas automaticamente pela data de nascimento.</p>' +
     '<form id="register-form" class="mt-8 grid gap-4 sm:grid-cols-2">' +
     input(t('Nome completo'), 'reg-name', '', 'text', true) +
@@ -2115,7 +2115,7 @@ function bind() {
 function languagePage() {
   return '<div class="grid min-h-screen place-items-center bg-[radial-gradient(circle_at_center,_rgba(210,173,88,.12),_transparent_30%),#070707] px-4 py-8 text-white">' +
     '<div class="w-full max-w-md rounded-[32px] border border-white/10 bg-white/[.025] p-8 text-center">' +
-    '<img src="./assets/brand/simbolo.jpg" alt="Academia Pelé" class="mx-auto h-20 w-20 rounded-3xl object-contain"/>' +
+    '<img src="./assets/brand/simbolo.jpg" alt="Pelé Academia" class="mx-auto h-20 w-20 rounded-3xl object-contain"/>' +
     '<h1 class="mt-6 text-2xl font-black">Escolha seu idioma<br/><span class="text-[#e1bb62]">Elige tu idioma</span></h1>' +
     '<div class="mt-8 grid gap-3">' + LANGS.map((lang) =>
       '<button type="button" class="btn-secondary w-full !justify-center !py-4 text-base" data-lang="' + lang.code + '"><span class="mr-2 text-xl">' + lang.flag + '</span>' + lang.label + '</button>'
