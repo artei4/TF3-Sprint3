@@ -48,9 +48,8 @@ npm run dev
 
 Preencher antes da entrega:
 
-- GitHub: `[INSERIR LINK]`
 - Deploy: `(https://tf-3-sprint3.vercel.app)`
-- Figma: `[INSERIR LINK]`
+- Figma: `[não utilizado]`
 
 | Integrante | RM | Branch | PR | Funcionalidades |
 |---|---|---|---|---|
