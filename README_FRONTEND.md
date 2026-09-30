@@ -14,7 +14,7 @@ A aplicação utiliza Tailwind CSS como camada principal de estilo e traduz o de
 - Criação de peneiras com popup de localidade.
 - Limitação de posições por peneira.
 - Avaliações, notas e comentários de olheiros.
-- Conversas entre atletas e profissionais.
+- Conversas demonstrativas locais entre atletas e profissionais.
 - Responsividade mobile/tablet/desktop.
 - Identidade visual da Pelé Academia aplicada ao produto.
 

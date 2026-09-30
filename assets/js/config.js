@@ -1,4 +1,4 @@
-// Configuração do Supabase (back-end das contas e das conversas).
+// Configuração do Supabase (back-end das contas, perfis e avaliações).
 //
 // ✅ A "publishable key" (sb_publishable_...) foi feita para ficar no front-end. Ela sozinha
 //    não dá acesso aos dados: quem protege tudo são as regras RLS do banco (supabase/migrations).

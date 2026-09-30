@@ -16,7 +16,7 @@ A Sprint 3 de Web Development foi construída com JavaScript Vanilla, manipulaç
 - Perfil — atualização de dados, endereço e posições.
 - Peneiras — criação, inscrições, vagas e posições permitidas.
 - Localidade — modal de confirmação de endereço.
-- Conversas — busca de pessoas, envio e renderização de mensagens.
+- Conversas demonstrativas — busca de pessoas e mensagens mantidas no navegador.
 - Toasts — feedbacks de sucesso e erro.
 
 ### Fluxos

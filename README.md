@@ -53,7 +53,7 @@ npm run preview
 - Limitação de posições nas peneiras.
 - Inscrição em peneiras com validação de posição.
 - Comentários e notas de olheiros.
-- Conversas bidirecionais entre atleta e profissional.
+- Conversas demonstrativas salvas localmente no navegador (sem envio ao servidor).
 - Layout responsivo para mobile, tablet e desktop.
 - Foco visível e navegação acessível.
 

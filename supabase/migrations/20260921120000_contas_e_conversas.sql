@@ -1,5 +1,5 @@
 -- =====================================================================================
--- Pelé Academia — contas, perfis e conversas (Supabase)
+-- Pelé Academia — contas, perfis e avaliações (Supabase)
 -- Como usar: Supabase → SQL Editor → cole este arquivo inteiro → Run.
 -- (ou, pelo terminal: supabase link --project-ref delhjdfecknikusehrga && supabase db push)
 -- Pode ser executado mais de uma vez sem quebrar nada.
@@ -154,14 +154,3 @@ create policy evaluations_insert on public.evaluations for insert to authenticat
 drop policy if exists evaluations_delete on public.evaluations;
 create policy evaluations_delete on public.evaluations for delete to authenticated
   using (evaluator_id = auth.uid() and public.is_staff());
-
--- ---------- 6) Tempo real ----------
-do $$
-begin
-  if not exists (
-    select 1 from pg_publication_tables
-    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'messages'
-  ) then
-    alter publication supabase_realtime add table public.messages;
-  end if;
-end $$;

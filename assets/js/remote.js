@@ -1,4 +1,4 @@
-// Camada de acesso ao Supabase (contas, perfis e conversas em tempo real).
+// Camada de acesso ao Supabase para autenticação, perfis e avaliações.
 // Se o Supabase não estiver configurado (ou não carregar), `remote.enabled` fica false
 // e o site continua funcionando em modo local (localStorage), como antes.
 import { SUPABASE_URL, SUPABASE_KEY } from './config.js'
@@ -9,6 +9,11 @@ const LOAD_TIMEOUT_MS = 8000
 
 export const remote = { enabled: false }
 let client = null
+
+export function disableRemote() {
+  remote.enabled = false
+  client = null
+}
 
 function forcedLocal() {
   try { return new URLSearchParams(location.search).get('local') === '1' } catch { return false }
@@ -122,26 +127,6 @@ export async function updateOwnProfile(uid, { name, data, privateData }) {
   return null
 }
 
-// ---------- Conversas ----------
-export async function fetchMessages() {
-  const { data, error } = await client
-    .from('messages')
-    .select('id,athlete_id,staff_id,sender_id,body,created_at')
-    .order('created_at', { ascending: true })
-    .limit(2000)
-  if (error) throw error
-  return data || []
-}
-
-export async function sendMessage({ athleteId, staffId, senderId, body }) {
-  const { data, error } = await client
-    .from('messages')
-    .insert({ athlete_id: athleteId, staff_id: staffId, sender_id: senderId, body })
-    .select('id,athlete_id,staff_id,sender_id,body,created_at')
-    .single()
-  return { row: data || null, error }
-}
-
 export async function fetchEvaluations() {
   const { data, error } = await client
     .from('evaluations')
@@ -179,13 +164,4 @@ export async function createEvaluation({ athleteId, position, ratings, rating, b
 export async function removeEvaluation(id) {
   const { error } = await client.from('evaluations').delete().eq('id', id)
   return error || null
-}
-
-// Recebe novas mensagens em tempo real (o banco só entrega as conversas de que o usuário participa).
-export function subscribeMessages(uid, onInsert) {
-  const channel = client
-    .channel('messages-' + uid)
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => onInsert(payload.new))
-    .subscribe()
-  return () => { try { client.removeChannel(channel) } catch { /* já removido */ } }
 }

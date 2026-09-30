@@ -23,6 +23,7 @@ import {
 import { threadKey, searchConversations } from './messages.js'
 import {
   remote,
+  disableRemote,
   initRemote,
   describeError,
   getSessionUser,
@@ -35,9 +36,6 @@ import {
   fetchOwnProfile,
   listDirectory,
   updateOwnProfile,
-  fetchMessages,
-  sendMessage as remoteSendMessage,
-  subscribeMessages,
   fetchEvaluations,
   createEvaluation,
   removeEvaluation,
@@ -115,7 +113,6 @@ let mobileChatOpen = false
 let openChatOnArrive = false
 let booted = false
 let passwordRecovery = false
-let stopMessages = null
 let stopAuthWatch = null
 let lastRemoteRefresh = 0
 
@@ -169,13 +166,13 @@ function migrateLegacyStorage(){
 }
 
 function persist() {
-  // Com o Supabase ativo, sessão, contas e mensagens vivem no servidor (nada disso é guardado no navegador).
+  // Mensagens de demonstração permanecem locais mesmo quando a autenticação usa o Supabase.
   if (!remote.enabled) {
     localStorage.setItem('ap_user', JSON.stringify(state.user))
     localStorage.setItem('ap_accounts', JSON.stringify(state.accounts))
     localStorage.setItem('ap_profile', JSON.stringify(state.profile))
-    localStorage.setItem('ap_messages', JSON.stringify(state.messages))
   }
+  localStorage.setItem('ap_messages', JSON.stringify(state.messages))
   localStorage.setItem('ap_favorites', JSON.stringify(state.favorites))
   localStorage.setItem('ap_votes', JSON.stringify(state.votes))
   localStorage.setItem('ap_voted', JSON.stringify(state.voted))
@@ -273,7 +270,7 @@ function syncAthletes() {
 }
 
 // =====================================================================================
-// Conversas: identidade, não lidas, tempo real (Supabase) e layout do celular
+// Conversas: identidade, não lidas e layout do celular
 // =====================================================================================
 const isMobileView = () => window.matchMedia('(max-width: 767px)').matches
 const myRole = () => (state.user?.role === 'staff' ? 'staff' : 'player')
@@ -327,7 +324,7 @@ const lastMessageOf = (key) => state.messages.filter((m) => m.thread === key).re
 
 function unreadCount(key) {
   const readUntil = state.lastRead[key] || 0
-  return state.messages.filter((m) => m.thread === key && m.senderRole !== myRole() && !m.pending && messageTs(m) > readUntil).length
+  return state.messages.filter((m) => m.thread === key && m.senderRole !== myRole() && messageTs(m) > readUntil).length
 }
 
 function markRead(key) {
@@ -358,7 +355,7 @@ function updateMessageBadge() {
 
 function messageBubble(message, role) {
   const mine = message.senderRole === role
-  return '<div class="flex ' + (mine ? 'justify-end' : '') + '" data-msg-id="' + escapeHtml(message.id) + '"><div class="max-w-[78%] rounded-2xl ' + (mine ? 'rounded-br-md bg-[#d8af58] text-black' : 'rounded-bl-md border border-white/8 bg-white/[.045] text-white') + (message.pending ? ' opacity-60' : '') + ' px-4 py-3 text-sm leading-6"><p class="whitespace-pre-wrap break-words" translate="no">' + escapeHtml(message.text) + '</p><p class="mt-1 text-[10px] opacity-50">' + escapeHtml(fmtClock(messageTs(message)) || message.time || '') + '</p></div></div>'
+  return '<div class="flex ' + (mine ? 'justify-end' : '') + '" data-msg-id="' + escapeHtml(message.id) + '"><div class="max-w-[78%] rounded-2xl ' + (mine ? 'rounded-br-md bg-[#d8af58] text-black' : 'rounded-bl-md border border-white/8 bg-white/[.045] text-white') + ' px-4 py-3 text-sm leading-6"><p class="whitespace-pre-wrap break-words" translate="no">' + escapeHtml(message.text) + '</p><p class="mt-1 text-[10px] opacity-50">' + escapeHtml(fmtClock(messageTs(message)) || message.time || '') + '</p></div></div>'
 }
 
 function appendBubble(message) {
@@ -367,13 +364,6 @@ function appendBubble(message) {
   box.querySelector('[data-empty-chat]')?.remove()
   box.insertAdjacentHTML('beforeend', messageBubble(message, myRole()))
   box.scrollTop = box.scrollHeight
-}
-
-function markBubbleSent(oldId, message) {
-  const bubble = document.querySelector('[data-msg-id="' + oldId + '"]')
-  if (!bubble) return
-  bubble.setAttribute('data-msg-id', message.id)
-  bubble.firstElementChild?.classList.remove('opacity-60')
 }
 
 function conversationItemsHtml(conversations, selectedId) {
@@ -423,83 +413,12 @@ async function sendChatMessage(text) {
   const conversation = activeConversation
   if (!conversation) return false
   const role = myRole()
-  if (!remote.enabled) {
-    const message = { id: Date.now(), thread: conversation.key, senderRole: role, text, ts: Date.now() }
-    state.messages.push(message)
-    persist()
-    appendBubble(message)
-    markRead(conversation.key)
-    return true
-  }
-  const temp = { id: 'tmp-' + Date.now() + Math.random().toString(36).slice(2, 6), thread: conversation.key, senderRole: role, text, ts: Date.now(), pending: true }
-  state.messages.push(temp)
-  appendBubble(temp)
-  const { row, error } = await remoteSendMessage({ athleteId: conversation.athleteRef, staffId: conversation.staffRef, senderId: state.user.uid, body: text })
-  if (error || !row) {
-    state.messages = state.messages.filter((m) => m.id !== temp.id)
-    document.querySelector('[data-msg-id="' + temp.id + '"]')?.remove()
-    toast('Não foi possível enviar a mensagem. Tente novamente.', 'error')
-    return false
-  }
-  const real = mapRemoteMessage(row)
-  const index = state.messages.findIndex((m) => m.id === temp.id)
-  if (state.messages.some((m) => m.id === real.id)) {
-    state.messages = state.messages.filter((m) => m.id !== temp.id) // o "eco" em tempo real já chegou
-  } else if (index >= 0) {
-    state.messages[index] = real
-  }
-  markBubbleSent(temp.id, real)
+  const message = { id: Date.now(), thread: conversation.key, senderRole: role, text, ts: Date.now() }
+  state.messages.push(message)
+  persist()
+  appendBubble(message)
   markRead(conversation.key)
   return true
-}
-
-function mapRemoteMessage(row) {
-  return {
-    id: 'r' + row.id,
-    thread: row.athlete_id + '::' + row.staff_id,
-    senderRole: row.sender_id === row.athlete_id ? 'player' : 'staff',
-    text: row.body,
-    ts: Date.parse(row.created_at),
-  }
-}
-
-// Adiciona a mensagem ao estado. Se ela é a versão definitiva de uma mensagem "enviando...", troca a temporária.
-function ingestMessage(message) {
-  if (state.messages.some((m) => m.id === message.id)) return { added: false }
-  const pendingIndex = state.messages.findIndex((m) => m.pending && m.thread === message.thread && m.senderRole === message.senderRole && m.text === message.text)
-  if (pendingIndex >= 0) {
-    const replacedId = state.messages[pendingIndex].id
-    state.messages[pendingIndex] = message
-    return { added: true, replacedId }
-  }
-  state.messages.push(message)
-  return { added: true }
-}
-
-function showIncoming(message, fromSelf) {
-  const viewing = currentRoute() === 'messages' && activeThreadKey === message.thread && (!isMobileView() || mobileChatOpen)
-  if (viewing) {
-    appendBubble(message)
-    markRead(message.thread)
-    return
-  }
-  if (!fromSelf) {
-    const name = getConversations().find((c) => c.key === message.thread)?.name
-    toast('Nova mensagem' + (name ? ' de ' + name : '') + '.')
-  }
-  updateMessageBadge()
-  if (currentRoute() === 'messages') updateConversationList()
-}
-
-function onRemoteInsert(row) {
-  const message = mapRemoteMessage(row)
-  const { added, replacedId } = ingestMessage(message)
-  if (!added) return
-  if (replacedId) {
-    markBubbleSent(replacedId, message)
-    return
-  }
-  showIncoming(message, message.senderRole === myRole())
 }
 
 // ---------- sessão remota (Supabase) ----------
@@ -522,10 +441,8 @@ async function hydrateRemote(uid) {
   state.accounts = [ownAccount].concat(directory.map(remoteAccount))
   state.user = { name: own.profile.name, email: own.profile.email, role: own.profile.role, uid }
   state.profile = own.profile.role === 'player' ? ownAccount.profile : null
-  state.messages = (await fetchMessages()).map(mapRemoteMessage)
+  state.messages = readStorage('ap_messages', state.messages)
   ensureReadBaseline(uid)
-  stopMessages?.()
-  stopMessages = subscribeMessages(uid, onRemoteInsert)
   stopAuthWatch?.()
   stopAuthWatch = onSignedOut((event) => {
     if (event === 'PASSWORD_RECOVERY') {
@@ -579,9 +496,7 @@ async function refreshRemoteEvaluations() {
 }
 
 async function clearRemoteSession({ navigate = false, signOut = true } = {}) {
-  stopMessages?.()
   stopAuthWatch?.()
-  stopMessages = null
   stopAuthWatch = null
   if (signOut) await remoteSignOut()
   state.user = null
@@ -599,7 +514,7 @@ async function clearRemoteSession({ navigate = false, signOut = true } = {}) {
   }
 }
 
-// Atualiza a lista de pessoas (novos cadastros) e busca mensagens perdidas (ex.: celular em segundo plano).
+// Atualiza a lista de pessoas e avaliações; mensagens são uma demonstração local.
 async function refreshRemote(force = false) {
   if (!remote.enabled || !state.user?.uid) return
   if (!force && Date.now() - lastRemoteRefresh < 15000) return
@@ -610,11 +525,6 @@ async function refreshRemote(force = false) {
     const before = state.athletes.length
     state.accounts = (own ? [own] : []).concat(directory.map(remoteAccount))
     syncAthletes()
-    const known = new Set(state.messages.map((m) => m.id))
-    const missed = (await fetchMessages()).map(mapRemoteMessage).filter((m) => !known.has(m.id))
-    missed.forEach((message) => {
-      if (ingestMessage(message).added) showIncoming(message, message.senderRole === myRole())
-    })
     await refreshRemoteEvaluations()
     const route = currentRoute()
     if (state.athletes.length !== before) {
@@ -987,7 +897,7 @@ function messagesPage() {
   const role = staff ? 'staff' : 'player'
   const conversations = getConversations()
   const heading = '<div class="chat-heading"><span class="eyebrow">Comunicação</span><h1 class="page-title">' + t('Conversas') + '</h1><p class="page-subtitle">' +
-    (staff ? 'Pesquise qualquer atleta do banco, abra a conversa e envie uma mensagem.' : 'Converse com treinadores e olheiros disponíveis.') + '</p></div>'
+    (staff ? 'Pesquise qualquer atleta do banco e envie uma mensagem de demonstração.' : 'Mensagens de demonstração com treinadores e olheiros disponíveis.') + '</p><p class="mt-2 text-xs text-white/35">As mensagens são salvas apenas neste navegador e não são enviadas.</p></div>'
 
   if (!conversations.length) {
     activeConversation = null
@@ -1858,6 +1768,11 @@ async function finishRemoteLogin(uid, role, errorId) {
   return true
 }
 
+function isConnectionError(error) {
+  const message = String(error?.message || error || '').toLowerCase()
+  return ['failed to fetch', 'network', 'timeout', 'load failed', 'connection'].some((part) => message.includes(part))
+}
+
 async function loginAccount() {
   const email = normalizeEmail(document.querySelector('#login-email').value)
   const password = document.querySelector('#login-password').value
@@ -1872,6 +1787,11 @@ async function loginAccount() {
     const result = await remoteSignIn(email, password)
     if (result.error || !result.user) {
       submit?.removeAttribute('disabled')
+      if (isConnectionError(result.error)) {
+        disableRemote()
+        state.accounts = readStorage('ap_accounts', state.accounts)
+        return loginAccount()
+      }
       return showFeedback(errorId, describeError(result.error), true)
     }
     if (!(await finishRemoteLogin(result.user.id, role, errorId))) submit?.removeAttribute('disabled')
@@ -1898,29 +1818,8 @@ async function loginAccount() {
 
 async function loginDemo() {
   const role = document.querySelector('.role-tab.active')?.dataset.role || 'player'
-  const errorId = 'login-error'
-
-  if (remote.enabled) {
-    const demo = role === 'staff'
-      ? { email: 'funcionario@academiapele.com', password: 'Academia123!', name: 'Marina Lopes', publicData: { position: 'Olheira', phone: '(11) 99999-0000', city: 'São Paulo', state: 'SP' }, privateData: {} }
-      : {
-        email: 'gabriel@academiapele.com',
-        password: 'Demo123!',
-        name: defaultProfile.name,
-        publicData: { birth: defaultProfile.birth, gender: defaultProfile.gender, foot: defaultProfile.foot, pos: defaultProfile.pos, secondary: defaultProfile.secondary, city: defaultProfile.city, state: defaultProfile.state },
-        privateData: { cpf: '11144477735', phone: defaultProfile.phone, zip: defaultProfile.zip, district: defaultProfile.district, address: defaultProfile.address, number: defaultProfile.number },
-      }
-    let result = await remoteSignIn(demo.email, demo.password)
-    if (result.error) {
-      // primeira vez: cria a conta demo no Supabase e entra
-      const created = await remoteSignUp(demo)
-      if (created.error) return showFeedback(errorId, describeError(created.error), true)
-      result = await remoteSignIn(demo.email, demo.password)
-      if (result.error) return showFeedback(errorId, describeError(result.error), true)
-    }
-    if (await finishRemoteLogin(result.user.id, role, errorId)) toast(t('Conta demo carregada.'))
-    return
-  }
+  disableRemote()
+  state.accounts = readStorage('ap_accounts', state.accounts)
 
   const email = role === 'staff' ? 'funcionario@academiapele.com' : 'gabriel@academiapele.com'
   const account = state.accounts.find((entry) => entry.email === email)
@@ -1929,7 +1828,7 @@ async function loginDemo() {
   state.profile = role === 'player' ? account.profile : null
   persist()
   go('dashboard')
-  toast(t('Conta demo carregada.'))
+  toast('Modo demonstração local: os dados ficam salvos neste navegador.')
 }
 
 // Evita erros silenciosos em operações assíncronas (rede, Supabase...)
@@ -2174,7 +2073,7 @@ function render() {
   updateMessageBadge()
   if (route !== lastRoute) window.scrollTo(0, 0)
   lastRoute = route
-  if (['athletes', 'messages', 'dashboard'].includes(route)) refreshRemote()
+  if (['athletes', 'dashboard'].includes(route)) refreshRemote()
 }
 
 // Atualização automática: quando outra aba/janela altera os dados (inscrição, cancelamento,
@@ -2182,8 +2081,8 @@ function render() {
 function reloadSharedState() {
   state.tryouts = readStorage('ap_tryouts', state.tryouts)
   state.notifications = readStorage('ap_notifications', state.notifications)
+  state.messages = readStorage('ap_messages', state.messages)
   if (!remote.enabled) {
-    state.messages = readStorage('ap_messages', state.messages)
     state.accounts = readStorage('ap_accounts', state.accounts)
   }
   state.reviews = readStorage('ap_reviews', state.reviews)
@@ -2195,13 +2094,13 @@ function reloadSharedState() {
 
 window.addEventListener('storage', (event) => {
   if (!state.user || !event.key || !event.key.startsWith('ap_') || ['ap_user', 'ap_profile', 'ap_lastread'].includes(event.key)) return
-  if (remote.enabled && ['ap_accounts', 'ap_messages'].includes(event.key)) return
+  if (remote.enabled && event.key === 'ap_accounts') return
   const before = myNotifications().length
   reloadSharedState()
   const after = myNotifications().length
   const route = currentRoute()
   if (route === 'athletes') applyFilters()
-  else if (route === 'messages') { if (!remote.enabled && !document.querySelector('#message-input')?.value) render() }
+  else if (route === 'messages') { if (!document.querySelector('#message-input')?.value) render() }
   else if (route !== 'profile') render()
   updateNotificationBadge()
   if (after > before) toast(t('Você recebeu uma nova notificação.'))
@@ -2231,14 +2130,17 @@ async function boot() {
     // Com o Supabase, a sessão vem do servidor (não do localStorage)
     state.user = null
     state.profile = null
-    state.accounts = []
-    state.messages = []
+    state.accounts = readStorage('ap_accounts', state.accounts)
     try {
       const session = await getSessionUser()
       if (session) await hydrateRemote(session.uid)
     } catch (error) {
       console.warn('[Supabase] não foi possível restaurar a sessão:', error)
-      await clearRemoteSession()
+      disableRemote()
+      state.user = null
+      state.profile = null
+      state.accounts = readStorage('ap_accounts', state.accounts)
+      state.messages = readStorage('ap_messages', state.messages)
     }
   } else {
     ensureReadBaseline('local')
