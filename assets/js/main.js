@@ -804,7 +804,8 @@ function playerDashboard() {
     '<button type="button" class="btn-primary mt-6 w-full" data-route="tryouts">Ver peneiras ' + icon('arrow', 'size-4') + '</button></aside></section>' +
     '<section class="mt-8 grid gap-5 lg:grid-cols-[1.15fr_.85fr]">' +
     '<div class="reveal panel"><div class="flex items-center justify-between"><div><p class="text-sm text-ink-soft">Meu perfil</p><h2 class="section-title">' + escapeHtml(profile.pos) + ' • ' + escapeHtml(profile.city) + '</h2></div><button type="button" class="btn-ghost" data-route="profile">Editar perfil ' + icon('edit', 'size-4') + '</button></div>' +
-    '<div class="mt-5 flex flex-wrap gap-2">' + tag(profile.pos) + tag(profile.secondary, true) + tag(getCategoryFromAge(getAgeFromProfile(profile.birth))) + '</div></div>' +
+    '<div class="mt-5 flex flex-wrap gap-2">' + posTag(profile.pos) + posTag(profile.secondary) + tag(getCategoryFromAge(getAgeFromProfile(profile.birth)), true) + '</div>' +
+    '<div class="mt-5">' + pitchFormation([{ id: 'me', name: profile.name || state.user?.name || 'Você', pos: profile.pos }], { highlight: 'me', interactive: false }) + '</div></div>' +
     '<div class="reveal panel"><div class="flex items-center justify-between"><div><h2 class="section-title !mt-0">Minha atividade</h2></div>' + icon('arrow', 'size-5 text-ink-soft') + '</div><div class="mt-5 space-y-4">' +
     (myNotifications().length
       ? myNotifications().slice(0, 3).map((n) => activity(escapeHtml(n.title), escapeHtml(n.text), notificationTime(n))).join('')
@@ -821,6 +822,8 @@ function staffDashboard() {
     '<aside class="panel"><span class="eyebrow">' + t('Hoje') + '</span><div class="mt-3 grid grid-cols-2 gap-3">' +
     staffStat(String(state.athletes.length).padStart(2, '0'), t('Atletas ativos')) + staffStat(String(Object.values(state.reviews).filter((list) => Array.isArray(list) && list.length).length).padStart(2, '0'), t('Perfis avaliados')) + staffStat(String(state.tryouts.length).padStart(2, '0'), t('Peneiras')) + staffStat(String(state.messages.filter((m) => String(m.thread).endsWith('::' + state.user?.email)).length).padStart(2, '0'), t('Mensagens')) +
     '</div></aside></section>' +
+    '<section class="reveal mt-8 panel"><div class="flex flex-wrap items-end justify-between gap-3"><div><h2 class="section-title !mt-0">' + t('Elenco em campo') + '</h2><p class="mt-1 max-w-[60ch] text-sm text-ink-soft">' + t('Cada ponto é um atleta do banco, na posição principal. Clique para abrir o perfil.') + '</p></div></div>' +
+    '<div class="mt-5">' + pitchFormation(state.athletes) + '</div>' + squadLegend(state.athletes) + '</section>' +
     '<section class="reveal mt-8 panel"><div class="flex flex-wrap items-end justify-between gap-3"><div><h2 class="section-title">' + t('Atletas para observar') + '</h2></div><button type="button" class="btn-ghost" data-route="athletes">' + t('Abrir banco completo') + ' ' + icon('arrow', 'size-4') + '</button></div><div class="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">' +
     state.athletes.slice(0, 6).map((a) => athleteCard(a, true)).join('') + '</div></section>',
     { active: 'dashboard', role: 'staff' },
@@ -849,6 +852,48 @@ function posTag(pos) {
 }
 
 const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many)
+
+// ---------- Loader de futebol: bola quicando sobre a linha do campo ----------
+const BALL_SVG = '<svg viewBox="0 0 24 24" class="ball" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#EEF1E8"/><path d="M12 7.2l4.1 3-1.6 4.8h-5l-1.6-4.8z" fill="#0D1612"/><path d="M12 7.2V2.5M16.1 10.2l4.4-1.6M14.5 15l2.8 3.9M9.5 15l-2.8 3.9M7.9 10.2 3.5 8.6" stroke="#0D1612" stroke-width="1.3" fill="none"/></svg>'
+function ballLoader(label = t('Carregando…')) {
+  return '<div class="ball-loader" role="status"><div class="ball-stage" aria-hidden="true"><span class="ball-wrap">' + BALL_SVG + '</span><span class="ball-shadow"></span><span class="pitch-dash"></span></div><span class="text-sm text-ink-soft">' + escapeHtml(label) + '</span></div>'
+}
+
+// ---------- Placar: data da peneira ----------
+const MONTHS = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ']
+function scoreboard(date, time) {
+  const [year, month, day] = String(date || '').split('-')
+  if (!day) return ''
+  return '<div class="scoreboard" aria-label="' + formatDate(date) + (time ? ' às ' + escapeHtml(time) : '') + '"><span class="sb-day num">' + day + '</span><span class="sb-month">' + (MONTHS[Number(month) - 1] || '') + '</span>' + (time ? '<span class="sb-time tabular">' + escapeHtml(time) + '</span>' : '') + '</div>'
+}
+
+// ---------- Elenco em campo: cada atleta na zona da posição principal ----------
+const PITCH_LANES = {
+  Goleiro: [7, [50, 35, 65]], Zagueiro: [22, [38, 62, 50, 26, 74]], Lateral: [31, [14, 86, 26, 74]],
+  Volante: [43, [50, 35, 65]], Meia: [58, [38, 62, 50, 24, 76]], Ponta: [73, [16, 84, 28, 72]], Atacante: [87, [50, 37, 63]],
+}
+const PITCH_LINES = '<svg class="pitch-lines" viewBox="0 0 100 64" preserveAspectRatio="none" aria-hidden="true"><rect x="1" y="1" width="98" height="62" rx="1"/><path d="M50 1v62M1 18h13v28H1M99 18H86v28h13M1 26h5v12H1M99 26h-5v12h5"/><circle cx="50" cy="32" r="8"/><circle cx="50" cy="32" r=".6" class="dot"/></svg>'
+function pitchFormation(athletes, { highlight = null, interactive = true } = {}) {
+  const used = {}
+  const dots = athletes.map((a, i) => {
+    const lane = PITCH_LANES[a.pos] || PITCH_LANES.Meia
+    const n = used[a.pos] = (used[a.pos] || 0) + 1
+    const y = lane[1][(n - 1) % lane[1].length] + Math.floor((n - 1) / lane[1].length) * 5
+    const label = escapeHtml(a.name) + ', ' + escapeHtml(a.pos) + (a.rating ? ', nota ' + formatRating(ratingOf(a)) : '')
+    const cls = 'pitch-dot pos-' + positionGroup(a.pos) + (highlight === a.id ? ' is-me' : '')
+    const style = 'left:' + lane[0] + '%;top:' + Math.min(92, y) + '%;--i:' + i
+    return interactive
+      ? '<button type="button" class="' + cls + '" style="' + style + '" data-open-athlete="' + a.id + '" aria-label="' + label + '" title="' + label + '">' + avatar(a.name) + '</button>'
+      : '<span class="' + cls + '" style="' + style + '" role="img" aria-label="' + label + '">' + avatar(a.name) + '</span>'
+  }).join('')
+  return '<div class="pitch">' + PITCH_LINES + dots + '</div>'
+}
+
+function squadLegend(athletes) {
+  const groups = [['gk', t('Goleiros')], ['def', t('Defesa')], ['mid', t('Meio-campo')], ['atk', t('Ataque')]]
+  return '<ul class="mt-4 flex flex-wrap gap-2">' + groups.map(([key, label]) =>
+    '<li class="tag pos-tag pos-' + key + '"><span class="num">' + athletes.filter((a) => positionGroup(a.pos) === key).length + '</span> ' + label + '</li>').join('') + '</ul>'
+}
 
 function athleteCard(a, staff = false) {
   const fav = state.favorites.includes(a.id)
@@ -1000,7 +1045,7 @@ function tryoutsPage() {
 function tryoutsBody(role) {
   const status = remote.enabled ? state.tryoutsStatus : 'ready'
   if (status === 'loading') {
-    return '<div class="mt-6 grid gap-4 lg:grid-cols-3" role="status"><span class="sr-only">' + t('Carregando peneiras…') + '</span>' +
+    return '<div class="mt-6">' + ballLoader(t('Aquecendo: carregando peneiras…')) + '</div><div class="mt-4 grid gap-4 lg:grid-cols-3" aria-hidden="true">' +
       [1, 2, 3].map(() => '<div class="panel space-y-3" aria-hidden="true"><div class="skeleton h-6 w-1/3"></div><div class="skeleton h-7 w-3/4"></div><div class="skeleton h-4 w-1/2"></div><div class="skeleton h-11 w-full"></div></div>').join('') + '</div>'
   }
   if (status === 'error') {
@@ -1047,9 +1092,8 @@ function tryoutCard(tryout) {
       (full ? t('Sem vagas') : canEnroll ? t('Inscrever-me') : t('Posição/categoria incompatível')) + ' ' + icon('arrow', 'size-4') + '</button>'
   }
 
-  return '<article class="reveal spot panel flex flex-col" data-tryout-card="' + tryout.id + '"><div class="flex flex-wrap gap-1.5">' + tag(tryout.category || t('Aberta')) + tag(tryout.positions.join(' • '), true) + '</div>' +
-    '<h2 class="mt-4 text-xl font-bold">' + escapeHtml(tryout.title) + '</h2><div class="mt-5 space-y-3 text-sm text-ink-soft">' +
-    '<p class="flex gap-2">' + icon('calendar', 'size-4 text-brand') + formatDate(tryout.date) + ' • ' + escapeHtml(tryout.time) + '</p>' +
+  return '<article class="reveal spot panel flex flex-col" data-tryout-card="' + tryout.id + '"><div class="flex flex-wrap gap-1.5">' + tag(tryout.category || t('Aberta')) + tryout.positions.map(posTag).join('') + '</div>' +
+    '<div class="mt-4 flex items-start justify-between gap-3"><h2 class="text-xl font-bold leading-tight">' + escapeHtml(tryout.title) + '</h2>' + scoreboard(tryout.date, tryout.time) + '</div><div class="mt-4 space-y-3 text-sm text-ink-soft">' +
     '<p class="flex gap-2">' + icon('pin', 'size-4 text-brand') + escapeHtml(tryout.location) + ' — ' + escapeHtml(tryout.city) + '/' + escapeHtml(tryout.state) + '</p></div>' +
     '<div class="mt-6 flex items-end justify-between gap-3"><div><p class="text-xs font-bold text-ink-soft">' + t('Vagas preenchidas') + '</p>' +
     '<p class="num mt-1 text-4xl" aria-label="' + taken + ' de ' + seats + ' vagas preenchidas"><span class="' + (full ? 'text-danger' : 'text-brand') + '">' + taken + '</span><span class="text-ink-soft">/' + seats + '</span></p></div>' +
@@ -2247,7 +2291,7 @@ function render() {
     const isNew = route !== lastRoute
     lastRoute = route
     paintScreen(() => {
-      app.innerHTML = designSystemPage({ icon, input, selectField, tag, athleteCard, positions: POSITIONS })
+      app.innerHTML = designSystemPage({ icon, input, selectField, tag, athleteCard, positions: POSITIONS, posTag, ballLoader, scoreboard, pitchFormation, rateClass })
       bindDesignSystem(app, { toast, confirmDialog, scrollToElement })
       if (isNew) scrollToTop()
       enterPage(app, isNew)

@@ -6,8 +6,10 @@ const DS_COLORS = [
   ['line', 'Divisórias'], ['line-strong', 'Borda de campos (≥3:1)'], ['chalk', 'Texto principal'], ['ink-soft', 'Texto secundário'],
   ['brand', 'Marca / CTA'], ['brand-strong', 'Marca — hover'], ['brand-ink', 'Texto sobre a marca'], ['focus', 'Anel de foco'],
   ['success', 'Sucesso'], ['danger', 'Erro / destrutivo'], ['warning', 'Atenção'],
+  ['pos-gk', 'Posição: goleiro'], ['pos-def', 'Posição: defesa'], ['pos-mid', 'Posição: meio-campo'], ['pos-atk', 'Posição: ataque'],
+  ['rate-1', 'Nota < 6'], ['rate-2', 'Nota 6–6,9'], ['rate-3', 'Nota 7–7,9'], ['rate-4', 'Nota 8–8,9'], ['rate-5', 'Nota ≥ 9'],
 ]
-const DS_SECTIONS = [['ds-cores', 'Cores'], ['ds-tipo', 'Tipografia'], ['ds-espaco', 'Espaço, raios e sombras'], ['ds-botoes', 'Botões'], ['ds-campos', 'Campos'], ['ds-tags', 'Tags e navegação'], ['ds-feedback', 'Feedback'], ['ds-cards', 'Cards e modais']]
+const DS_SECTIONS = [['ds-cores', 'Cores'], ['ds-tipo', 'Tipografia'], ['ds-espaco', 'Espaço, raios e sombras'], ['ds-botoes', 'Botões'], ['ds-campos', 'Campos'], ['ds-tags', 'Tags e navegação'], ['ds-feedback', 'Feedback'], ['ds-futebol', 'Futebol'], ['ds-cards', 'Cards e modais']]
 
 const section = (id, title, desc, body) =>
   `<section aria-labelledby="${id}-t" class="reveal border-t border-line py-10"><h2 id="${id}-t" tabindex="-1" class="section-title outline-none">${title}</h2><p class="mt-2 max-w-[65ch] text-sm text-ink-soft">${desc}</p><div class="mt-6">${body}</div></section>`
@@ -15,7 +17,7 @@ const section = (id, title, desc, body) =>
 const row = (label, html) =>
   `<div class="grid gap-3 border-b border-line py-4 last:border-0 sm:grid-cols-[10rem_1fr] sm:items-center"><p class="text-sm font-semibold text-ink-soft">${label}</p><div class="flex flex-wrap items-center gap-3">${html}</div></div>`
 
-export function designSystemPage({ icon, input, selectField, tag, athleteCard, positions }) {
+export function designSystemPage({ icon, input, selectField, tag, athleteCard, positions, posTag, ballLoader, scoreboard, pitchFormation, rateClass }) {
   const btnStates = (cls, name, label) => row(name,
     `<button type="button" class="${cls}" data-ds-demo>${label}</button>` +
     `<button type="button" class="${cls} is-hover" data-ds-demo>Hover</button>` +
@@ -85,6 +87,13 @@ export function designSystemPage({ icon, input, selectField, tag, athleteCard, p
       '<div class="empty-state"><strong>Nenhuma peneira aberta</strong><span class="text-sm">Quando um funcionário criar uma peneira compatível, ela aparece aqui.</span><button type="button" class="btn-secondary mt-2" data-ds-demo>Atualizar</button></div>' +
       '</div>' +
       row('Toasts', '<button type="button" class="btn-secondary" data-ds-toast="success">Disparar sucesso</button><button type="button" class="btn-secondary" data-ds-toast="error">Disparar erro</button>')) +
+
+    section('ds-futebol', 'Futebol', 'Componentes próprios do domínio: cores de posição, escala de nota, placar, campo e o loader da bola.',
+      row('Posições', positions.map(posTag).join('')) +
+      row('Escala de nota', [5.4, 6.5, 7.3, 8.4, 9.2].map((n) => `<span class="num text-3xl ${rateClass(n)}">${String(n).replace('.', ',')}</span>`).join('')) +
+      row('Placar', scoreboard('2026-11-07', '14:00') + scoreboard('2026-11-21', '')) +
+      row('Carregando', ballLoader('Aquecendo: carregando peneiras…')) +
+      '<div class="mt-4">' + pitchFormation(positions.map((pos, i) => ({ id: 'ds' + i, name: pos + ' Exemplo', pos })), { interactive: false }) + '</div>') +
 
     section('ds-cards', 'Cards e modais', 'O card abaixo é o mesmo do banco de atletas (dados de exemplo). O modal usa o componente de confirmação do app.',
       '<div class="grid gap-4 lg:grid-cols-2"><div data-ds-card>' + athleteCard(demoAthlete, true) + '</div>' +

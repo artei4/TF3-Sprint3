@@ -49,6 +49,8 @@
   --color-rate-3: #9AD95F;
   --color-rate-4: #2FD3A8;
   --color-rate-5: #5AA8FF;
+  --color-grass: #10291C;        /* gramado do campo tático */
+  --color-grass-2: #133120;
 
   --text-display: clamp(2.25rem, 1.4rem + 3.6vw, 4rem);
   --text-display--line-height: 1;
@@ -145,7 +147,7 @@
 .btn-primary:disabled,.btn-secondary:disabled,.btn-danger:disabled,.vote-button:disabled { opacity:.5; box-shadow:none; }
 .btn-incompatible:disabled { opacity:1; }
 /* Loading: aria-busy="true" + texto do botão permanece legível para leitores de tela. */
-[aria-busy="true"].btn-primary::before,[aria-busy="true"].btn-secondary::before { content:""; width:1em; height:1em; border-radius:50%; border:2px solid currentColor; border-right-color:transparent; animation:spin .7s linear infinite; }
+[aria-busy="true"].btn-primary::before,[aria-busy="true"].btn-secondary::before,[aria-busy="true"].btn-danger::before { content:""; width:1.1em; height:1.1em; background:var(--ball-icon) center / contain no-repeat; animation:spin .8s linear infinite; }
 [aria-busy="true"] { pointer-events:none; }
 @keyframes spin { to { transform:rotate(360deg); } }
 
@@ -173,7 +175,7 @@
 }
 
 /* ===== Tags ===== */
-.status-dot,.tag { display:inline-flex; align-items:center; gap:.35rem; border:1px solid color-mix(in oklab, var(--color-brand) 35%, transparent); color:var(--color-brand); border-radius:999px; padding:.25rem .65rem; font-size:.75rem; font-weight:700; }
+.status-dot,.tag { display:inline-flex; align-items:center; gap:.35rem; border:1px solid color-mix(in oklab, var(--color-brand) 35%, transparent); color:var(--color-brand); border-radius:999px; padding:.25rem .65rem; font-size:.75rem; font-weight:700; white-space:nowrap; }
 .tag.ghost { color:var(--color-ink-soft); border-color:var(--color-line); }
 .tag.red { color:var(--color-danger); border-color:color-mix(in oklab, var(--color-danger) 40%, transparent); }
 .tag.green { color:var(--color-success); border-color:color-mix(in oklab, var(--color-success) 40%, transparent); }
@@ -200,8 +202,8 @@
 .alert-success { border-color:color-mix(in oklab, var(--color-success) 45%, transparent); color:var(--color-success); }
 .alert-error { border-color:color-mix(in oklab, var(--color-danger) 45%, transparent); color:var(--color-danger); }
 .alert-info { color:var(--color-chalk); }
-.spinner { display:inline-block; width:1.25rem; height:1.25rem; border-radius:50%; border:2px solid var(--color-line); border-top-color:var(--color-brand); animation:spin .7s linear infinite; }
-.skeleton { border-radius:var(--radius-control); background:linear-gradient(90deg, var(--color-panel), var(--color-raised), var(--color-panel)); background-size:200% 100%; animation:shimmer 1.4s ease-in-out infinite; }
+.spinner { display:inline-block; width:1.25rem; height:1.25rem; background:var(--ball-icon) center / contain no-repeat; animation:spin .8s linear infinite; }
+.skeleton { border-radius:var(--radius-control); background: linear-gradient(100deg, transparent 30%, color-mix(in oklab, var(--color-chalk) 7%, transparent) 50%, transparent 70%) 0 0 / 200% 100%, repeating-linear-gradient(90deg, var(--color-raised) 0 1.5rem, var(--color-panel) 1.5rem 3rem); animation:shimmer 1.6s ease-in-out infinite; }
 @keyframes shimmer { from { background-position:100% 0; } to { background-position:-100% 0; } }
 .empty-state { display:grid; justify-items:center; gap:.5rem; border:1px dashed var(--color-line); border-radius:var(--radius-card); padding:2rem 1.25rem; text-align:center; color:var(--color-ink-soft); }
 .empty-state strong { color:var(--color-chalk); font-size:1rem; }
@@ -351,3 +353,34 @@
 .card-stats dt { font-size:.75rem; color:var(--color-ink-soft); }
 .card-stats dd { margin-top:.15rem; font-size:1.1rem; font-weight:600; }
 .card-stats dd:not(.num) { font-size:.9rem; line-height:1.35rem; }
+
+/* ===== Loader de futebol ===== */
+:root { --ball-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='11' fill='%23EEF1E8'/%3E%3Cpath d='M12 7.2l4.1 3-1.6 4.8h-5l-1.6-4.8z' fill='%230D1612'/%3E%3Cpath d='M12 7.2V2.5M16.1 10.2l4.4-1.6M14.5 15l2.8 3.9M9.5 15l-2.8 3.9M7.9 10.2 3.5 8.6' stroke='%230D1612' stroke-width='1.3' fill='none'/%3E%3C/svg%3E"); }
+.btn-primary[aria-busy="true"]::before { filter: drop-shadow(0 0 0 var(--color-brand-ink)); }
+.ball-loader { display:grid; justify-items:center; gap:.75rem; padding:1rem 0; }
+.ball-stage { position:relative; width:9rem; height:4.5rem; }
+.ball-wrap { position:absolute; left:calc(50% - 1rem); bottom:.55rem; width:2rem; height:2rem; animation: ball-bounce .9s cubic-bezier(.5,0,.5,1) infinite alternate; }
+.ball { width:100%; height:100%; animation: ball-spin 1.8s linear infinite; filter: drop-shadow(0 0 8px color-mix(in oklab, var(--color-brand) 30%, transparent)); }
+.ball-shadow { position:absolute; left:calc(50% - 1rem); bottom:.3rem; width:2rem; height:.4rem; border-radius:50%; background:rgb(0 0 0 / .55); animation: ball-shadow .9s cubic-bezier(.5,0,.5,1) infinite alternate; }
+.pitch-dash { position:absolute; left:0; right:0; bottom:.4rem; height:2px; background: repeating-linear-gradient(90deg, color-mix(in oklab, var(--color-chalk) 35%, transparent) 0 .6rem, transparent .6rem 1.1rem); mask: linear-gradient(90deg, transparent, #000 25%, #000 75%, transparent); animation: pitch-roll .9s linear infinite; }
+@keyframes ball-bounce { from { transform: translateY(-2.2rem); } 92% { transform: translateY(0) scale(1); } to { transform: translateY(0) scale(1.12, .86); } }
+@keyframes ball-shadow { from { transform: scale(.45); opacity:.35; } to { transform: scale(1.05); opacity:1; } }
+@keyframes ball-spin { to { transform: rotate(360deg); } }
+@keyframes pitch-roll { to { background-position: -1.1rem 0; } }
+
+/* ===== Placar ===== */
+.scoreboard { display:grid; grid-template-columns:auto auto; grid-template-rows:auto auto; column-gap:.4rem; align-items:end; flex:none; padding:.45rem .65rem; border-radius:.6rem; border:1px solid var(--color-line); background: linear-gradient(180deg, #0A120E, #0E1813); box-shadow: inset 0 1px 0 rgb(255 255 255 / .04), inset 0 -10px 18px -12px color-mix(in oklab, var(--color-brand) 35%, transparent); }
+.sb-day { grid-row: span 2; font-size:1.9rem; color:var(--color-brand); text-shadow: 0 0 14px color-mix(in oklab, var(--color-brand) 45%, transparent); }
+.sb-month { font-family:var(--font-display); font-size:.75rem; font-weight:700; letter-spacing:.1em; color:var(--color-chalk); }
+.sb-time { font-size:.75rem; color:var(--color-ink-soft); }
+
+/* ===== Campo tático (Elenco em campo) ===== */
+.pitch { position:relative; aspect-ratio: 100 / 64; width:100%; max-width:52rem; margin-inline:auto; border-radius:var(--radius-card); overflow:hidden; background: repeating-linear-gradient(90deg, var(--color-grass) 0 10%, var(--color-grass-2) 10% 20%); border:1px solid var(--color-line); box-shadow: inset 0 0 60px rgb(0 0 0 / .45); }
+.pitch-lines { position:absolute; inset:3%; width:94%; height:94%; fill:none; stroke: color-mix(in oklab, var(--color-chalk) 30%, transparent); stroke-width:.35; vector-effect: non-scaling-stroke; }
+.pitch-lines .dot { fill: color-mix(in oklab, var(--color-chalk) 40%, transparent); }
+.pitch-dot { position:absolute; display:grid; place-items:center; width:clamp(1.9rem, 1.4rem + 1.6vw, 2.6rem); aspect-ratio:1; border-radius:50%; translate:-50% -50%; font-family:var(--font-display); font-size:clamp(.6rem, .5rem + .35vw, .8rem); font-weight:700; color:var(--color-night); background:var(--pos); box-shadow: 0 0 0 3px color-mix(in oklab, var(--pos) 25%, transparent), 0 6px 14px -6px rgb(0 0 0 / .7); animation: dot-in 600ms var(--ease-spring) both; animation-delay: calc(var(--i, 0) * 60ms + 200ms); transition: scale 200ms var(--ease-out), box-shadow 200ms; }
+button.pitch-dot { cursor:pointer; min-width:2.75rem; min-height:2.75rem; background-clip:content-box; padding:.3rem; }
+.pitch-dot.is-me { box-shadow: 0 0 0 4px color-mix(in oklab, var(--pos) 35%, transparent), 0 0 0 10px color-mix(in oklab, var(--pos) 12%, transparent); animation: dot-in 600ms var(--ease-spring) both, dot-pulse 2.4s ease-in-out 800ms infinite; }
+@media (hover:hover) and (pointer:fine) { button.pitch-dot:hover { scale:1.15; z-index:2; } }
+@keyframes dot-in { from { opacity:0; scale:.2; } }
+@keyframes dot-pulse { 50% { box-shadow: 0 0 0 4px color-mix(in oklab, var(--pos) 35%, transparent), 0 0 0 16px transparent; } }
