@@ -507,3 +507,12 @@ button.pitch-dot { cursor:pointer; min-width:2.75rem; min-height:2.75rem; backgr
 .radar-label { font-size:11px; fill:var(--color-ink-soft); font-family:var(--font-sans); }
 .radar-value { font-family:var(--font-display); font-weight:700; fill:var(--color-chalk); }
 @keyframes radar-in { from { transform: scale(0); opacity:0; } }
+
+/* ===== Mensagens não lidas ===== */
+.count-badge { position:absolute; top:-.3rem; right:-.3rem; display:grid; place-items:center; min-width:1.15rem; height:1.15rem; padding:0 .3rem; border-radius:999px; font-size:.7rem; font-weight:700; line-height:1; color:#04140A; background:#57D49A; box-shadow: 0 0 0 2px var(--color-night); animation: badge-pop 420ms var(--ease-spring); }
+.count-badge[hidden] { display:none; }
+.bottom-nav .count-badge { top:.2rem; right:calc(50% - 1.4rem); }
+@keyframes badge-pop { from { scale:.3; opacity:0; } }
+.toast-message svg { color:var(--color-brand); }
+.toast-action { pointer-events:auto; flex:none; min-height:2.25rem; padding:.35rem .8rem; border-radius:999px; font-size:.85rem; font-weight:700; color:var(--color-brand-ink); background:var(--color-cta); }
+.toast-action:hover { background:var(--color-cta-strong); }

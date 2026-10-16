@@ -337,35 +337,81 @@ function getConversations() {
 const messageTs = (message) => Number(message.ts) || Number(message.id) || 0
 const lastMessageOf = (key) => state.messages.filter((m) => m.thread === key).reduce((last, m) => (!last || messageTs(m) >= messageTs(last) ? m : last), null)
 
+// Leitura é por pessoa: duas contas no mesmo navegador (ex.: demonstração) não compartilham o "lido".
+const readKey = (thread) => (state.user?.uid || state.user?.email || 'anon') + '|' + thread
+
 function unreadCount(key) {
-  const readUntil = state.lastRead[key] || 0
+  const readUntil = state.lastRead[readKey(key)] || 0
   return state.messages.filter((m) => m.thread === key && m.senderRole !== myRole() && messageTs(m) > readUntil).length
 }
 
 function markRead(key) {
   const last = lastMessageOf(key)
-  if (!last || messageTs(last) <= (state.lastRead[key] || 0)) return
-  state.lastRead[key] = messageTs(last)
+  if (!last || messageTs(last) <= (state.lastRead[readKey(key)] || 0)) return
+  state.lastRead[readKey(key)] = messageTs(last)
   localStorage.setItem('ap_lastread', JSON.stringify(state.lastRead))
 }
 
-// Na primeira vez que o usuário entra, tudo o que já existe conta como lido (evita "50 não lidas" de uma vez).
+// Primeira vez neste aparelho: não sabemos o que foi lido em outro lugar. Se a pessoa respondeu depois de uma
+// mensagem, ela viu essa mensagem; o que chegou depois da última resposta dela conta como não lido.
 function ensureReadBaseline(tag) {
   const flag = '__init:' + tag
   if (state.lastRead[flag]) return
   state.messages.forEach((m) => {
-    state.lastRead[m.thread] = Math.max(state.lastRead[m.thread] || 0, messageTs(m))
+    if (m.senderRole === myRole()) state.lastRead[readKey(m.thread)] = Math.max(state.lastRead[readKey(m.thread)] || 0, messageTs(m))
   })
   state.lastRead[flag] = 1
   localStorage.setItem('ap_lastread', JSON.stringify(state.lastRead))
 }
 
+// Resumo das não lidas: total, quem mandou e a primeira conversa com novidade.
+function unreadSummary() {
+  if (!state.user) return { total: 0, people: [], first: null }
+  const withUnread = getConversations().map((c) => ({ c, n: unreadCount(c.key) })).filter((item) => item.n > 0)
+  return { total: withUnread.reduce((sum, item) => sum + item.n, 0), people: withUnread.map((item) => item.c.name), first: withUnread[0]?.c || null }
+}
+
+const BASE_TITLE = 'Pelé Academia | TIER-ZERO'
 function updateMessageBadge() {
-  const badge = document.querySelector('#msg-badge')
-  if (!badge) return
-  const total = getConversations().reduce((sum, c) => sum + unreadCount(c.key), 0)
-  badge.textContent = total > 9 ? '9+' : String(total)
-  badge.style.display = total ? 'grid' : 'none'
+  const { total } = unreadSummary()
+  const text = total > 9 ? '9+' : String(total)
+  const label = total ? t('Conversas') + ', ' + plural(total, 'mensagem não lida', 'mensagens não lidas') : t('Conversas')
+  document.querySelectorAll('[data-msg-badge]').forEach((badge) => {
+    badge.textContent = text
+    badge.hidden = !total
+  })
+  document.querySelectorAll('[data-route="messages"][data-badge-host]').forEach((button) => button.setAttribute('aria-label', label))
+  // Contagem no título da aba, como nos webmails: aparece mesmo com a aba em segundo plano.
+  document.title = (total ? '(' + text + ') ' : '') + BASE_TITLE
+}
+
+function openUnreadConversation() {
+  const { first } = unreadSummary()
+  if (first) activeThread = first.id
+  openChatOnArrive = true
+  go('messages')
+}
+
+// Aviso ao entrar: "3 mensagens novas de Marina Lopes" com a ação Abrir.
+function announceUnread() {
+  const { total, people } = unreadSummary()
+  if (!total) return
+  const who = people.length === 1 ? people[0] : plural(people.length, 'pessoa', 'pessoas')
+  toast(plural(total, 'mensagem nova', 'mensagens novas') + ' ' + t('de') + ' ' + who + '.', 'message', { label: t('Abrir'), onClick: openUnreadConversation })
+}
+
+// Enquanto a pessoa navega fora das conversas: confere mensagens novas a cada 30 s (só com a aba visível).
+function startInboxWatch() {
+  setInterval(async () => {
+    if (!remote.enabled || !state.user?.uid || document.hidden || currentRoute() === 'messages') return
+    const known = new Set(state.messages.map((m) => m.id))
+    await refreshRemoteMessages()
+    const fresh = state.messages.filter((m) => !known.has(m.id) && m.senderRole !== myRole())
+    updateMessageBadge()
+    if (!fresh.length) return
+    const conversation = getConversations().find((c) => c.key === fresh[fresh.length - 1].thread)
+    toast(fresh.length === 1 && conversation ? t('Nova mensagem de') + ' ' + conversation.name + '.' : plural(fresh.length, 'mensagem nova', 'mensagens novas') + '.', 'message', { label: t('Abrir'), onClick: () => { if (conversation) activeThread = conversation.id; openChatOnArrive = true; go('messages') } })
+  }, 30000)
 }
 
 // Mensagens agrupadas: mesma pessoa em até 5 min forma um bloco com um só horário; o bloco termina na virada do dia.
@@ -735,26 +781,43 @@ function currentRoute() {
   return raw || (state.user ? 'dashboard' : 'login')
 }
 
-function toast(message, type = 'success') {
+function toast(message, type = 'success', action = null) {
   let root = document.querySelector('#toast-root')
   if (!root) {
     root = document.createElement('div')
     root.id = 'toast-root'
-    root.className = 'pointer-events-none fixed bottom-5 right-5 z-[120] flex w-[min(92vw,380px)] flex-col gap-2'
+    root.className = 'pointer-events-none fixed bottom-24 right-5 z-[120] flex w-[min(92vw,380px)] flex-col gap-2 md:bottom-5'
     root.setAttribute('role', 'status')
     root.setAttribute('aria-live', 'polite')
     document.body.appendChild(root)
   }
   const el = document.createElement('div')
-  el.className = 'toast ' + (type === 'error' ? 'toast-error' : 'toast-success')
-  el.innerHTML = icon(type === 'error' ? 'close' : 'check', 'size-4') + '<span>' + escapeHtml(message) + '</span>'
+  el.className = 'toast ' + (type === 'error' ? 'toast-error' : type === 'message' ? 'toast-message' : 'toast-success')
+  el.innerHTML = icon(type === 'error' ? 'close' : type === 'message' ? 'message' : 'check', 'size-4 shrink-0') + '<span class="flex-1">' + escapeHtml(message) + '</span>'
+  if (action) {
+    const button = document.createElement('button')
+    button.type = 'button'
+    button.className = 'toast-action'
+    button.textContent = action.label
+    button.addEventListener('click', () => { dismiss(); action.onClick() })
+    el.appendChild(button)
+  }
   root.appendChild(el)
-  window.setTimeout(() => {
+  let timer = null
+  const dismiss = () => {
+    clearTimeout(timer)
     el.classList.add('is-out')
     el.addEventListener('animationend', () => el.remove(), { once: true })
     window.setTimeout(() => el.remove(), 400)
-  }, 3200)
+  }
+  const arm = () => { clearTimeout(timer); timer = window.setTimeout(dismiss, action ? 9000 : 3200) }
+  el.addEventListener('pointerenter', () => clearTimeout(timer))
+  el.addEventListener('pointerleave', arm)
+  el.addEventListener('focusin', () => clearTimeout(timer))
+  el.addEventListener('focusout', arm)
+  arm()
 }
+
 
 function shell(content, options = {}) {
   const role = options.role || 'player'
@@ -773,7 +836,7 @@ function shell(content, options = {}) {
     nav.map((item) => '<button type="button" data-route="' + item[0] + '" class="nav-link ' + (active === item[0] ? 'active" aria-current="page' : '') + '">' + icon(item[2], 'size-4') + item[1] + (active === item[0] ? '<span class="nav-indicator" aria-hidden="true"></span>' : '') + '</button>').join('') +
     '</nav>' +
     '<div class="flex items-center gap-2">' +
-    '<button type="button" class="icon-button relative" data-route="messages" aria-label="Conversas">' + icon('message') + '<span id="msg-badge" class="absolute -right-1 -top-1 min-w-[1.1rem] place-items-center rounded-full bg-success px-1 text-xs font-bold leading-[1.1rem] text-chalk" style="display:none"></span></button>' +
+    '<button type="button" class="icon-button relative" data-route="messages" data-badge-host aria-label="Conversas">' + icon('message') + '<span class="count-badge" data-msg-badge aria-hidden="true" hidden></span></button>' +
     themeButton() + '<button type="button" class="icon-button" data-action="change-lang" aria-label="Alterar idioma" title="' + t('Alterar idioma') + '">' + icon('globe', 'size-4') + '</button>' +
     '<button type="button" class="icon-button relative" data-action="notifications" aria-label="Abrir notificações">' + icon('bell') + '<span id="notif-badge" class="absolute -right-1 -top-1 min-w-[1.1rem] place-items-center rounded-full bg-danger px-1 text-xs font-bold leading-[1.1rem] text-chalk" style="display:' + (myNotifications().length ? 'grid' : 'none') + '">' + (myNotifications().length > 9 ? '9+' : myNotifications().length) + '</span></button>' +
     '<button type="button" class="profile-chip" data-route="profile"><span class="avatar">' + avatar(state.user?.name || 'Atleta') + '</span><span class="hidden lg:block max-w-28 truncate text-sm">' + escapeHtml(state.user?.name || 'Atleta') + '</span></button>' +
@@ -782,7 +845,7 @@ function shell(content, options = {}) {
     '<main id="conteudo" tabindex="-1" class="mx-auto max-w-[1440px] px-4 py-5 outline-none sm:px-6 lg:px-10 lg:py-8">' + content + '</main>' +
     '<footer class="mx-auto max-w-[1440px] border-t border-line px-4 py-6 text-sm text-ink-soft sm:px-6 lg:px-10"><p>Pelé Academia · Plataforma de talentos — TIER-ZERO, FIAP 2026. <a class="underline underline-offset-4 hover:text-chalk" href="#/design-system">Design system</a></p></footer>' +
     '<nav class="bottom-nav" aria-label="Navegação rápida">' +
-    nav.map((item) => '<button type="button" data-route="' + item[0] + '"' + (active === item[0] ? ' aria-current="page"' : '') + '>' + icon(item[2], 'size-5') + '<span>' + item[1] + '</span></button>').join('') +
+    nav.map((item) => '<button type="button" data-route="' + item[0] + '"' + (item[0] === 'messages' ? ' data-badge-host aria-label="' + item[1] + '"' : '') + (active === item[0] ? ' aria-current="page"' : '') + '>' + icon(item[2], 'size-5') + '<span>' + item[1] + '</span>' + (item[0] === 'messages' ? '<span class="count-badge" data-msg-badge aria-hidden="true" hidden></span>' : '') + '</button>').join('') +
     '</nav>' +
     '<div id="mobile-menu"></div>' +
     '</div>'
@@ -1864,11 +1927,13 @@ function openNotifications() {
     '<div class="w-full max-w-lg rounded-card surface surface--raised p-6" role="dialog" aria-modal="true" aria-labelledby="notifications-title">' +
     '<div class="flex items-center justify-between gap-3"><div><h2 id="notifications-title" class="mt-1 text-2xl font-bold">Notificações</h2></div><button type="button" class="icon-button" aria-label="Fechar" data-close>' + icon('close') + '</button></div>' +
     '<div class="mt-5 space-y-2">' +
+    (unreadSummary().total ? '<article class="rounded-2xl surface p-4"><div class="flex items-start justify-between gap-3"><div><p class="font-semibold">' + plural(unreadSummary().total, 'mensagem não lida', 'mensagens não lidas') + '</p><p class="mt-1 text-sm text-ink-soft">' + t('De') + ' ' + escapeHtml(joinPt(unreadSummary().people)) + '.</p></div><button type="button" class="btn-secondary shrink-0" data-open-unread>' + t('Abrir') + '</button></div></article>' : '') +
     (myNotifications().length ? myNotifications().map((n) => '<article class="rounded-2xl surface p-4"><div class="flex items-start justify-between gap-3"><div><p class="font-semibold">' + escapeHtml(n.title) + '</p><p class="mt-1 text-sm text-ink-soft">' + escapeHtml(n.text) + '</p></div><span class="text-xs text-ink-soft">' + escapeHtml(n.time) + '</span></div></article>').join('') : '<div class="rounded-2xl border border-dashed border-line p-8 text-center text-ink-soft">Nenhuma notificação.</div>') +
     '</div><button type="button" class="btn-secondary mt-5 w-full" data-clear-notifications>Marcar como lidas</button></div>'
 
   document.body.appendChild(wrapper)
   wrapper.querySelector('[data-close]').addEventListener('click', () => wrapper.remove())
+  wrapper.querySelector('[data-open-unread]')?.addEventListener('click', () => { wrapper.remove(); openUnreadConversation() })
   wrapper.querySelector('[data-clear-notifications]').addEventListener('click', () => {
     const me = state.user?.email
     state.notifications = state.notifications.filter((n) => n.to !== me)
@@ -2152,6 +2217,7 @@ async function finishRemoteLogin(uid, role, errorId) {
   persist()
   go('dashboard')
   toast('Login realizado como ' + (role === 'staff' ? 'funcionário' : 'jogador') + '.')
+  setTimeout(() => { updateMessageBadge(); announceUnread() }, 600)
   return true
 }
 
@@ -2201,6 +2267,7 @@ async function loginAccount() {
   persist()
   go('dashboard')
   toast('Login realizado como ' + (role === 'staff' ? 'funcionário' : 'jogador') + '.')
+  setTimeout(() => { updateMessageBadge(); announceUnread() }, 600)
 }
 
 async function loginDemo() {
@@ -2611,5 +2678,7 @@ async function boot() {
   syncAthletes()
   booted = true
   render()
+  startInboxWatch()
+  if (state.user) setTimeout(announceUnread, 900)
 }
 boot()
