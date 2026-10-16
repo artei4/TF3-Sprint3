@@ -516,3 +516,58 @@ button.pitch-dot { cursor:pointer; min-width:2.75rem; min-height:2.75rem; backgr
 .toast-message svg { color:var(--color-brand); }
 .toast-action { pointer-events:auto; flex:none; min-height:2.25rem; padding:.35rem .8rem; border-radius:999px; font-size:.85rem; font-weight:700; color:var(--color-brand-ink); background:var(--color-cta); }
 .toast-action:hover { background:var(--color-cta-strong); }
+
+/* ===== Abertura ===== */
+#splash { --color-night:#0D1612; --color-chalk:#EEF1E8; --color-ink-soft:#A7B5AA; }
+#splash { position:fixed; inset:0; z-index:300; display:grid; place-content:center; justify-items:center; gap:1.25rem; background: radial-gradient(40rem 24rem at 50% 40%, color-mix(in oklab, #D8B05C 10%, transparent), transparent 70%), var(--color-night); cursor:pointer; }
+#splash .ball-loader { padding:0; }
+.splash-progress { width:min(16rem, 60vw); height:2px; border-radius:2px; background: color-mix(in oklab, var(--color-chalk) 14%, transparent); overflow:hidden; }
+.splash-progress span { display:block; height:100%; background:var(--color-cta); transform-origin:left; animation: splash-fill 1.4s var(--ease-out) both; }
+#splash.is-done { animation: splash-out 650ms var(--ease-in-out) both; pointer-events:none; }
+#splash.is-done .splash-progress span { animation: none; }
+@keyframes splash-fill { from { transform: scaleX(0); } }
+@keyframes splash-out { to { opacity:0; clip-path: inset(0 0 100% 0); } }
+/* Loader interno: só aparece se a espera passar de 300 ms. */
+.ball-loader { animation: loader-appear 200ms ease 300ms both; }
+#splash .ball-loader { animation: none; }
+@keyframes loader-appear { from { opacity:0; } }
+
+/* ===== Login em tela cheia com prancheta tática ===== */
+.login-stage { position:relative; min-height:100vh; min-height:100dvh; overflow:hidden; isolation:isolate; background: radial-gradient(70rem 40rem at 30% 20%, color-mix(in oklab, #D8B05C 8%, transparent), transparent 70%), #0B1510; }
+.tactic-board { position:absolute; inset:0; z-index:-2; width:100%; height:100%; }
+.login-stage::after { content:""; position:absolute; inset:0; z-index:-1; pointer-events:none; background: linear-gradient(90deg, rgb(8 16 12 / .85) 0%, rgb(8 16 12 / .35) 45%, rgb(8 16 12 / .55) 70%, rgb(8 16 12 / .9) 100%); }
+.tb-lines > * { fill:none; stroke: rgb(238 241 232 / .16); stroke-width:2; stroke-dasharray:1; stroke-dashoffset:1; animation: tb-draw 2.4s var(--ease-out) forwards; }
+.tb-lines > *:nth-child(2) { animation-delay:.2s } .tb-lines > *:nth-child(3) { animation-delay:.4s } .tb-lines > *:nth-child(n+4) { animation-delay:.6s }
+.tb-arrows path { fill:none; stroke: rgb(238 241 232 / .22); stroke-width:2; stroke-dasharray:.02 .02; stroke-linecap:round; animation: tb-fade 1s ease 1.6s both; }
+@keyframes tb-draw { to { stroke-dashoffset:0; } }
+@keyframes tb-fade { from { opacity:0; } }
+.tb-player { --pos-gk:#F5A34B; --pos-def:#6FB1FF; --pos-mid:#57D49A; --pos-atk:#FF7B6E; animation: tb-pop 600ms var(--ease-spring) both; animation-delay: calc(var(--d) + 1s); transform-box: fill-box; transform-origin:center; }
+.tb-player.pos-gk { --c: var(--pos-gk) } .tb-player.pos-def { --c: var(--pos-def) } .tb-player.pos-mid { --c: var(--pos-mid) } .tb-player.pos-atk { --c: var(--pos-atk) }
+.tb-dot { fill: var(--c); }
+.tb-halo { fill:none; stroke: var(--c); stroke-opacity:.35; stroke-width:2; transform-box: fill-box; transform-origin:center; animation: tb-breathe 3.2s ease-in-out infinite; animation-delay: var(--d); }
+.tb-opp { fill:none; stroke: rgb(238 241 232 / .35); stroke-width:2.5; animation: tb-fade 800ms ease both, tb-drift 6s ease-in-out infinite alternate; animation-delay: calc(var(--d) + 1.2s), var(--d); transform-box: fill-box; transform-origin:center; }
+.tb-trail { stroke:#D8B05C; stroke-width:3; stroke-linecap:round; stroke-opacity:.8; }
+.tb-shot { stroke:#FFFFFF; stroke-width:4; }
+.tb-ball-core { fill:#FFFFFF; filter: drop-shadow(0 0 10px rgb(216 176 92 / .9)); }
+.tb-goal { fill:none; stroke:#D8B05C; stroke-width:3; }
+@keyframes tb-pop { from { opacity:0; transform: scale(.2); } }
+@keyframes tb-breathe { 50% { transform: scale(1.25); stroke-opacity:.08; } }
+@keyframes tb-drift { to { transform: translate(-14px, 8px); } }
+
+.login-layout { position:relative; display:grid; min-height:100vh; min-height:100dvh; align-items:center; gap:2rem; max-width:80rem; margin-inline:auto; padding: 2rem 1.25rem; grid-template-columns: minmax(0, 1fr); }
+.login-card { width:100%; max-width:28rem; justify-self:center; padding:1.75rem; border-radius:1.5rem; backdrop-filter: blur(18px); --surface-fill: color-mix(in oklab, var(--color-raised) 88%, transparent); animation: card-in 800ms var(--ease-spring) 400ms both; }
+.login-intro { color:#EEF1E8; }
+.login-intro .page-title { color:#EEF1E8; text-shadow: 0 2px 24px rgb(0 0 0 / .5); }
+.login-intro p { color: rgb(238 241 232 / .78); }
+@keyframes card-in { from { opacity:0; transform: translateY(24px) scale(.98); } }
+@media (min-width:64rem) {
+  .login-layout { grid-template-columns: 1fr 26rem; max-width:none; padding: 3rem clamp(2rem, 6vw, 6rem); }
+  .login-card { justify-self:end; padding:2.25rem; }
+  .login-intro { align-self:end; padding-bottom:4vh; }
+}
+@media (max-width:63.99rem) {
+  .tactic-board { inset: .75rem .75rem auto; width: calc(100% - 1.5rem); height: auto; aspect-ratio: 16 / 9; }
+  .login-layout { align-content:start; padding-top: calc((100vw - 1.5rem) * 9 / 16 + 1.5rem); }
+  .login-intro .page-title { font-size: clamp(2rem, 1.4rem + 4vw, 2.75rem); }
+  .login-stage::after { background: linear-gradient(180deg, transparent 0%, transparent 30%, rgb(8 16 12 / .9) 55%); }
+}

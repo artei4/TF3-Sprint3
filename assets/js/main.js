@@ -588,7 +588,13 @@ async function hydrateRemote(uid) {
     console.warn('[Supabase] não foi possível carregar avaliações:', error)
   }
   state.tryoutsStatus = 'loading'
-  refreshRemoteTryouts().then(() => { if (['tryouts', 'dashboard'].includes(currentRoute())) render() })
+  const loadingSince = performance.now()
+  refreshRemoteTryouts().then(() => {
+    const elapsed = performance.now() - loadingSince
+    // Até 300 ms o loader nem chega a aparecer (CSS); se apareceu, fica no mínimo 600 ms para não piscar.
+    const hold = elapsed < 300 ? 0 : Math.max(0, 900 - elapsed)
+    setTimeout(() => { if (['tryouts', 'dashboard'].includes(currentRoute())) render() }, hold)
+  })
 }
 
 // Peneiras do Supabase → formato usado pelas telas. `enrolled` guarda e-mails: funcionários recebem
@@ -1350,17 +1356,21 @@ function renderHistory(history, role) {
   return html
 }
 
+// Prancheta tática do fundo do login: a jogada (volante → meia → ponta → atacante → gol) é SMIL nativo do SVG.
+const TACTIC_BOARD = '<svg class="tactic-board" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><g class="tb-lines"><rect x="40" y="40" width="1520" height="820" rx="6" pathLength="1"/><path d="M800 40v820" pathLength="1"/><circle cx="800" cy="450" r="120" pathLength="1"/><path d="M40 230h230v440H40M1560 230h-230v440h230" pathLength="1"/><path d="M40 350h80v200H40M1560 350h-80v200h80" pathLength="1"/><path d="M270 360a120 120 0 0 1 0 180M1330 360a120 120 0 0 0 0 180" pathLength="1"/></g><g class="tb-arrows"><path d="M300 170 C 400 110, 520 120, 620 200" pathLength="1"/><path d="M860 770 C 980 810, 1100 770, 1180 690" pathLength="1"/></g><circle cx="1250" cy="400" r="13" class="tb-opp" style="--d:0.60s"/><circle cx="1300" cy="560" r="13" class="tb-opp" style="--d:0.70s"/><circle cx="1180" cy="300" r="13" class="tb-opp" style="--d:0.80s"/><circle cx="1150" cy="690" r="13" class="tb-opp" style="--d:0.90s"/><circle cx="940" cy="520" r="13" class="tb-opp" style="--d:1.00s"/><circle cx="880" cy="280" r="13" class="tb-opp" style="--d:1.10s"/><circle cx="1520" cy="450" r="13" class="tb-opp" style="--d:1.20s"/><g class="tb-player pos-gk" style="--d:0.00s"><circle cx="110" cy="450" r="15" class="tb-dot"/><circle cx="110" cy="450" r="26" class="tb-halo"/></g><g class="tb-player pos-def" style="--d:0.12s"><circle cx="300" cy="170" r="15" class="tb-dot"/><circle cx="300" cy="170" r="26" class="tb-halo"/></g><g class="tb-player pos-def" style="--d:0.24s"><circle cx="300" cy="740" r="15" class="tb-dot"/><circle cx="300" cy="740" r="26" class="tb-halo"/></g><g class="tb-player pos-def" style="--d:0.36s"><circle cx="470" cy="90" r="15" class="tb-dot"/><circle cx="470" cy="90" r="26" class="tb-halo"/></g><g class="tb-player pos-mid" style="--d:0.48s"><circle cx="560" cy="640" r="15" class="tb-dot"/><circle cx="560" cy="640" r="26" class="tb-halo"/></g><g class="tb-player pos-mid" style="--d:0.60s"><circle cx="760" cy="420" r="15" class="tb-dot"/><circle cx="760" cy="420" r="26" class="tb-halo"/></g><g class="tb-player pos-atk" style="--d:0.72s"><circle cx="1000" cy="200" r="15" class="tb-dot"/><circle cx="1000" cy="200" r="26" class="tb-halo"/></g><g class="tb-player pos-atk" style="--d:0.84s"><circle cx="1100" cy="560" r="15" class="tb-dot"/><circle cx="1100" cy="560" r="26" class="tb-halo"/></g><g class="tb-player pos-mid" style="--d:0.96s"><circle cx="860" cy="770" r="15" class="tb-dot"/><circle cx="860" cy="770" r="26" class="tb-halo"/></g><g class="tb-trails"><line x1="560" y1="640" x2="760" y2="420" class="tb-trail" stroke-dasharray="297.3" stroke-dashoffset="297.3"><animate attributeName="stroke-dashoffset" dur="9s" repeatCount="indefinite" values="297.3;297.3;0;0;297.3" keyTimes="0;0.0000;0.1111;0.92;1"/><animate attributeName="opacity" dur="9s" repeatCount="indefinite" values="1;1;0" keyTimes="0;0.9;1"/></line><line x1="760" y1="420" x2="1000" y2="200" class="tb-trail" stroke-dasharray="325.6" stroke-dashoffset="325.6"><animate attributeName="stroke-dashoffset" dur="9s" repeatCount="indefinite" values="325.6;325.6;0;0;325.6" keyTimes="0;0.1556;0.2778;0.92;1"/><animate attributeName="opacity" dur="9s" repeatCount="indefinite" values="1;1;0" keyTimes="0;0.9;1"/></line><line x1="1000" y1="200" x2="1100" y2="560" class="tb-trail" stroke-dasharray="373.6" stroke-dashoffset="373.6"><animate attributeName="stroke-dashoffset" dur="9s" repeatCount="indefinite" values="373.6;373.6;0;0;373.6" keyTimes="0;0.3222;0.4444;0.92;1"/><animate attributeName="opacity" dur="9s" repeatCount="indefinite" values="1;1;0" keyTimes="0;0.9;1"/></line><line x1="1100" y1="560" x2="1556" y2="450" class="tb-trail tb-shot" stroke-dasharray="469.1" stroke-dashoffset="469.1"><animate attributeName="stroke-dashoffset" dur="9s" repeatCount="indefinite" values="469.1;469.1;0;0;469.1" keyTimes="0;0.4778;0.5333;0.92;1"/><animate attributeName="opacity" dur="9s" repeatCount="indefinite" values="1;1;0" keyTimes="0;0.9;1"/></line></g><circle cx="1556" cy="450" r="10" class="tb-goal"><animate attributeName="r" dur="9s" repeatCount="indefinite" values="10;10;90;90" keyTimes="0;0.5333;0.6333;1"/><animate attributeName="opacity" dur="9s" repeatCount="indefinite" values="0;.9;0;0" keyTimes="0;0.5333;0.6333;1"/></circle><g class="tb-ball"><circle r="9" class="tb-ball-core"/><animateMotion dur="9s" repeatCount="indefinite" path="M560 640 L760 420 L1000 200 L1100 560 L1556 450" keyPoints="0.0000;0.2029;0.2029;0.4250;0.4250;0.6799;0.6799;1.0000;1.0000" keyTimes="0.0000;0.1111;0.1556;0.2778;0.3222;0.4444;0.4778;0.5333;1.0000" calcMode="linear"/></g></svg>'
+
 function loginPage() {
-  return '<main id="conteudo" tabindex="-1" class="outline-none min-h-screen bg-transparent px-4 py-8 text-chalk"><div class="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl overflow-hidden rounded-card surface lg:grid-cols-[.95fr_1.05fr]">' +
-    '<div class="hero hidden border-r border-line bg-transparent p-10 lg:flex lg:flex-col lg:justify-between"><span class="jersey" aria-hidden="true">10</span><div><img src="./assets/brand/simbolo.jpg" width="112" height="112" decoding="async" alt="Pelé Academia" class="h-28 w-28 rounded-card object-contain"/><h1 class="page-title mt-10 max-w-lg">Onde o futebol encontra o próximo talento.</h1><p class="mt-5 max-w-xl text-ink-soft">Uma experiência para atletas, treinadores, funcionários e olheiros se encontrarem.</p></div><div class="text-sm text-ink-soft">Pelé Academia • Plataforma de talentos</div></div>' +
-    '<div class="flex items-center justify-center p-6 sm:p-10"><div class="w-full max-w-md"><img src="./assets/brand/simbolo.jpg" width="112" height="112" decoding="async" alt="Pelé Academia" class="mx-auto h-24 w-24 rounded-card object-contain lg:hidden"/><h2 class="mt-3 text-3xl font-bold">' + t('Entrar na Pelé Academia') + '</h2><p class="mt-2 text-sm text-ink-soft">' + t('Escolha o tipo de conta antes de entrar.') + '</p>' +
+  return '<main id="conteudo" tabindex="-1" class="login-stage outline-none text-chalk">' + TACTIC_BOARD +
+    '<div class="login-layout"><section class="login-intro"><img src="./assets/brand/simbolo.jpg" width="112" height="112" decoding="async" alt="Pelé Academia" class="hidden h-20 w-20 rounded-card object-contain lg:block"/>' +
+    '<h1 class="page-title mt-6 max-w-xl">' + t('Onde o futebol encontra o próximo talento.') + '</h1><p class="mt-4 max-w-md text-ink-soft">' + t('Atletas de base, treinadores e olheiros da Pelé Academia no mesmo campo.') + '</p></section>' +
+    '<div class="login-card surface surface--raised"><img src="./assets/brand/simbolo.jpg" width="112" height="112" decoding="async" alt="Pelé Academia" class="mx-auto h-24 w-24 rounded-card object-contain lg:hidden"/><h2 class="mt-3 text-3xl font-bold">' + t('Entrar na Pelé Academia') + '</h2><p class="mt-2 text-sm text-ink-soft">' + t('Escolha o tipo de conta antes de entrar.') + '</p>' +
     '<div class="mt-6 grid grid-cols-2 gap-2 rounded-2xl border border-line bg-night/60 p-1"><button type="button" class="role-tab active" data-role="player">' + t('Jogador') + '</button><button type="button" class="role-tab" data-role="staff">' + t('Funcionário') + '</button></div>' +
     '<form id="login-form" class="mt-6 space-y-4">' + input(t('E-mail'), 'login-email', '', 'email', true) + input(t('Senha'), 'login-password', '', 'password', true) + '<p id="login-error" class="hidden rounded-xl border border-danger/40 bg-danger/10 px-3 py-2 text-xs font-semibold text-danger"></p><button class="btn-primary w-full" type="submit">' + t('Entrar') + ' ' + icon('arrow', 'size-4') + '</button></form>' +
     '<button type="button" class="mt-3 w-full text-center text-xs text-brand hover:text-brand-strong" data-action="forgot-password">' + t('Esqueci minha senha') + '</button>' +
     '<div class="my-6 flex items-center gap-3"><span class="h-px flex-1 bg-line"></span><span class="text-xs text-ink-soft">' + t('ou') + '</span><span class="h-px flex-1 bg-line"></span></div>' +
     '<button type="button" class="btn-secondary w-full" data-route="register">' + t('Criar conta de jogador') + '</button><button type="button" class="mt-3 w-full text-center text-xs text-ink-soft hover:text-chalk" data-action="demo">' + t('Entrar com conta demo') + '</button>' +
     '<button type="button" class="mt-4 inline-flex w-full items-center justify-center gap-1.5 text-xs text-ink-soft hover:text-chalk" data-action="change-lang">' + icon('globe', 'size-3.5') + ' ' + LANGS.find((l) => l.code !== getLang())?.label + '</button><div class="mt-3 flex justify-center">' + themeButton() + '</div>' +
-    '<p class="mt-5 text-center text-xs leading-5 text-ink-soft">Funcionário (teste): funcionario@academiapele.com / Academia123!<br/>Jogador (teste): gabriel@academiapele.com / Demo123!</p></div></div></div></main>'
+    '<p class="mt-5 text-center text-xs leading-5 text-ink-soft">Funcionário (teste): funcionario@academiapele.com / Academia123!<br/>Jogador (teste): gabriel@academiapele.com / Demo123!</p></div></div></main>'
 }
 
 function passwordRecoveryPage() {
@@ -2347,6 +2357,11 @@ function bind() {
     go(button.dataset.route)
   }))
   initLoginRoleButtons()
+  // Prancheta do login: com "reduzir movimento", congela num quadro da jogada (o SMIL não obedece ao CSS).
+  const board = document.querySelector('.tactic-board')
+  if (board && matchMedia('(prefers-reduced-motion: reduce)').matches) { board.pauseAnimations(); board.setCurrentTime(3.6) }
+  // Celular/tablet: campo inteiro em miniatura no topo (no desktop ele preenche a tela).
+  if (board && matchMedia('(max-width: 63.99rem)').matches) board.setAttribute('preserveAspectRatio', 'xMidYMin meet')
   bindDynamicCards()
 
   document.querySelectorAll('[data-action="change-lang"]').forEach((button) => button.addEventListener('click', () => {
@@ -2654,6 +2669,31 @@ document.querySelector('.skip-link')?.addEventListener('click', (event) => {
 initSmoothScroll()
 initSpotlight()
 
+// Abertura: na primeira visita da sessão fica no mínimo 1,5 s (a interface já monta por baixo);
+// depois disso, ou com "reduzir movimento", sai assim que o app estiver pronto. Clique ou Esc pulam.
+const SPLASH_MIN = 1500
+function finishSplash() {
+  const splash = document.querySelector('#splash')
+  if (!splash) return
+  let first = true
+  try { first = !sessionStorage.getItem('ap_intro'); sessionStorage.setItem('ap_intro', '1') } catch {}
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches
+  const wait = first && !reduced ? Math.max(0, SPLASH_MIN - performance.now()) : 0
+  app.inert = true
+  const close = () => {
+    if (!splash.isConnected) return
+    app.inert = false
+    splash.classList.add('is-done')
+    splash.addEventListener('animationend', () => splash.remove(), { once: true })
+    setTimeout(() => splash.remove(), 900)
+    document.removeEventListener('keydown', onKey)
+  }
+  const onKey = (event) => { if (event.key === 'Escape') close() }
+  splash.addEventListener('click', close)
+  document.addEventListener('keydown', onKey)
+  setTimeout(close, wait)
+}
+
 async function boot() {
   app.innerHTML = '<div class="grid min-h-screen place-items-center text-sm text-ink-soft">Carregando...</div>'
   if (await initRemote()) {
@@ -2678,6 +2718,7 @@ async function boot() {
   syncAthletes()
   booted = true
   render()
+  finishSplash()
   startInboxWatch()
   if (state.user) setTimeout(announceUnread, 900)
 }
