@@ -2,7 +2,7 @@ export function toast(message, type='success') {
   const root = document.querySelector('#toast-root')
   if (!root) return
   const el = document.createElement('div')
-  el.className = `pointer-events-auto flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm shadow-2xl backdrop-blur-xl ${type==='error' ? 'border-rose-400/30 bg-rose-500/15 text-rose-100' : 'border-amber-300/30 bg-emerald-500/15 text-white'}`
+  el.className = `toast ${type==='error' ? 'toast-error' : 'toast-success'}`
   el.innerHTML = `${icon(type==='error'?'close':'check','size-4')}<span>${message}</span>`
   root.appendChild(el)
   setTimeout(() => el.remove(), 2800)

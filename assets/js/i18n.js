@@ -10,13 +10,15 @@ export const LANGS = [
 
 export function getLang() {
   const saved = localStorage.getItem('ap_lang')
-  return LANGS.some((l) => l.code === saved) ? saved : null
+  return LANGS.some((l) => l.code === saved) ? saved : 'pt'
 }
 
 export function setLang(code) {
   localStorage.setItem('ap_lang', code)
   document.documentElement.lang = code === 'es' ? 'es' : 'pt-BR'
 }
+
+if (getLang() === 'es') document.documentElement.lang = 'es'
 
 export function t(text) {
   const lang = getLang()
