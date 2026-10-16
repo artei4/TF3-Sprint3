@@ -10,7 +10,7 @@ import { filterAthletes } from './filters.js'
 import { toggleFavorite, registerVote, removeVote, hasVoted } from './feed.js'
 import { LANGS, getLang, setLang, t } from './i18n.js'
 import { designSystemPage, bindDesignSystem } from './design-system.js'
-import { processPhoto, illustratedAvatar } from './avatar.js'
+import { cropPhoto, illustratedAvatar } from './avatar.js'
 import { initSmoothScroll, initSpotlight, paintScreen, enterPage, scrollToTop, scrollToElement } from './motion.js'
 import {
   FEET,
@@ -231,9 +231,11 @@ function seedDemoAccounts() {
         email: demo.email,
         password: 'Academia123!',
         role: 'staff',
-        profile: { name: demo.name, email: demo.email, phone: demo.phone, position: demo.position, city: 'São Paulo', state: 'SP' },
+        profile: { name: demo.name, email: demo.email, phone: demo.phone, position: demo.position, city: 'São Paulo', state: 'SP', demo: true },
       })
     }
+    const account = state.accounts.find((entry) => entry.email === demo.email)
+    if (account?.profile) account.profile.demo = true // contas salvas antes desta versão
   })
   if (!state.accounts.some((account) => account.email === 'gabriel@academiapele.com')) {
     const profile = { ...defaultProfile, email: 'gabriel@academiapele.com', cpf: '11144477735' }
@@ -332,7 +334,7 @@ function getConversations() {
     name: a.profile?.name || a.email,
     subtitle: (a.profile?.position || 'Profissional') + ' • ' + (a.profile?.city || 'Pelé Academia'),
     avatar: a.profile?.name || a.email,
-    person: { name: a.profile?.name || a.email, photo: a.profile?.photo || null },
+    person: { name: a.profile?.name || a.email, photo: a.profile?.photo || null, demo: !!a.profile?.demo, id: a.email, group: 'staff' },
     key: remote.enabled ? threadKey(state.user.uid, a.uid) : threadKey(me.id, a.email),
     athleteRef: state.user.uid,
     staffRef: a.uid,
@@ -558,7 +560,7 @@ function remoteAccount(row) {
     role: row.role,
     athleteId: Number(row.athlete_num),
     uid: row.id,
-    profile: { ...(row.data || {}), name: row.name, email: row.email },
+    profile: { ...(row.data || {}), name: row.name, email: row.email, demo: DEMO_STAFF.some((demo) => demo.email === row.email) },
   }
 }
 
@@ -1109,12 +1111,17 @@ function attributeAverages(athleteId, pos) {
 function personAvatar(person, cls = 'avatar') {
   const name = person?.name || 'Atleta'
   if (person?.photo) return '<span class="' + cls + ' avatar-photo"><img src="' + escapeHtml(person.photo) + '" alt="" width="88" height="88" decoding="async" /></span>'
-  if (person?.demo) return '<span class="' + cls + ' avatar-photo">' + illustratedAvatar(person.id || name, positionGroup(person.pos)) + '</span>'
+  if (person?.demo) return '<span class="' + cls + ' avatar-photo">' + illustratedAvatar(person.id || name, person.group || positionGroup(person.pos)) + '</span>'
   return '<span class="' + cls + '">' + avatar(name) + '</span>'
 }
 function mePerson() {
   const account = state.accounts.find((entry) => entry.email === state.user?.email)
-  return { name: state.user?.name, photo: state.profile?.photo || account?.profile?.photo || null }
+  const athlete = state.user?.role === 'player' ? getCurrentAthlete() : null
+  return {
+    name: state.user?.name, photo: state.profile?.photo || account?.profile?.photo || null,
+    demo: !!(account?.profile?.demo || athlete?.demo), id: athlete?.id ?? state.user?.email, pos: athlete?.pos,
+    group: state.user?.role === 'staff' ? 'staff' : undefined,
+  }
 }
 function photoUploader(person, inputId = 'photo-input') {
   return '<div class="photo-uploader">' + personAvatar(person, 'avatar-xl profile-avatar') +
@@ -1140,9 +1147,11 @@ function bindPhotoInputs(root = document) {
     const file = input.files?.[0]
     if (!file) return
     const box = input.closest('.photo-uploader')
-    box?.setAttribute('aria-busy', 'true')
+    input.value = '' // permite escolher o mesmo arquivo de novo
     try {
-      const photo = await processPhoto(file)
+      const photo = await cropPhoto(file)
+      if (!photo) return
+      box?.setAttribute('aria-busy', 'true')
       if (input.id === 'reg-photo-input') {
         regPhoto = photo
         box.outerHTML = photoUploader({ name: document.querySelector('#reg-name')?.value || 'Atleta', photo }, 'reg-photo-input')
@@ -1222,7 +1231,7 @@ function profilePage() {
     const profile = account?.profile || { name: state.user.name, email: state.user.email, phone: '', position: t('Funcionário'), city: 'São Paulo', state: 'SP' }
     return shell(
       '<div class="page-head"><div><h1 class="page-title">' + escapeHtml(profile.name) + '</h1><p class="page-subtitle">' + t('Dados do funcionário que está conectado.') + '</p></div><button type="button" class="btn-secondary" data-action="logout">' + icon('logout', 'size-4') + ' ' + t('Sair') + '</button></div>' +
-      '<section class="mt-6 grid gap-5 md:grid-cols-2"><aside class="panel"><div class="flex items-center gap-4">' + photoUploader({ name: profile.name, photo: profile.photo }) + '<div><p class="text-xs text-ink-soft">' + t('Funcionário') + '</p><h2 class="mt-1 text-2xl font-bold">' + escapeHtml(profile.position || t('Profissional')) + '</h2><p class="text-sm text-ink-soft">' + escapeHtml(profile.city) + '/' + escapeHtml(profile.state) + '</p></div></div></aside><div class="panel"><h2 class="section-title">' + t('Credenciais de teste') + '</h2><p class="mt-4 text-sm leading-6 text-ink-soft">'+ t('E-mail de teste') + ': funcionario@academiapele.com<br/>' + t('Senha de teste') + ': Academia123!</p><button type="button" class="btn-primary mt-5" data-route="athletes">'+ t('Ir para o banco de atletas') + ' ' + icon('arrow', 'size-4') + '</button></div></section>',
+      '<section class="mt-6 grid gap-5 md:grid-cols-2"><aside class="panel"><div class="flex items-center gap-4">' + photoUploader({ name: profile.name, photo: profile.photo, demo: profile.demo, id: profile.email, group: 'staff' }) + '<div><p class="text-xs text-ink-soft">' + t('Funcionário') + '</p><h2 class="mt-1 text-2xl font-bold">' + escapeHtml(profile.position || t('Profissional')) + '</h2><p class="text-sm text-ink-soft">' + escapeHtml(profile.city) + '/' + escapeHtml(profile.state) + '</p></div></div></aside><div class="panel"><h2 class="section-title">' + t('Credenciais de teste') + '</h2><p class="mt-4 text-sm leading-6 text-ink-soft">'+ t('E-mail de teste') + ': funcionario@academiapele.com<br/>' + t('Senha de teste') + ': Academia123!</p><button type="button" class="btn-primary mt-5" data-route="athletes">'+ t('Ir para o banco de atletas') + ' ' + icon('arrow', 'size-4') + '</button></div></section>',
       { active: 'dashboard', role: 'staff' },
     )
   }
