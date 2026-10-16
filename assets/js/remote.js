@@ -4,7 +4,7 @@
 import { SUPABASE_URL, SUPABASE_KEY } from './config.js'
 import { t } from './i18n.js'
 
-const SUPABASE_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
+const SUPABASE_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm'
 const LOAD_TIMEOUT_MS = 8000
 
 export const remote = { enabled: false }

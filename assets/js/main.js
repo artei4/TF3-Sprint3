@@ -742,7 +742,7 @@ function shell(content, options = {}) {
     '<header class="sticky top-0 z-40 border-b border-line bg-night/90 backdrop-blur-xl">' +
     '<div class="mx-auto flex min-h-[4.5rem] max-w-[1440px] items-center justify-between gap-3 px-4 py-2 sm:px-6 lg:px-10">' +
     '<button type="button" class="flex items-center gap-3" data-action="home" aria-label="Ir para o início">' +
-    '<img src="./assets/brand/simbolo.jpg" alt="Pelé Academia" class="h-11 w-11 rounded-xl object-contain bg-black ring-1 ring-white/10" />' +
+    '<img src="./assets/brand/simbolo.jpg" width="112" height="112" decoding="async" alt="Pelé Academia" class="h-11 w-11 rounded-xl object-contain bg-black ring-1 ring-line" />' +
     '<div class="hidden sm:block text-left"><p class="text-lg font-extrabold leading-none [font-stretch:75%]">Pelé Academia</p><p class="text-xs text-ink-soft">Plataforma de talentos</p></div></button>' +
     '<nav class="hidden md:flex items-center gap-1" aria-label="Navegação principal">' +
     nav.map((item) => '<button type="button" data-route="' + item[0] + '" class="nav-link ' + (active === item[0] ? 'active" aria-current="page' : '') + '">' + icon(item[2], 'size-4') + item[1] + '</button>').join('') +
@@ -784,7 +784,7 @@ function playerDashboard() {
     '<section class="grid gap-6 xl:grid-cols-[1.55fr_.8fr]">' +
     '<div class="overflow-hidden rounded-card border border-line bg-panel p-6 shadow-2xl sm:p-8">' +
     '<div class="flex flex-wrap items-center justify-between gap-4"><div><h1 class="page-title max-w-2xl">Olá, ' + name + '. Sua carreira em movimento.</h1><p class="mt-4 max-w-2xl text-base leading-7 text-ink-soft">Acompanhe oportunidades, avaliações e conversas com profissionais da Pelé Academia.</p></div>' +
-    '<div class="hidden sm:flex h-28 w-28 items-center justify-center rounded-card border border-brand/25 bg-brand/10"><img src="./assets/brand/simbolo.jpg" alt="Logo Pelé Academia" class="h-24 w-24 rounded-2xl object-contain" /></div></div>' +
+    '<div class="hidden sm:flex h-28 w-28 items-center justify-center rounded-card border border-brand/25 bg-brand/10"><img src="./assets/brand/simbolo.jpg" width="112" height="112" decoding="async" alt="" class="h-24 w-24 rounded-2xl object-contain" /></div></div>' +
     '<div class="mt-8 grid gap-3 sm:grid-cols-3">' +
     stat(averagePlayerRating(profile), t('Avaliação média'), 'notas registradas') +
     stat(String(state.tryouts.filter((t) => Array.isArray(t.enrolled) && t.enrolled.includes(state.user?.email)).length).padStart(2, '0'), t('Peneiras inscritas'), 'acompanhe suas vagas') +
@@ -1072,8 +1072,8 @@ function renderHistory(history, role) {
 
 function loginPage() {
   return '<main id="conteudo" tabindex="-1" class="outline-none min-h-screen bg-transparent px-4 py-8 text-chalk"><div class="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl overflow-hidden rounded-card border border-line bg-panel lg:grid-cols-[.95fr_1.05fr]">' +
-    '<div class="relative hidden overflow-hidden border-r border-line bg-transparent p-10 lg:flex lg:flex-col lg:justify-between"><div><img src="./assets/brand/simbolo.jpg" alt="Pelé Academia" class="h-28 w-28 rounded-card object-contain"/><h1 class="page-title mt-10 max-w-lg">Onde o futebol encontra o próximo talento.</h1><p class="mt-5 max-w-xl text-ink-soft">Uma experiência para atletas, treinadores, funcionários e olheiros se encontrarem.</p></div><div class="text-sm text-ink-soft">Pelé Academia • Plataforma de talentos</div></div>' +
-    '<div class="flex items-center justify-center p-6 sm:p-10"><div class="w-full max-w-md"><img src="./assets/brand/simbolo.jpg" alt="Pelé Academia" class="mx-auto h-24 w-24 rounded-card object-contain lg:hidden"/><h2 class="mt-3 text-3xl font-extrabold">' + t('Entrar na Pelé Academia') + '</h2><p class="mt-2 text-sm text-ink-soft">' + t('Escolha o tipo de conta antes de entrar.') + '</p>' +
+    '<div class="relative hidden overflow-hidden border-r border-line bg-transparent p-10 lg:flex lg:flex-col lg:justify-between"><div><img src="./assets/brand/simbolo.jpg" width="112" height="112" decoding="async" alt="Pelé Academia" class="h-28 w-28 rounded-card object-contain"/><h1 class="page-title mt-10 max-w-lg">Onde o futebol encontra o próximo talento.</h1><p class="mt-5 max-w-xl text-ink-soft">Uma experiência para atletas, treinadores, funcionários e olheiros se encontrarem.</p></div><div class="text-sm text-ink-soft">Pelé Academia • Plataforma de talentos</div></div>' +
+    '<div class="flex items-center justify-center p-6 sm:p-10"><div class="w-full max-w-md"><img src="./assets/brand/simbolo.jpg" width="112" height="112" decoding="async" alt="Pelé Academia" class="mx-auto h-24 w-24 rounded-card object-contain lg:hidden"/><h2 class="mt-3 text-3xl font-extrabold">' + t('Entrar na Pelé Academia') + '</h2><p class="mt-2 text-sm text-ink-soft">' + t('Escolha o tipo de conta antes de entrar.') + '</p>' +
     '<div class="mt-6 grid grid-cols-2 gap-2 rounded-2xl border border-line bg-black/25 p-1"><button type="button" class="role-tab active" data-role="player">' + t('Jogador') + '</button><button type="button" class="role-tab" data-role="staff">' + t('Funcionário') + '</button></div>' +
     '<form id="login-form" class="mt-6 space-y-4">' + input(t('E-mail'), 'login-email', '', 'email', true) + input(t('Senha'), 'login-password', '', 'password', true) + '<p id="login-error" class="hidden rounded-xl border border-danger/40 bg-danger/10 px-3 py-2 text-xs font-semibold text-danger"></p><button class="btn-primary w-full" type="submit">' + t('Entrar') + ' ' + icon('arrow', 'size-4') + '</button></form>' +
     '<button type="button" class="mt-3 w-full text-center text-xs text-brand hover:text-brand-strong" data-action="forgot-password">' + t('Esqueci minha senha') + '</button>' +
@@ -1121,7 +1121,7 @@ async function saveRecoveredPassword() {
 
 function registerPage() {
   return '<main id="conteudo" tabindex="-1" class="outline-none min-h-screen bg-transparent px-4 py-8 text-chalk"><div class="mx-auto max-w-5xl rounded-card border border-line bg-panel p-6 sm:p-10">' +
-    '<div class="flex flex-wrap items-center justify-between gap-4"><div class="flex items-center gap-3"><img src="./assets/brand/simbolo.jpg" alt="Pelé Academia" class="h-16 w-16 rounded-2xl object-contain"/><div><h1 class="mt-1 text-3xl font-extrabold">' + t('Criar conta de jogador') + '</h1></div></div><button type="button" class="btn-ghost" data-route="login">' + t('Voltar') + '</button></div>' +
+    '<div class="flex flex-wrap items-center justify-between gap-4"><div class="flex items-center gap-3"><img src="./assets/brand/simbolo.jpg" width="112" height="112" decoding="async" alt="Pelé Academia" class="h-16 w-16 rounded-2xl object-contain"/><div><h1 class="mt-1 text-3xl font-extrabold">' + t('Criar conta de jogador') + '</h1></div></div><button type="button" class="btn-ghost" data-route="login">' + t('Voltar') + '</button></div>' +
     '<p class="mt-3 max-w-3xl text-sm leading-6 text-ink-soft">Preencha seus dados pessoais, categoria esportiva, gênero, posições e endereço. A idade e a categoria são calculadas automaticamente pela data de nascimento.</p>' +
     '<form id="register-form" class="mt-8 grid gap-4 sm:grid-cols-2">' +
     input(t('Nome completo'), 'reg-name', '', 'text', true) +
@@ -1444,7 +1444,7 @@ function openLocationModal(onSelect) {
   panel.className = 'fixed inset-0 z-[100] grid place-items-center bg-black/70 p-4'
   panel.innerHTML =
     '<div class="w-full max-w-md rounded-card border border-line bg-raised p-6" role="dialog" aria-modal="true" aria-labelledby="location-title">' +
-    '<div class="flex items-center justify-between"><div><span class="eyebrow">' + t('Localidade') + '</span><h3 id="location-title" class="mt-1 text-xl font-extrabold">Confirmar local da peneira</h3></div><button type="button" class="icon-button" data-close>' + icon('close') + '</button></div>' +
+    '<div class="flex items-center justify-between"><div><span class="eyebrow">' + t('Localidade') + '</span><h3 id="location-title" class="mt-1 text-xl font-extrabold">Confirmar local da peneira</h3></div><button type="button" class="icon-button" aria-label="Fechar" data-close>' + icon('close') + '</button></div>' +
     '<div class="mt-5 space-y-2">' +
     [
       ['Centro de Treinamento Pelé', 'São Paulo/SP'],
@@ -1472,7 +1472,7 @@ function openTryoutModal() {
   wrapper.className = 'fixed inset-0 z-[90] grid place-items-center bg-black/75 p-4 backdrop-blur-md'
   wrapper.innerHTML =
     '<div class="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-card border border-line bg-raised p-6 shadow-2xl sm:p-8" role="dialog" aria-modal="true" aria-labelledby="tryout-title">' +
-    '<div class="flex items-start justify-between gap-4"><div><h2 id="tryout-title" class="mt-2 text-2xl font-extrabold">Criar e agendar</h2></div><button type="button" class="icon-button" data-close>' + icon('close') + '</button></div>' +
+    '<div class="flex items-start justify-between gap-4"><div><h2 id="tryout-title" class="mt-2 text-2xl font-extrabold">Criar e agendar</h2></div><button type="button" class="icon-button" aria-label="Fechar" data-close>' + icon('close') + '</button></div>' +
     '<form id="tryout-form" class="mt-6 grid gap-4 sm:grid-cols-2">' +
     input('Nome da peneira', 'try-title', '', 'text', true) +
     input('Data', 'try-date', '', 'date', true) +
@@ -1616,7 +1616,7 @@ function openEnrolledModal(tryoutId) {
   const wrapper = document.createElement('div')
   wrapper.className = 'fixed inset-0 z-[92] grid place-items-center bg-black/75 p-4'
   wrapper.innerHTML =
-    '<div class="max-h-[86vh] w-full max-w-xl overflow-y-auto rounded-card border border-line bg-raised p-6" role="dialog" aria-modal="true"><div class="flex items-start justify-between gap-3"><div><span class="eyebrow">Inscritos • ' + emails.length + '/' + escapeHtml(tryout.seats) + '</span><h2 class="mt-2 text-2xl font-extrabold">' + escapeHtml(tryout.title) + '</h2></div><button type="button" class="icon-button" data-close>' + icon('close') + '</button></div><div class="mt-5 space-y-2">' +
+    '<div class="max-h-[86vh] w-full max-w-xl overflow-y-auto rounded-card border border-line bg-raised p-6" role="dialog" aria-modal="true"><div class="flex items-start justify-between gap-3"><div><span class="eyebrow">Inscritos • ' + emails.length + '/' + escapeHtml(tryout.seats) + '</span><h2 class="mt-2 text-2xl font-extrabold">' + escapeHtml(tryout.title) + '</h2></div><button type="button" class="icon-button" aria-label="Fechar" data-close>' + icon('close') + '</button></div><div class="mt-5 space-y-2">' +
     (profiles.length ? profiles.map((profile) => '<div class="flex items-center justify-between gap-3 rounded-2xl border border-line bg-panel p-4"><div class="flex items-center gap-3"><span class="avatar">' + avatar(profile.name) + '</span><div><p class="font-semibold">' + escapeHtml(profile.name) + '</p><p class="text-xs text-ink-soft"><span class="text-brand">Principal:</span> ' + escapeHtml(profile.pos) + ' • <span class="text-brand">Secundária:</span> ' + escapeHtml(profile.secondary && profile.secondary !== '—' ? profile.secondary : 'nenhuma') + '</p><p class="text-xs text-ink-soft">' + escapeHtml(getCategoryFromAge(getAgeFromProfile(profile.birth))) + ' • ' + escapeHtml(profile.city) + (profile.foot ? ' • ' + escapeHtml(profile.foot) : '') + '</p></div></div><div class="flex shrink-0 flex-col gap-1"><button type="button" class="btn-ghost" data-view-email="' + escapeHtml(profile.email) + '">Ver perfil</button><button type="button" class="btn-ghost" data-message-email="' + escapeHtml(profile.email) + '">Mensagem</button></div></div>').join('') : '<div class="rounded-2xl border border-dashed border-line p-8 text-center text-ink-soft">Ainda não há inscritos nesta peneira.</div>') +
     '</div></div>'
 
@@ -1645,7 +1645,7 @@ function openNotifications() {
   wrapper.className = 'fixed inset-0 z-[90] grid place-items-center bg-black/70 p-4'
   wrapper.innerHTML =
     '<div class="w-full max-w-lg rounded-card border border-line bg-raised p-6" role="dialog" aria-modal="true" aria-labelledby="notifications-title">' +
-    '<div class="flex items-center justify-between gap-3"><div><h2 id="notifications-title" class="mt-1 text-2xl font-extrabold">Notificações</h2></div><button type="button" class="icon-button" data-close>' + icon('close') + '</button></div>' +
+    '<div class="flex items-center justify-between gap-3"><div><h2 id="notifications-title" class="mt-1 text-2xl font-extrabold">Notificações</h2></div><button type="button" class="icon-button" aria-label="Fechar" data-close>' + icon('close') + '</button></div>' +
     '<div class="mt-5 space-y-2">' +
     (myNotifications().length ? myNotifications().map((n) => '<article class="rounded-2xl border border-line bg-panel p-4"><div class="flex items-start justify-between gap-3"><div><p class="font-semibold">' + escapeHtml(n.title) + '</p><p class="mt-1 text-sm text-ink-soft">' + escapeHtml(n.text) + '</p></div><span class="text-xs text-ink-soft">' + escapeHtml(n.time) + '</span></div></article>').join('') : '<div class="rounded-2xl border border-dashed border-line p-8 text-center text-ink-soft">Nenhuma notificação.</div>') +
     '</div><button type="button" class="btn-secondary mt-5 w-full" data-clear-notifications>Marcar como lidas</button></div>'
@@ -2275,6 +2275,59 @@ document.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return
   const modals = document.querySelectorAll('body > div.fixed.inset-0')
   if (modals.length) modals[modals.length - 1].remove()
+})
+
+// Modais: todos são criados com document.body.appendChild(wrapper) contendo [role="dialog"].
+// Este observador cuida, num lugar só, do que todos precisam: título acessível, foco inicial,
+// Tab preso dentro do modal, Esc para fechar e foco devolvido a quem abriu.
+const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
+const openDialogs = []
+const topDialog = () => openDialogs[openDialogs.length - 1]
+
+new MutationObserver((mutations) => {
+  mutations.forEach((mutation) => {
+    mutation.addedNodes.forEach((node) => {
+      const dialog = node.nodeType === 1 && (node.matches('[role="dialog"]') ? node : node.querySelector('[role="dialog"]'))
+      if (!dialog) return
+      if (!dialog.hasAttribute('aria-labelledby') && !dialog.hasAttribute('aria-label')) {
+        const heading = dialog.querySelector('h2, h3')
+        if (heading) {
+          heading.id ||= 'dialog-title-' + Date.now()
+          dialog.setAttribute('aria-labelledby', heading.id)
+        }
+      }
+      openDialogs.push({ wrapper: node, dialog, opener: document.activeElement })
+      const first = dialog.querySelector('input:not([disabled]):not([type="hidden"]),select,textarea') || dialog.querySelector(FOCUSABLE)
+      ;(first || dialog).focus?.()
+    })
+    mutation.removedNodes.forEach((node) => {
+      const index = openDialogs.findIndex((item) => item.wrapper === node)
+      if (index === -1) return
+      const [closed] = openDialogs.splice(index, 1)
+      if (closed.opener?.isConnected) closed.opener.focus()
+      else document.querySelector('#conteudo')?.focus()
+    })
+  })
+}).observe(document.body, { childList: true })
+
+document.addEventListener('keydown', (event) => {
+  const current = topDialog()
+  if (!current) return
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    const close = current.wrapper.querySelector('[data-close], [data-close-modal], [data-x]')
+    if (close) close.click()
+    else current.wrapper.remove()
+    return
+  }
+  if (event.key !== 'Tab') return
+  const items = [...current.dialog.querySelectorAll(FOCUSABLE)].filter((el) => el.offsetParent !== null)
+  if (!items.length) return
+  const first = items[0]
+  const last = items[items.length - 1]
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
+  else if (!current.dialog.contains(document.activeElement)) { event.preventDefault(); first.focus() }
 })
 
 document.querySelector('.skip-link')?.addEventListener('click', (event) => {
