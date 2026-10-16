@@ -74,6 +74,8 @@
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
 
+/* Componentes em @layer components: utilitários do Tailwind (hidden, md:hidden, px-3...) podem sobrescrevê-los. */
+@layer components {
 /* ===== Tipografia ===== */
 .eyebrow { display:inline-block; color:var(--color-ink-soft); font-size:.8rem; font-weight:600; }
 .page-title { margin-top:.35rem; font-size:var(--text-display); line-height:1; font-weight:800; font-stretch:75%; letter-spacing:-.02em; text-wrap:balance; }
@@ -225,4 +227,5 @@
   .chat-send { width:2.9rem; height:2.9rem; padding:0; border-radius:50%; }
   body.chat-open { overflow:hidden; }
   .field { font-size:1rem; } /* evita zoom do iOS */
+}
 }

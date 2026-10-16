@@ -188,6 +188,12 @@ function notify(to, title, text) {
   state.notifications.unshift({ id: Date.now() * 1000 + (notificationSeq++ % 1000), to, title, text, time: 'Agora' })
 }
 
+// O id da notificação carrega o horário de criação (Date.now() * 1000 + seq).
+function notificationTime(n) {
+  const ts = Math.floor(Number(n.id) / 1000)
+  return ts > 1e12 ? fmtListTime(ts) : (n.time || '')
+}
+
 function myNotifications() {
   return state.notifications.filter((n) => n.to === state.user?.email)
 }
@@ -356,7 +362,7 @@ function updateMessageBadge() {
 
 function messageBubble(message, role) {
   const mine = message.senderRole === role
-  return '<div class="flex ' + (mine ? 'justify-end' : '') + '" data-msg-id="' + escapeHtml(message.id) + '"><div class="max-w-[78%] rounded-2xl ' + (mine ? 'rounded-br-md bg-brand text-black' : 'rounded-bl-md border border-line bg-panel text-chalk') + ' px-4 py-3 text-sm leading-6"><p class="whitespace-pre-wrap break-words" translate="no">' + escapeHtml(message.text) + '</p><p class="mt-1 text-[10px] opacity-50">' + escapeHtml(fmtClock(messageTs(message)) || message.time || '') + '</p></div></div>'
+  return '<div class="flex ' + (mine ? 'justify-end' : '') + '" data-msg-id="' + escapeHtml(message.id) + '"><div class="max-w-[78%] rounded-2xl ' + (mine ? 'rounded-br-md bg-brand text-black' : 'rounded-bl-md border border-line bg-panel text-chalk') + ' px-4 py-3 text-sm leading-6"><p class="whitespace-pre-wrap break-words" translate="no">' + escapeHtml(message.text) + '</p><p class="mt-1 text-xs opacity-50">' + escapeHtml(fmtClock(messageTs(message)) || message.time || '') + '</p></div></div>'
 }
 
 function appendBubble(message) {
@@ -636,14 +642,14 @@ function shell(content, options = {}) {
     '<div class="mx-auto flex min-h-[4.5rem] max-w-[1440px] items-center justify-between gap-3 px-4 py-2 sm:px-6 lg:px-10">' +
     '<button type="button" class="flex items-center gap-3" data-action="home" aria-label="Ir para o início">' +
     '<img src="./assets/brand/simbolo.jpg" alt="Pelé Academia" class="h-11 w-11 rounded-xl object-contain bg-black ring-1 ring-white/10" />' +
-    '<div class="hidden sm:block text-left"><p class="text-sm font-extrabold uppercase tracking-[.28em] text-brand">Pelé Academia</p><p class="text-[11px] text-ink-soft">Plataforma de talentos</p></div></button>' +
+    '<div class="hidden sm:block text-left"><p class="text-lg font-extrabold leading-none [font-stretch:75%]">Pelé Academia</p><p class="text-xs text-ink-soft">Plataforma de talentos</p></div></button>' +
     '<nav class="hidden md:flex items-center gap-1" aria-label="Navegação principal">' +
-    nav.map((item) => '<button type="button" data-route="' + item[0] + '" class="nav-link ' + (active === item[0] ? 'active' : '') + '">' + icon(item[2], 'size-4') + item[1] + '</button>').join('') +
+    nav.map((item) => '<button type="button" data-route="' + item[0] + '" class="nav-link ' + (active === item[0] ? 'active" aria-current="page' : '') + '">' + icon(item[2], 'size-4') + item[1] + '</button>').join('') +
     '</nav>' +
     '<div class="flex items-center gap-2">' +
-    '<button type="button" class="icon-button relative" data-route="messages" aria-label="Conversas">' + icon('message') + '<span id="msg-badge" class="absolute -right-1 -top-1 min-w-[1.1rem] place-items-center rounded-full bg-emerald-500 px-1 text-[10px] font-extrabold leading-[1.1rem] text-chalk" style="display:none"></span></button>' +
+    '<button type="button" class="icon-button relative" data-route="messages" aria-label="Conversas">' + icon('message') + '<span id="msg-badge" class="absolute -right-1 -top-1 min-w-[1.1rem] place-items-center rounded-full bg-success px-1 text-xs font-extrabold leading-[1.1rem] text-chalk" style="display:none"></span></button>' +
     '<button type="button" class="icon-button" data-action="change-lang" aria-label="Alterar idioma" title="' + t('Alterar idioma') + '">' + icon('globe', 'size-4') + '</button>' +
-    '<button type="button" class="icon-button relative" data-action="notifications" aria-label="Abrir notificações">' + icon('bell') + '<span id="notif-badge" class="absolute -right-1 -top-1 min-w-[1.1rem] place-items-center rounded-full bg-rose-500 px-1 text-[10px] font-extrabold leading-[1.1rem] text-chalk" style="display:' + (myNotifications().length ? 'grid' : 'none') + '">' + (myNotifications().length > 9 ? '9+' : myNotifications().length) + '</span></button>' +
+    '<button type="button" class="icon-button relative" data-action="notifications" aria-label="Abrir notificações">' + icon('bell') + '<span id="notif-badge" class="absolute -right-1 -top-1 min-w-[1.1rem] place-items-center rounded-full bg-danger px-1 text-xs font-extrabold leading-[1.1rem] text-chalk" style="display:' + (myNotifications().length ? 'grid' : 'none') + '">' + (myNotifications().length > 9 ? '9+' : myNotifications().length) + '</span></button>' +
     '<button type="button" class="profile-chip" data-route="profile"><span class="avatar">' + avatar(state.user?.name || 'Atleta') + '</span><span class="hidden lg:block max-w-28 truncate text-sm">' + escapeHtml(state.user?.name || 'Atleta') + '</span></button>' +
     '<button type="button" class="icon-button md:hidden" data-action="menu" aria-label="Abrir menu">' + icon('menu') + '</button>' +
     '</div></div></header>' +
@@ -654,11 +660,11 @@ function shell(content, options = {}) {
 }
 
 function stat(value, label, sub) {
-  return '<div class="rounded-2xl border border-line bg-panel p-4"><p class="text-2xl font-extrabold text-brand">' + value + '</p><p class="mt-1 text-sm font-semibold">' + label + '</p><p class="mt-1 text-xs text-ink-soft">' + sub + '</p></div>'
+  return '<div class="rounded-2xl border border-line bg-panel p-4"><p class="num text-4xl text-brand">' + value + '</p><p class="mt-1 text-sm font-semibold">' + label + '</p><p class="mt-1 text-xs text-ink-soft">' + sub + '</p></div>'
 }
 
 function activity(title, sub, time) {
-  return '<div class="flex gap-3"><span class="mt-1 grid size-9 shrink-0 place-items-center rounded-xl bg-brand/10 text-brand">' + icon('check', 'size-4') + '</span><div class="min-w-0"><p class="text-sm font-semibold">' + title + '</p><p class="truncate text-xs text-ink-soft">' + sub + '</p><p class="mt-1 text-[11px] text-ink-soft">' + time + '</p></div></div>'
+  return '<div class="flex gap-3"><span class="mt-1 grid size-9 shrink-0 place-items-center rounded-xl bg-brand/10 text-brand">' + icon('check', 'size-4') + '</span><div class="min-w-0"><p class="text-sm font-semibold">' + title + '</p><p class="truncate text-xs text-ink-soft">' + sub + '</p><p class="mt-1 text-xs text-ink-soft">' + time + '</p></div></div>'
 }
 
 function dashboard(role = 'player') {
@@ -676,24 +682,24 @@ function playerDashboard() {
   return shell(
     '<section class="grid gap-6 xl:grid-cols-[1.55fr_.8fr]">' +
     '<div class="overflow-hidden rounded-card border border-line bg-panel p-6 shadow-2xl sm:p-8">' +
-    '<div class="flex flex-wrap items-center justify-between gap-4"><div><span class="eyebrow">' + t('Painel do atleta') + '</span><h1 class="mt-3 max-w-xl text-3xl font-extrabold leading-tight tracking-tight sm:text-5xl">Olá, ' + name + '. <span class="text-brand">Sua carreira em movimento.</span></h1><p class="mt-4 max-w-2xl text-base leading-7 text-ink-soft">Acompanhe oportunidades, avaliações e conversas com profissionais da Pelé Academia.</p></div>' +
+    '<div class="flex flex-wrap items-center justify-between gap-4"><div><h1 class="page-title max-w-2xl">Olá, ' + name + '. Sua carreira em movimento.</h1><p class="mt-4 max-w-2xl text-base leading-7 text-ink-soft">Acompanhe oportunidades, avaliações e conversas com profissionais da Pelé Academia.</p></div>' +
     '<div class="hidden sm:flex h-28 w-28 items-center justify-center rounded-card border border-brand/25 bg-brand/10"><img src="./assets/brand/simbolo.jpg" alt="Logo Pelé Academia" class="h-24 w-24 rounded-2xl object-contain" /></div></div>' +
     '<div class="mt-8 grid gap-3 sm:grid-cols-3">' +
     stat(averagePlayerRating(profile), t('Avaliação média'), 'notas registradas') +
     stat(String(state.tryouts.filter((t) => Array.isArray(t.enrolled) && t.enrolled.includes(state.user?.email)).length).padStart(2, '0'), t('Peneiras inscritas'), 'acompanhe suas vagas') +
     stat(String(myNotifications().length).padStart(2, '0'), t('Notificações'), 'atualizadas recentemente') +
     '</div></div>' +
-    '<aside class="rounded-card border border-line bg-panel p-6"><div class="flex items-center justify-between gap-3"><div><span class="eyebrow">Próxima oportunidade</span><h2 class="mt-2 text-xl font-extrabold">' + escapeHtml(next.title) + '</h2></div><span class="status-dot">' + escapeHtml(next.category || t('Aberta')) + '</span></div>' +
+    '<aside class="rounded-card border border-line bg-panel p-6"><div class="flex items-center justify-between gap-3"><div><p class="text-sm text-ink-soft">Próxima peneira</p><h2 class="mt-1 text-2xl font-extrabold [font-stretch:80%]">' + escapeHtml(next.title) + '</h2></div><span class="status-dot">' + escapeHtml(next.category || t('Aberta')) + '</span></div>' +
     '<div class="mt-6 space-y-4"><div class="flex gap-3">' + icon('calendar', 'size-5 text-brand') + '<div><p class="text-sm font-semibold">' + formatDate(next.date) + ' • ' + escapeHtml(next.time) + '</p><p class="text-xs text-ink-soft">' + escapeHtml(next.location) + ' • ' + escapeHtml(next.city) + '/' + escapeHtml(next.state) + '</p></div></div>' +
     '<div class="flex gap-3">' + icon('pin', 'size-5 text-brand') + '<div><p class="text-sm font-semibold">Posições aceitas</p><p class="text-xs text-ink-soft">' + escapeHtml(next.positions.join(', ')) + '</p></div></div></div>' +
     '<button type="button" class="btn-primary mt-6 w-full" data-route="tryouts">Ver peneiras ' + icon('arrow', 'size-4') + '</button></aside></section>' +
     '<section class="mt-8 grid gap-5 lg:grid-cols-[1.15fr_.85fr]">' +
-    '<div class="panel"><div class="flex items-center justify-between"><div><span class="eyebrow">' + t('Meu perfil') + '</span><h2 class="section-title">' + escapeHtml(profile.pos) + ' • ' + escapeHtml(profile.city) + '</h2></div><button type="button" class="btn-ghost" data-route="profile">Editar perfil ' + icon('edit', 'size-4') + '</button></div>' +
+    '<div class="panel"><div class="flex items-center justify-between"><div><p class="text-sm text-ink-soft">Meu perfil</p><h2 class="section-title">' + escapeHtml(profile.pos) + ' • ' + escapeHtml(profile.city) + '</h2></div><button type="button" class="btn-ghost" data-route="profile">Editar perfil ' + icon('edit', 'size-4') + '</button></div>' +
     '<div class="mt-5 flex flex-wrap gap-2">' + tag(profile.pos) + tag(profile.secondary, true) + tag(getCategoryFromAge(getAgeFromProfile(profile.birth))) + '</div></div>' +
-    '<div class="panel"><div class="flex items-center justify-between"><div><span class="eyebrow">' + t('Minha atividade') + '</span><h2 class="section-title">Últimos movimentos</h2></div>' + icon('arrow', 'size-5 text-ink-soft') + '</div><div class="mt-5 space-y-4">' +
-    activity('Perfil atualizado', 'Seus dados pessoais estão prontos para os profissionais.', 'Agora') +
-    activity('Peneiras', 'Confira posições compatíveis com sua categoria.', 'Hoje') +
-    activity(t('Mensagens'), 'Responda contatos de treinadores e olheiros.', 'Hoje') +
+    '<div class="panel"><div class="flex items-center justify-between"><div><h2 class="section-title !mt-0">Minha atividade</h2></div>' + icon('arrow', 'size-5 text-ink-soft') + '</div><div class="mt-5 space-y-4">' +
+    (myNotifications().length
+      ? myNotifications().slice(0, 3).map((n) => activity(escapeHtml(n.title), escapeHtml(n.text), notificationTime(n))).join('')
+      : '<div class="empty-state"><strong>Nada por aqui ainda</strong><span class="text-sm">Inscrições, avaliações e mensagens de treinadores aparecem aqui.</span><button type="button" class="btn-secondary mt-2" data-route="tryouts">Ver peneiras</button></div>') +
     '</div></div></section>',
     { active: 'dashboard', role: 'player' },
   )
@@ -702,18 +708,18 @@ function playerDashboard() {
 function staffDashboard() {
   return shell(
     '<section class="grid gap-6 xl:grid-cols-[1.55fr_.8fr]">' +
-    '<div class="rounded-card border border-line bg-panel p-6 sm:p-8"><span class="eyebrow">' + t('Central do funcionário') + '</span><h1 class="mt-3 text-3xl font-extrabold sm:text-5xl">Encontre atletas, avalie perfis e <span class="text-brand">crie oportunidades.</span></h1><p class="mt-4 max-w-2xl text-ink-soft">Pesquise o banco, abra o perfil completo do atleta, envie mensagens, registre avaliações e agende peneiras.</p><div class="mt-8 flex flex-wrap gap-3"><button type="button" class="btn-primary" data-route="athletes">' + t('Pesquisar atletas') + ' ' + icon('search', 'size-4') + '</button><button type="button" class="btn-secondary" data-action="openTryout">' + icon('plus', 'size-4') + ' ' + t('Criar peneira') + '</button></div></div>' +
+    '<div class="rounded-card border border-line bg-panel p-6 sm:p-8"><h1 class="page-title max-w-3xl">Encontre atletas, avalie perfis e crie oportunidades.</h1><p class="mt-4 max-w-2xl text-ink-soft">Pesquise o banco, abra o perfil completo do atleta, envie mensagens, registre avaliações e agende peneiras.</p><div class="mt-8 flex flex-wrap gap-3"><button type="button" class="btn-primary" data-route="athletes">' + t('Pesquisar atletas') + ' ' + icon('search', 'size-4') + '</button><button type="button" class="btn-secondary" data-action="openTryout">' + icon('plus', 'size-4') + ' ' + t('Criar peneira') + '</button></div></div>' +
     '<aside class="panel"><span class="eyebrow">' + t('Hoje') + '</span><div class="mt-3 grid grid-cols-2 gap-3">' +
     staffStat(String(state.athletes.length).padStart(2, '0'), t('Atletas ativos')) + staffStat(String(Object.values(state.reviews).filter((list) => Array.isArray(list) && list.length).length).padStart(2, '0'), t('Perfis avaliados')) + staffStat(String(state.tryouts.length).padStart(2, '0'), t('Peneiras')) + staffStat(String(state.messages.filter((m) => String(m.thread).endsWith('::' + state.user?.email)).length).padStart(2, '0'), t('Mensagens')) +
     '</div></aside></section>' +
-    '<section class="mt-8 panel"><div class="flex flex-wrap items-end justify-between gap-3"><div><span class="eyebrow">' + t('Seu radar') + '</span><h2 class="section-title">' + t('Atletas para observar') + '</h2></div><button type="button" class="btn-ghost" data-route="athletes">' + t('Abrir banco completo') + ' ' + icon('arrow', 'size-4') + '</button></div><div class="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">' +
+    '<section class="mt-8 panel"><div class="flex flex-wrap items-end justify-between gap-3"><div><h2 class="section-title">' + t('Atletas para observar') + '</h2></div><button type="button" class="btn-ghost" data-route="athletes">' + t('Abrir banco completo') + ' ' + icon('arrow', 'size-4') + '</button></div><div class="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">' +
     state.athletes.slice(0, 6).map((a) => athleteCard(a, true)).join('') + '</div></section>',
     { active: 'dashboard', role: 'staff' },
   )
 }
 
 function staffStat(value, label) {
-  return '<div class="rounded-2xl border border-line bg-panel p-4"><p class="text-2xl font-extrabold">' + value + '</p><p class="mt-1 text-xs text-ink-soft">' + label + '</p></div>'
+  return '<div class="rounded-2xl border border-line bg-panel p-4"><p class="num text-4xl">' + value + '</p><p class="mt-1 text-xs text-ink-soft">' + label + '</p></div>'
 }
 
 function athleteCard(a, staff = false) {
@@ -748,7 +754,7 @@ function athletesPage() {
     '</div><div class="mt-6 rounded-2xl border border-brand/15 bg-brand/7 p-4 text-xs leading-5 text-ink-soft"><strong class="text-brand">Filtro em tempo real</strong><br/>Nome, posição, perna dominante, cidade, idade e categoria alteram a lista sem recarregar.</div></aside>'
 
   return shell(
-    '<div class="flex flex-wrap items-end justify-between gap-4"><div><span class="eyebrow">Banco de talentos</span><h1 class="page-title">' + t('Pesquisar atletas') + '</h1><p class="page-subtitle">Abra o perfil completo, mande uma mensagem, vote e registre uma avaliação.</p></div><button type="button" class="btn-primary" data-action="openTryout">' + icon('plus', 'size-4') + ' Nova peneira</button></div>' +
+    '<div class="flex flex-wrap items-end justify-between gap-4"><div><h1 class="page-title">' + t('Pesquisar atletas') + '</h1><p class="page-subtitle">Abra o perfil completo, mande uma mensagem, vote e registre uma avaliação.</p></div><button type="button" class="btn-primary" data-action="openTryout">' + icon('plus', 'size-4') + ' Nova peneira</button></div>' +
     '<section class="mt-6 grid gap-5 lg:grid-cols-[280px_1fr]">' +
     filters +
     '<div><div class="mb-4 flex flex-wrap items-center justify-between gap-2"><p id="athlete-count" class="text-sm text-ink-soft">' + state.athletes.length + ' atletas encontrados</p><button type="button" class="btn-secondary" data-action="export">' + icon('arrow', 'size-4') + ' Exportar seleção</button></div><div id="athlete-grid" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">' + state.athletes.map((a) => athleteCard(a, true)).join('') + '</div></div></section>',
@@ -762,8 +768,8 @@ function profilePage() {
     const account = state.accounts.find((a) => a.email === state.user.email)
     const profile = account?.profile || { name: state.user.name, email: state.user.email, phone: '', position: t('Funcionário'), city: 'São Paulo', state: 'SP' }
     return shell(
-      '<div class="flex flex-wrap items-end justify-between gap-4"><div><span class="eyebrow">' + t('Meu perfil') + '</span><h1 class="page-title">' + escapeHtml(profile.name) + '</h1><p class="page-subtitle">' + t('Dados do funcionário que está conectado.') + '</p></div><button type="button" class="btn-secondary" data-action="logout">' + icon('logout', 'size-4') + ' ' + t('Sair') + '</button></div>' +
-      '<section class="mt-6 grid gap-5 md:grid-cols-2"><aside class="panel"><div class="flex items-center gap-4"><div class="avatar-xl">' + avatar(profile.name) + '</div><div><p class="text-xs uppercase tracking-[.2em] text-ink-soft">' + t('Funcionário') + '</p><h2 class="mt-1 text-2xl font-extrabold">' + escapeHtml(profile.position || t('Profissional')) + '</h2><p class="text-sm text-ink-soft">' + escapeHtml(profile.city) + '/' + escapeHtml(profile.state) + '</p></div></div></aside><div class="panel"><span class="eyebrow">' + t('Acesso demo') + '</span><h2 class="section-title">' + t('Credenciais de teste') + '</h2><p class="mt-4 text-sm leading-6 text-ink-soft">'+ t('E-mail de teste') + ': funcionario@academiapele.com<br/>' + t('Senha de teste') + ': Academia123!</p><button type="button" class="btn-primary mt-5" data-route="athletes">'+ t('Ir para o banco de atletas') + ' ' + icon('arrow', 'size-4') + '</button></div></section>',
+      '<div class="flex flex-wrap items-end justify-between gap-4"><div><h1 class="page-title">' + escapeHtml(profile.name) + '</h1><p class="page-subtitle">' + t('Dados do funcionário que está conectado.') + '</p></div><button type="button" class="btn-secondary" data-action="logout">' + icon('logout', 'size-4') + ' ' + t('Sair') + '</button></div>' +
+      '<section class="mt-6 grid gap-5 md:grid-cols-2"><aside class="panel"><div class="flex items-center gap-4"><div class="avatar-xl">' + avatar(profile.name) + '</div><div><p class="text-xs text-ink-soft">' + t('Funcionário') + '</p><h2 class="mt-1 text-2xl font-extrabold">' + escapeHtml(profile.position || t('Profissional')) + '</h2><p class="text-sm text-ink-soft">' + escapeHtml(profile.city) + '/' + escapeHtml(profile.state) + '</p></div></div></aside><div class="panel"><h2 class="section-title">' + t('Credenciais de teste') + '</h2><p class="mt-4 text-sm leading-6 text-ink-soft">'+ t('E-mail de teste') + ': funcionario@academiapele.com<br/>' + t('Senha de teste') + ': Academia123!</p><button type="button" class="btn-primary mt-5" data-route="athletes">'+ t('Ir para o banco de atletas') + ' ' + icon('arrow', 'size-4') + '</button></div></section>',
       { active: 'dashboard', role: 'staff' },
     )
   }
@@ -772,12 +778,12 @@ function profilePage() {
   const age = getAgeFromProfile(p.birth)
   const category = getCategoryFromAge(age)
   return shell(
-    '<div class="flex flex-wrap items-end justify-between gap-4"><div><span class="eyebrow">' + t('Meu perfil') + '</span><h1 class="page-title">' + escapeHtml(p.name) + '</h1><p class="page-subtitle">' + t('Mantenha seus dados pessoais, categoria, cidade e posições atualizados.') + '</p></div><button type="button" class="btn-secondary" data-action="logout">' + icon('logout', 'size-4') + ' ' + t('Sair') + '</button></div>' +
+    '<div class="flex flex-wrap items-end justify-between gap-4"><div><h1 class="page-title">' + escapeHtml(p.name) + '</h1><p class="page-subtitle">' + t('Mantenha seus dados pessoais, categoria, cidade e posições atualizados.') + '</p></div><button type="button" class="btn-secondary" data-action="logout">' + icon('logout', 'size-4') + ' ' + t('Sair') + '</button></div>' +
     '<section class="mt-6 grid gap-5 xl:grid-cols-[.75fr_1.25fr]">' +
-    '<aside class="panel"><div class="flex items-center gap-4"><div class="avatar-xl">' + avatar(p.name) + '</div><div><p class="text-xs uppercase tracking-[.2em] text-ink-soft">' + t('Atleta') + '</p><h2 class="mt-1 text-2xl font-extrabold">' + escapeHtml(p.pos) + '</h2><p class="text-sm text-ink-soft">' + age + ' anos • ' + escapeHtml(category) + '</p></div></div>' +
+    '<aside class="panel"><div class="flex items-center gap-4"><div class="avatar-xl">' + avatar(p.name) + '</div><div><p class="text-xs text-ink-soft">' + t('Atleta') + '</p><h2 class="mt-1 text-2xl font-extrabold">' + escapeHtml(p.pos) + '</h2><p class="text-sm text-ink-soft">' + age + ' anos • ' + escapeHtml(category) + '</p></div></div>' +
     '<div class="mt-6 grid grid-cols-2 gap-3">' + stat(averagePlayerRating(p), t('Avaliação'), t('média atual')) + stat(String(state.tryouts.filter((t) => Array.isArray(t.enrolled) && t.enrolled.includes(state.user.email)).length).padStart(2, '0'), t('Peneiras'), t('inscritas')) + stat(String(getPlayerReviewCount()).padStart(2, '0'), t('Avaliações'), t('recebidas')) + stat(String(myNotifications().length).padStart(2, '0'), t('Notificações'), t('recentes')) + '</div>' +
     '<div class="mt-6 flex flex-wrap gap-2">' + tag(t(p.pos)) + tag(t(p.secondary), true) + footTag(t(p.foot)) + tag(t(category)) + tag(p.city) + '</div></aside>' +
-    '<div class="panel"><div class="flex items-center justify-between"><div><span class="eyebrow">' + t('Dados do jogador') + '</span><h2 class="section-title">' + t('Atualizar perfil') + '</h2></div>' + icon('edit', 'size-5 text-brand') + '</div>' +
+    '<div class="panel"><div class="flex items-center justify-between"><div><h2 class="section-title">' + t('Atualizar perfil') + '</h2></div>' + icon('edit', 'size-5 text-brand') + '</div>' +
     '<form id="profile-form" class="mt-5 grid gap-4 sm:grid-cols-2">' +
     input(t('Nome completo'), 'profile-name', p.name, 'text', true) +
     input('CPF', 'profile-cpf', p.cpf || '', 'text', false, true) +
@@ -791,7 +797,7 @@ function profilePage() {
     input(t('CEP'), 'profile-zip', p.zip, 'text', true) + input(t('Cidade'), 'profile-city', p.city, 'text', true) + input(t('Estado'), 'profile-state', p.state, 'text', true) + input(t('Bairro'), 'profile-district', p.district, 'text', true) +
     input(t('Endereço'), 'profile-address', p.address, 'text', true) + input(t('Número'), 'profile-number', p.number, 'text', true) +
     '<div id="profile-feedback" class="sm:col-span-2 hidden" role="alert"></div><div class="sm:col-span-2 flex justify-end"><button class="btn-primary" type="submit">' + t('Salvar alterações') + ' ' + icon('check', 'size-4') + '</button></div></form></div></section>' +
-    '<section class="mt-6 panel"><div class="flex items-center justify-between"><div><span class="eyebrow">' + t('Olheiros') + '</span><h2 class="section-title">' + t('Comentários e notas') + '</h2><p class="mt-1 text-xs text-ink-soft">' + t('Notas e estatísticas ficam visíveis apenas para você e para a equipe da Academia.') + '</p></div><span class="tag">' + getPlayerReviewCount() + ' ' + t('registro(s)') + '</span></div><div class="mt-5 grid gap-4 md:grid-cols-2">' + renderPlayerReviews() + '</div></section>',
+    '<section class="mt-6 panel"><div class="flex items-center justify-between"><div><h2 class="section-title">' + t('Comentários e notas') + '</h2><p class="mt-1 text-xs text-ink-soft">' + t('Notas e estatísticas ficam visíveis apenas para você e para a equipe da Academia.') + '</p></div><span class="tag">' + getPlayerReviewCount() + ' ' + t('registro(s)') + '</span></div><div class="mt-5 grid gap-4 md:grid-cols-2">' + renderPlayerReviews() + '</div></section>',
     { active: 'profile', role: 'player' },
   )
 }
@@ -834,23 +840,23 @@ function reviewCard(review, athleteId = null) {
     ? criteriaForPosition(review.position).filter((c) => review.ratings[c.key] !== undefined && review.ratings[c.key] !== '')
     : []
   return '<article class="rounded-2xl border border-line bg-panel p-5"><div class="flex items-start justify-between gap-3"><div class="flex items-center gap-3"><span class="avatar">' + avatar(review.author || 'Olheiro') + '</span><div><p class="font-semibold">' + escapeHtml(review.author || 'Olheiro') + '</p><p class="text-xs text-ink-soft">' + escapeHtml(review.date || 'Agora') + (review.position ? ' • ' + t('como') + ' ' + escapeHtml(review.position) : '') + '</p></div></div>' +
-    '<div class="text-center"><div class="rounded-xl border border-brand/20 bg-brand/8 px-3 py-2 text-sm font-extrabold text-brand">' + escapeHtml(String(review.rating).replace('.', ',')) + '</div>' + (criteria.length ? '<p class="mt-1 text-[10px] text-ink-soft">' + t('nota ponderada') + '</p>' : '') + '</div></div>' +
+    '<div class="text-center"><div class="rounded-xl border border-brand/20 bg-brand/8 px-3 py-2 text-sm font-extrabold text-brand">' + escapeHtml(String(review.rating).replace('.', ',')) + '</div>' + (criteria.length ? '<p class="mt-1 text-xs text-ink-soft">' + t('nota ponderada') + '</p>' : '') + '</div></div>' +
     (criteria.length ? '<div class="mt-4 grid grid-cols-2 gap-x-4 gap-y-2">' + criteria.map((c) => {
       const value = Number(review.ratings[c.key])
-      return '<div><div class="flex justify-between text-[11px] text-ink-soft"><span>' + escapeHtml(c.label) + '</span><strong class="text-chalk">' + String(value).replace('.', ',') + '</strong></div><div class="mt-1 h-1 overflow-hidden rounded-full bg-line"><div class="h-1 rounded-full bg-brand" style="width:' + Math.max(0, Math.min(100, value * 10)) + '%"></div></div></div>'
+      return '<div><div class="flex justify-between text-xs text-ink-soft"><span>' + escapeHtml(c.label) + '</span><strong class="text-chalk">' + String(value).replace('.', ',') + '</strong></div><div class="mt-1 h-1 overflow-hidden rounded-full bg-line"><div class="h-1 rounded-full bg-brand" style="width:' + Math.max(0, Math.min(100, value * 10)) + '%"></div></div></div>'
     }).join('') + '</div>' : '') +
-    (review.baseRating !== undefined && review.adjustment ? '<p class="mt-3 text-[11px] text-ink-soft">' + t('Nota base') + ' <strong class="text-chalk">' + String(review.baseRating).replace('.', ',') + '</strong> • ' + t('ajuste por desempenho') + ' <strong class="' + (review.adjustment > 0 ? 'text-emerald-300' : 'text-rose-300') + '">' + (review.adjustment > 0 ? '+' : '') + String(review.adjustment).replace('.', ',') + '</strong></p>' : '') +
+    (review.baseRating !== undefined && review.adjustment ? '<p class="mt-3 text-xs text-ink-soft">' + t('Nota base') + ' <strong class="text-chalk">' + String(review.baseRating).replace('.', ',') + '</strong> • ' + t('ajuste por desempenho') + ' <strong class="' + (review.adjustment > 0 ? 'text-success' : 'text-danger') + '">' + (review.adjustment > 0 ? '+' : '') + String(review.adjustment).replace('.', ',') + '</strong></p>' : '') +
     (reviewStatChips(review) ? '<div class="mt-4 flex flex-wrap gap-1.5">' + reviewStatChips(review) + '</div>' : '') +
-    (review.strengths && review.strengths.length ? '<div class="mt-3"><p class="text-[10px] font-bold uppercase tracking-[.16em] text-ink-soft">' + t('Pontos fortes') + '</p><div class="mt-1.5 flex flex-wrap gap-1.5">' + review.strengths.map((item) => tag(item)).join('') + '</div></div>' : '') +
+    (review.strengths && review.strengths.length ? '<div class="mt-3"><p class="text-xs font-bold text-ink-soft">' + t('Pontos fortes') + '</p><div class="mt-1.5 flex flex-wrap gap-1.5">' + review.strengths.map((item) => tag(item)).join('') + '</div></div>' : '') +
     '<p class="mt-4 text-sm leading-6 text-ink-soft">“' + escapeHtml(review.comment) + '”</p>' +
-    (canDelete ? '<button type="button" class="mt-3 text-xs font-semibold text-rose-300 hover:text-rose-200" data-delete-review="' + review.id + '">Excluir minha avaliação</button>' : '') + '</article>'
+    (canDelete ? '<button type="button" class="mt-3 text-xs font-semibold text-danger hover:text-danger" data-delete-review="' + review.id + '">Excluir minha avaliação</button>' : '') + '</article>'
 }
 
 function tryoutsPage() {
   const role = state.user?.role === 'staff' ? 'staff' : 'player'
   const createButton = role === 'staff' ? '<button type="button" class="btn-primary" data-action="openTryout">' + icon('plus', 'size-4') + ' ' + t('Criar peneira') + '</button>' : ''
   return shell(
-    '<div class="flex flex-wrap items-end justify-between gap-4"><div><span class="eyebrow">Calendário</span><h1 class="page-title">' + t('Peneiras') + '</h1><p class="page-subtitle">Veja oportunidades, posições, categoria, vagas e sua inscrição.</p></div>' + createButton + '</div>' +
+    '<div class="flex flex-wrap items-end justify-between gap-4"><div><h1 class="page-title">' + t('Peneiras') + '</h1><p class="page-subtitle">Veja oportunidades, posições, categoria, vagas e sua inscrição.</p></div>' + createButton + '</div>' +
     '<div class="mt-6 grid gap-4 lg:grid-cols-3">' + state.tryouts.map(tryoutCard).join('') + '</div>',
     { active: 'tryouts', role },
   )
@@ -886,10 +892,10 @@ function tryoutCard(tryout) {
     '<h2 class="mt-4 text-xl font-extrabold">' + escapeHtml(tryout.title) + '</h2><div class="mt-5 space-y-3 text-sm text-ink-soft">' +
     '<p class="flex gap-2">' + icon('calendar', 'size-4 text-brand') + formatDate(tryout.date) + ' • ' + escapeHtml(tryout.time) + '</p>' +
     '<p class="flex gap-2">' + icon('pin', 'size-4 text-brand') + escapeHtml(tryout.location) + ' — ' + escapeHtml(tryout.city) + '/' + escapeHtml(tryout.state) + '</p></div>' +
-    '<div class="mt-6 flex items-end justify-between gap-3"><div><p class="text-[11px] font-bold uppercase tracking-[.18em] text-ink-soft">' + t('Vagas preenchidas') + '</p>' +
-    '<p class="mt-1 text-3xl font-extrabold leading-none" aria-label="' + taken + ' de ' + seats + ' vagas preenchidas"><span class="' + (full ? 'text-rose-300' : 'text-brand') + '">' + taken + '</span><span class="text-ink-soft">/' + seats + '</span></p></div>' +
+    '<div class="mt-6 flex items-end justify-between gap-3"><div><p class="text-xs font-bold text-ink-soft">' + t('Vagas preenchidas') + '</p>' +
+    '<p class="num mt-1 text-4xl" aria-label="' + taken + ' de ' + seats + ' vagas preenchidas"><span class="' + (full ? 'text-danger' : 'text-brand') + '">' + taken + '</span><span class="text-ink-soft">/' + seats + '</span></p></div>' +
     '<span class="tag ' + (full ? 'red' : 'green') + '">' + (full ? t('Lotada') : vacancies + ' ' + t(vacancies === 1 ? 'vaga livre' : 'vagas livres')) + '</span></div>' +
-    '<div class="mt-3 h-2 overflow-hidden rounded-full bg-line"><div class="h-full rounded-full ' + (full ? 'bg-rose-400' : 'bg-brand') + '" style="width:' + Math.min(100, taken / seats * 100) + '%"></div></div>' +
+    '<div class="mt-3 h-2 overflow-hidden rounded-full bg-line"><div class="h-full rounded-full ' + (full ? 'bg-danger' : 'bg-brand') + '" style="width:' + Math.min(100, taken / seats * 100) + '%"></div></div>' +
     '<div class="mt-6 grid gap-2">' + actions + '</div></article>'
 }
 
@@ -897,14 +903,14 @@ function messagesPage() {
   const staff = state.user?.role === 'staff'
   const role = staff ? 'staff' : 'player'
   const conversations = getConversations()
-  const heading = '<div class="chat-heading"><span class="eyebrow">Comunicação</span><h1 class="page-title">' + t('Conversas') + '</h1><p class="page-subtitle">' +
+  const heading = '<div class="chat-heading"><h1 class="page-title">' + t('Conversas') + '</h1><p class="page-subtitle">' +
     (staff ? 'Pesquise qualquer atleta do banco e envie uma mensagem de demonstração.' : 'Mensagens de demonstração com treinadores e olheiros disponíveis.') + '</p><p class="mt-2 text-xs text-ink-soft">As mensagens são salvas apenas neste navegador e não são enviadas.</p></div>'
 
   if (!conversations.length) {
     activeConversation = null
     activeThreadKey = null
     return shell(
-      '<div><span class="eyebrow">Comunicação</span><h1 class="page-title">' + t('Conversas') + '</h1></div><div class="mt-6 rounded-2xl border border-dashed border-line p-10 text-center text-ink-soft">' +
+      '<div><h1 class="page-title">' + t('Conversas') + '</h1></div><div class="mt-6 rounded-2xl border border-dashed border-line p-10 text-center text-ink-soft">' +
       (remote.enabled && staff ? 'Nenhum jogador cadastrado ainda. Quando um atleta criar a conta, ele aparece aqui.' : 'Nenhuma conversa disponível no momento.') + '</div>',
       { active: 'messages', role },
     )
@@ -924,7 +930,7 @@ function messagesPage() {
     '<div id="conversation-list" class="max-h-[520px] space-y-1 overflow-y-auto p-2">' + conversationItemsHtml(conversations, selected.id) + '</div></aside>' +
     '<div class="chat-pane flex min-w-0 flex-col"><header class="chat-header flex items-center justify-between gap-3 border-b border-line px-5 py-4"><div class="flex min-w-0 items-center gap-3">' +
     '<button type="button" class="chat-back icon-button" data-action="chat-back" aria-label="Voltar para as conversas">' + icon('back') + '</button>' +
-    '<span class="avatar">' + avatar(selected.avatar) + '</span><div class="min-w-0"><p class="truncate font-bold">' + escapeHtml(selected.name) + '</p><p class="text-xs text-emerald-300">Disponível para conversar</p></div></div>' +
+    '<span class="avatar">' + avatar(selected.avatar) + '</span><div class="min-w-0"><p class="truncate font-bold">' + escapeHtml(selected.name) + '</p><p class="text-xs text-success">Disponível para conversar</p></div></div>' +
     '<span class="chat-tag">' + tag(staff ? selected.subtitle : 'Canal seguro') + '</span></header>' +
     '<div id="chat-messages" class="chat-messages flex-1 space-y-3 overflow-y-auto p-5">' + renderHistory(history, role) + '</div>' +
     '<form id="message-form" class="chat-input-bar border-t border-line p-4"><div class="flex gap-2"><input id="message-input" class="field" placeholder="Escreva sua mensagem..." autocomplete="off" maxlength="2000" required/><button class="btn-primary chat-send shrink-0" aria-label="Enviar mensagem">' + icon('arrow', 'size-4') + '</button></div></form></div></section>',
@@ -941,20 +947,20 @@ function renderHistory(history, role) {
 
 function loginPage() {
   return '<main id="conteudo" tabindex="-1" class="outline-none min-h-screen bg-transparent px-4 py-8 text-chalk"><div class="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl overflow-hidden rounded-card border border-line bg-panel lg:grid-cols-[.95fr_1.05fr]">' +
-    '<div class="relative hidden overflow-hidden border-r border-line bg-transparent p-10 lg:flex lg:flex-col lg:justify-between"><div><img src="./assets/brand/simbolo.jpg" alt="Pelé Academia" class="h-28 w-28 rounded-card object-contain"/><span class="eyebrow mt-8">TIER-ZERO</span><h1 class="mt-4 max-w-lg text-5xl font-extrabold leading-tight">Onde o futebol encontra <span class="text-brand">o próximo talento.</span></h1><p class="mt-5 max-w-xl text-ink-soft">Uma experiência para atletas, treinadores, funcionários e olheiros se encontrarem.</p></div><div class="text-sm text-ink-soft">Pelé Academia • Plataforma de talentos</div></div>' +
-    '<div class="flex items-center justify-center p-6 sm:p-10"><div class="w-full max-w-md"><img src="./assets/brand/simbolo.jpg" alt="Pelé Academia" class="mx-auto h-24 w-24 rounded-card object-contain lg:hidden"/><span class="eyebrow mt-6">' + t('Acesso') + '</span><h2 class="mt-3 text-3xl font-extrabold">' + t('Entrar na Pelé Academia') + '</h2><p class="mt-2 text-sm text-ink-soft">' + t('Escolha o tipo de conta antes de entrar.') + '</p>' +
+    '<div class="relative hidden overflow-hidden border-r border-line bg-transparent p-10 lg:flex lg:flex-col lg:justify-between"><div><img src="./assets/brand/simbolo.jpg" alt="Pelé Academia" class="h-28 w-28 rounded-card object-contain"/><h1 class="page-title mt-10 max-w-lg">Onde o futebol encontra o próximo talento.</h1><p class="mt-5 max-w-xl text-ink-soft">Uma experiência para atletas, treinadores, funcionários e olheiros se encontrarem.</p></div><div class="text-sm text-ink-soft">Pelé Academia • Plataforma de talentos</div></div>' +
+    '<div class="flex items-center justify-center p-6 sm:p-10"><div class="w-full max-w-md"><img src="./assets/brand/simbolo.jpg" alt="Pelé Academia" class="mx-auto h-24 w-24 rounded-card object-contain lg:hidden"/><h2 class="mt-3 text-3xl font-extrabold">' + t('Entrar na Pelé Academia') + '</h2><p class="mt-2 text-sm text-ink-soft">' + t('Escolha o tipo de conta antes de entrar.') + '</p>' +
     '<div class="mt-6 grid grid-cols-2 gap-2 rounded-2xl border border-line bg-black/25 p-1"><button type="button" class="role-tab active" data-role="player">' + t('Jogador') + '</button><button type="button" class="role-tab" data-role="staff">' + t('Funcionário') + '</button></div>' +
-    '<form id="login-form" class="mt-6 space-y-4">' + input(t('E-mail'), 'login-email', '', 'email', true) + input(t('Senha'), 'login-password', '', 'password', true) + '<p id="login-error" class="hidden rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200"></p><button class="btn-primary w-full" type="submit">' + t('Entrar') + ' ' + icon('arrow', 'size-4') + '</button></form>' +
+    '<form id="login-form" class="mt-6 space-y-4">' + input(t('E-mail'), 'login-email', '', 'email', true) + input(t('Senha'), 'login-password', '', 'password', true) + '<p id="login-error" class="hidden rounded-xl border border-danger/40 bg-danger/10 px-3 py-2 text-xs font-semibold text-danger"></p><button class="btn-primary w-full" type="submit">' + t('Entrar') + ' ' + icon('arrow', 'size-4') + '</button></form>' +
     '<button type="button" class="mt-3 w-full text-center text-xs text-brand hover:text-brand-strong" data-action="forgot-password">' + t('Esqueci minha senha') + '</button>' +
     '<div class="my-6 flex items-center gap-3"><span class="h-px flex-1 bg-line"></span><span class="text-xs text-ink-soft">' + t('ou') + '</span><span class="h-px flex-1 bg-line"></span></div>' +
     '<button type="button" class="btn-secondary w-full" data-route="register">' + t('Criar conta de jogador') + '</button><button type="button" class="mt-3 w-full text-center text-xs text-ink-soft hover:text-chalk" data-action="demo">' + t('Entrar com conta demo') + '</button>' +
-    '<button type="button" class="mt-4 w-full text-center text-xs text-ink-soft hover:text-chalk" data-action="change-lang">' + icon('globe', 'size-3.5') + ' ' + LANGS.find((l) => l.code !== getLang())?.label + '</button>' +
-    '<p class="mt-5 text-center text-[11px] leading-5 text-ink-soft">Funcionário (teste): funcionario@academiapele.com / Academia123!<br/>Jogador (teste): gabriel@academiapele.com / Demo123!</p></div></div></div></main>'
+    '<button type="button" class="mt-4 inline-flex w-full items-center justify-center gap-1.5 text-xs text-ink-soft hover:text-chalk" data-action="change-lang">' + icon('globe', 'size-3.5') + ' ' + LANGS.find((l) => l.code !== getLang())?.label + '</button>' +
+    '<p class="mt-5 text-center text-xs leading-5 text-ink-soft">Funcionário (teste): funcionario@academiapele.com / Academia123!<br/>Jogador (teste): gabriel@academiapele.com / Demo123!</p></div></div></div></main>'
 }
 
 function passwordRecoveryPage() {
   return '<main id="conteudo" tabindex="-1" class="outline-none grid min-h-screen place-items-center bg-night px-4 py-8 text-chalk"><div class="w-full max-w-md rounded-card border border-line bg-panel p-6 sm:p-10">' +
-    '<span class="eyebrow">' + t('Recuperação de acesso') + '</span><h1 class="mt-2 text-3xl font-extrabold">' + t('Crie uma nova senha') + '</h1><p class="mt-3 text-sm leading-6 text-ink-soft">' + t('Escolha uma senha nova para voltar a acessar sua conta.') + '</p>' +
+    '<h1 class="mt-2 text-3xl font-extrabold">' + t('Crie uma nova senha') + '</h1><p class="mt-3 text-sm leading-6 text-ink-soft">' + t('Escolha uma senha nova para voltar a acessar sua conta.') + '</p>' +
     '<form id="password-recovery-form" class="mt-6 space-y-4">' + input(t('Nova senha'), 'recovery-password', '', 'password', true) + input(t('Confirmar senha'), 'recovery-confirm', '', 'password', true) + '<p id="recovery-feedback" class="hidden rounded-2xl border px-4 py-3 text-sm" role="alert"></p><button class="btn-primary w-full" type="submit">' + t('Salvar nova senha') + '</button></form>' +
     '</div></main>'
 }
@@ -990,7 +996,7 @@ async function saveRecoveredPassword() {
 
 function registerPage() {
   return '<main id="conteudo" tabindex="-1" class="outline-none min-h-screen bg-transparent px-4 py-8 text-chalk"><div class="mx-auto max-w-5xl rounded-card border border-line bg-panel p-6 sm:p-10">' +
-    '<div class="flex flex-wrap items-center justify-between gap-4"><div class="flex items-center gap-3"><img src="./assets/brand/simbolo.jpg" alt="Pelé Academia" class="h-16 w-16 rounded-2xl object-contain"/><div><span class="eyebrow">' + t('Cadastro') + '</span><h1 class="mt-1 text-3xl font-extrabold">' + t('Criar conta de jogador') + '</h1></div></div><button type="button" class="btn-ghost" data-route="login">' + t('Voltar') + '</button></div>' +
+    '<div class="flex flex-wrap items-center justify-between gap-4"><div class="flex items-center gap-3"><img src="./assets/brand/simbolo.jpg" alt="Pelé Academia" class="h-16 w-16 rounded-2xl object-contain"/><div><h1 class="mt-1 text-3xl font-extrabold">' + t('Criar conta de jogador') + '</h1></div></div><button type="button" class="btn-ghost" data-route="login">' + t('Voltar') + '</button></div>' +
     '<p class="mt-3 max-w-3xl text-sm leading-6 text-ink-soft">Preencha seus dados pessoais, categoria esportiva, gênero, posições e endereço. A idade e a categoria são calculadas automaticamente pela data de nascimento.</p>' +
     '<form id="register-form" class="mt-8 grid gap-4 sm:grid-cols-2">' +
     input(t('Nome completo'), 'reg-name', '', 'text', true) +
@@ -1032,8 +1038,8 @@ function showFeedback(id, text, error = false) {
   if (!element) return
   element.textContent = text
   element.className = (id === 'reg-feedback' ? 'sm:col-span-2' : '') + ' rounded-2xl border px-4 py-3 text-sm ' + (error
-    ? 'border-rose-400/20 bg-rose-500/10 text-rose-200'
-    : 'border-emerald-400/20 bg-emerald-500/10 text-emerald-200')
+    ? 'border-danger/40 bg-danger/10 text-danger'
+    : 'border-success/40 bg-success/10 text-success')
   element.classList.remove('hidden')
 }
 
@@ -1089,7 +1095,7 @@ function openAthleteModal(athleteId) {
   wrapper.className = 'fixed inset-0 z-[90] grid place-items-center bg-black/75 p-4 backdrop-blur-md'
   wrapper.innerHTML =
     '<div class="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-card border border-line bg-raised p-6 shadow-2xl sm:p-8" role="dialog" aria-modal="true" aria-labelledby="athlete-modal-title">' +
-    '<div class="flex items-start justify-between gap-4"><div class="flex items-center gap-4"><div class="avatar-xl bg-gradient-to-br ' + athlete.color + '">' + avatar(athlete.name) + '</div><div><span class="eyebrow">' + t('Perfil do atleta') + '</span><h2 id="athlete-modal-title" class="mt-1 text-2xl font-extrabold">' + escapeHtml(athlete.name) + '</h2><p class="text-sm text-ink-soft">' + athlete.age + ' ' + t('anos') + ' • ' + escapeHtml(athlete.city) + '/' + escapeHtml(athlete.state) + '</p></div></div><button type="button" class="icon-button" data-close-modal aria-label="Fechar">' + icon('close') + '</button></div>' +
+    '<div class="flex items-start justify-between gap-4"><div class="flex items-center gap-4"><div class="avatar-xl bg-gradient-to-br ' + athlete.color + '">' + avatar(athlete.name) + '</div><div><h2 id="athlete-modal-title" class="mt-1 text-2xl font-extrabold">' + escapeHtml(athlete.name) + '</h2><p class="text-sm text-ink-soft">' + athlete.age + ' ' + t('anos') + ' • ' + escapeHtml(athlete.city) + '/' + escapeHtml(athlete.state) + '</p></div></div><button type="button" class="icon-button" data-close-modal aria-label="Fechar">' + icon('close') + '</button></div>' +
     '<div class="mt-6 flex flex-wrap gap-2">' + tag(t(athlete.pos)) + tag(t(athlete.secondary), true) + footTag(t(athlete.foot)) + tag(t(getCategoryFromAge(athlete.age))) + tag(t(athlete.gender || 'Não informado'), true) + '</div>' +
     '<div class="mt-6 grid gap-4 md:grid-cols-3"><div class="panel"><p class="text-xs text-ink-soft">' + t('Avaliação média') + '</p><p class="mt-2 text-3xl font-extrabold text-brand">' + formatRating(ratingOf(athlete)) + '</p></div><div class="panel"><p class="text-xs text-ink-soft">' + t('Votos') + '</p><p id="modal-votes" class="mt-2 text-3xl font-extrabold">' + (athlete.votes + (state.votes[athlete.id] || 0)) + '</p></div><div class="panel"><p class="text-xs text-ink-soft">' + t('Status') + '</p><p class="mt-2 text-lg font-extrabold">' + escapeHtml(athlete.status) + '</p></div></div>' +
     '<div class="mt-6"><span class="eyebrow">' + t('Atributos') + '</span><div class="mt-3 flex flex-wrap gap-2">' + (athlete.tags || []).map((item) => tag(item)).join('') + '</div></div>' +
@@ -1172,15 +1178,15 @@ function openReviewModal(athleteId) {
   wrapper.className = 'fixed inset-0 z-[95] grid place-items-center bg-black/75 p-4 backdrop-blur-md'
   wrapper.innerHTML =
     '<div class="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-card border border-line bg-raised p-6 shadow-2xl sm:p-8" role="dialog" aria-modal="true" aria-labelledby="review-modal-title">' +
-    '<div class="flex items-start justify-between gap-4"><div><span class="eyebrow">' + t('Avaliação') + '</span><h2 id="review-modal-title" class="mt-2 text-2xl font-extrabold">Avaliar ' + escapeHtml(athlete.name) + '</h2><p class="mt-1 text-sm text-ink-soft">Dê uma nota de 0 a 10 para cada característica. A nota base é uma média ponderada pela posição avaliada; as estatísticas da partida ajustam a nota em até ±' + String(MAX_ADJUSTMENT).replace('.', ',') + ' ponto.</p></div><button type="button" class="icon-button" data-close aria-label="Fechar">' + icon('close') + '</button></div>' +
+    '<div class="flex items-start justify-between gap-4"><div><h2 id="review-modal-title" class="mt-2 text-2xl font-extrabold">Avaliar ' + escapeHtml(athlete.name) + '</h2><p class="mt-1 text-sm text-ink-soft">Dê uma nota de 0 a 10 para cada característica. A nota base é uma média ponderada pela posição avaliada; as estatísticas da partida ajustam a nota em até ±' + String(MAX_ADJUSTMENT).replace('.', ',') + ' ponto.</p></div><button type="button" class="icon-button" data-close aria-label="Fechar">' + icon('close') + '</button></div>' +
     '<form id="review-form" class="mt-6 space-y-6">' +
     '<label class="field-label">' + t('Posição avaliada') + '<select id="review-position" class="field">' + positions.map((p, i) => '<option value="' + escapeHtml(p) + '">' + escapeHtml(p) + (i === 0 ? ' (principal)' : ' (secundária)') + '</option>').join('') + '</select></label>' +
-    '<section><div class="flex items-center justify-between gap-3"><h3 class="font-bold">Características <span class="text-xs font-normal text-ink-soft">(0 a 10)</span></h3><span class="text-[11px] text-ink-soft">O “peso” mostra a importância na posição</span></div><div id="review-criteria" class="mt-3 grid gap-3 sm:grid-cols-2"></div>' +
+    '<section><div class="flex items-center justify-between gap-3"><h3 class="font-bold">Características <span class="text-xs font-normal text-ink-soft">(0 a 10)</span></h3><span class="text-xs text-ink-soft">O “peso” mostra a importância na posição</span></div><div id="review-criteria" class="mt-3 grid gap-3 sm:grid-cols-2"></div>' +
     '<div class="mt-4 flex items-center justify-between gap-4 rounded-2xl border border-brand/20 bg-brand/7 p-4"><div><p class="text-sm font-bold text-brand">Nota final ponderada</p><p id="review-score-hint" class="mt-1 text-xs text-ink-soft"></p></div><p id="review-score" class="text-4xl font-extrabold text-brand">—</p></div></section>' +
     '<section><h3 class="font-bold">Estatísticas da partida <span class="text-xs font-normal text-ink-soft">(opcional • visível só para o atleta e para a equipe)</span></h3><div id="review-stats" class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"></div></section>' +
     '<section><h3 class="font-bold">Pontos fortes <span class="text-xs font-normal text-ink-soft">(opcional)</span></h3><div class="mt-3 flex flex-wrap gap-2">' + STRENGTHS.map((item) => '<label class="check-pill"><input type="checkbox" name="strength" value="' + escapeHtml(item) + '"/><span>' + escapeHtml(item) + '</span></label>').join('') + '</div></section>' +
     '<label class="field-label">' + t('Comentário') + '<textarea id="review-comment" class="field min-h-28 resize-y" required placeholder="Descreva o que observou no jogo, atitude, evolução..."></textarea></label>' +
-    '<p id="review-error" class="hidden rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200" role="alert"></p>' +
+    '<p id="review-error" class="hidden rounded-xl border border-danger/40 bg-danger/10 px-3 py-2 text-xs font-semibold text-danger" role="alert"></p>' +
     '<div class="flex justify-end gap-2"><button type="button" class="btn-secondary" data-close>Cancelar</button><button type="submit" class="btn-primary">Salvar avaliação ' + icon('check', 'size-4') + '</button></div></form></div>'
   document.body.appendChild(wrapper)
 
@@ -1218,7 +1224,7 @@ function openReviewModal(athleteId) {
     criteriaBox.innerHTML = criteriaForPosition(pos).map((c) => {
       const level = weightLevel(pos, c.key)
       const tone = level === 'alto' ? 'text-brand' : level === 'médio' ? 'text-ink-soft' : 'text-ink-soft'
-      return '<label class="field-label"><span class="flex items-center justify-between gap-2"><span>' + escapeHtml(c.label) + '</span><span class="text-[10px] font-bold uppercase tracking-wider ' + tone + '">peso ' + level + '</span></span><input class="field" type="number" inputmode="decimal" min="0" max="10" step="0.5" required placeholder="0 a 10" data-criterion="' + c.key + '" value="' + escapeHtml(keepCriteria[c.key] ?? '') + '"/></label>'
+      return '<label class="field-label"><span class="flex items-center justify-between gap-2"><span>' + escapeHtml(c.label) + '</span><span class="text-xs font-bold uppercase tracking-wider ' + tone + '">peso ' + level + '</span></span><input class="field" type="number" inputmode="decimal" min="0" max="10" step="0.5" required placeholder="0 a 10" data-criterion="' + c.key + '" value="' + escapeHtml(keepCriteria[c.key] ?? '') + '"/></label>'
     }).join('')
     statsBox.innerHTML = statsForPosition(pos).map((c) =>
       '<label class="field-label">' + escapeHtml(c.label) + '<input class="field" type="number" inputmode="numeric" min="0" step="1" placeholder="—" data-stat="' + c.key + '" value="' + escapeHtml(keepStats[c.key] ?? '') + '"/></label>').join('')
@@ -1341,7 +1347,7 @@ function openTryoutModal() {
   wrapper.className = 'fixed inset-0 z-[90] grid place-items-center bg-black/75 p-4 backdrop-blur-md'
   wrapper.innerHTML =
     '<div class="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-card border border-line bg-raised p-6 shadow-2xl sm:p-8" role="dialog" aria-modal="true" aria-labelledby="tryout-title">' +
-    '<div class="flex items-start justify-between gap-4"><div><span class="eyebrow">' + t('Nova peneira') + '</span><h2 id="tryout-title" class="mt-2 text-2xl font-extrabold">Criar e agendar</h2></div><button type="button" class="icon-button" data-close>' + icon('close') + '</button></div>' +
+    '<div class="flex items-start justify-between gap-4"><div><h2 id="tryout-title" class="mt-2 text-2xl font-extrabold">Criar e agendar</h2></div><button type="button" class="icon-button" data-close>' + icon('close') + '</button></div>' +
     '<form id="tryout-form" class="mt-6 grid gap-4 sm:grid-cols-2">' +
     input('Nome da peneira', 'try-title', '', 'text', true) +
     input('Data', 'try-date', '', 'date', true) +
@@ -1352,7 +1358,7 @@ function openTryoutModal() {
     '<div class="sm:col-span-2"><p class="field-label">' + t('Posições disponíveis') + '</p><div class="mt-2 grid grid-cols-2 gap-2 rounded-2xl border border-line bg-black/20 p-3 sm:grid-cols-3">' +
     POSITIONS.map((p, i) => '<label class="check-pill"><input type="checkbox" name="position" value="' + escapeHtml(p) + '" ' + (i === 6 ? 'checked' : '') + '/><span>' + escapeHtml(p) + '</span></label>').join('') +
     '</div></div>' +
-    '<div id="tryout-error" class="sm:col-span-2 hidden rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-200" role="alert"></div>' +
+    '<div id="tryout-error" class="sm:col-span-2 hidden rounded-2xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger" role="alert"></div>' +
     '<div class="flex justify-end gap-2 sm:col-span-2"><button type="button" class="btn-secondary" data-close>' + t('Cancelar') + '</button><button class="btn-primary" type="submit">' + t('Criar peneira') + ' ' + icon('check', 'size-4') + '</button></div></form></div>'
 
   document.body.appendChild(wrapper)
@@ -1405,7 +1411,7 @@ function confirmWithdraw(tryoutId) {
   const wrapper = document.createElement('div')
   wrapper.className = 'fixed inset-0 z-[92] grid place-items-center bg-black/75 p-4'
   wrapper.innerHTML =
-    '<div class="w-full max-w-md rounded-card border border-line bg-raised p-6" role="dialog" aria-modal="true" aria-labelledby="withdraw-title"><span class="eyebrow">Cancelar inscrição</span><h2 id="withdraw-title" class="mt-2 text-2xl font-extrabold">Sair da peneira?</h2>' +
+    '<div class="w-full max-w-md rounded-card border border-line bg-raised p-6" role="dialog" aria-modal="true" aria-labelledby="withdraw-title"><h2 id="withdraw-title" class="mt-2 text-2xl font-extrabold">Sair da peneira?</h2>' +
     '<p class="mt-3 text-sm leading-6 text-ink-soft">Você será removido de <strong class="text-chalk">' + escapeHtml(tryout.title) + '</strong> (' + formatDate(tryout.date) + ' • ' + escapeHtml(tryout.time) + '). A vaga ficará livre para outros atletas.</p>' +
     '<div class="mt-6 flex justify-end gap-2"><button type="button" class="btn-secondary" data-close>Manter inscrição</button><button type="button" class="btn-danger" data-confirm>Cancelar inscrição</button></div></div>'
   document.body.appendChild(wrapper)
@@ -1436,7 +1442,7 @@ function openCancelTryoutModal(tryoutId) {
   const wrapper = document.createElement('div')
   wrapper.className = 'fixed inset-0 z-[92] grid place-items-center bg-black/75 p-4'
   wrapper.innerHTML =
-    '<div class="w-full max-w-lg rounded-card border border-line bg-raised p-6" role="dialog" aria-modal="true" aria-labelledby="cancel-title"><span class="eyebrow">Cancelar peneira</span><h2 id="cancel-title" class="mt-2 text-2xl font-extrabold">' + escapeHtml(tryout.title) + '</h2>' +
+    '<div class="w-full max-w-lg rounded-card border border-line bg-raised p-6" role="dialog" aria-modal="true" aria-labelledby="cancel-title"><h2 id="cancel-title" class="mt-2 text-2xl font-extrabold">' + escapeHtml(tryout.title) + '</h2>' +
     '<p class="mt-3 text-sm leading-6 text-ink-soft">' + (total ? '<strong class="text-chalk">' + total + ' inscrito(s)</strong> receberão um aviso automático com o motivo abaixo.' : 'Não há inscritos nesta peneira, então nenhum aviso será enviado.') + ' Esta ação remove a peneira da lista e não pode ser desfeita.</p>' +
     '<form id="cancel-tryout-form" class="mt-5"><label class="field-label">' + t('Motivo do cancelamento (opcional)') + '<textarea id="cancel-reason" class="field min-h-24 resize-y" maxlength="240" placeholder="Ex.: chuva forte, campo indisponível, nova data será divulgada."></textarea></label>' +
     '<div class="mt-6 flex justify-end gap-2"><button type="button" class="btn-secondary" data-close>Manter peneira</button><button type="submit" class="btn-danger">Cancelar peneira e avisar inscritos</button></div></form></div>'
@@ -1493,7 +1499,7 @@ function openNotifications() {
   wrapper.className = 'fixed inset-0 z-[90] grid place-items-center bg-black/70 p-4'
   wrapper.innerHTML =
     '<div class="w-full max-w-lg rounded-card border border-line bg-raised p-6" role="dialog" aria-modal="true" aria-labelledby="notifications-title">' +
-    '<div class="flex items-center justify-between gap-3"><div><span class="eyebrow">' + t('Central') + '</span><h2 id="notifications-title" class="mt-1 text-2xl font-extrabold">Notificações</h2></div><button type="button" class="icon-button" data-close>' + icon('close') + '</button></div>' +
+    '<div class="flex items-center justify-between gap-3"><div><h2 id="notifications-title" class="mt-1 text-2xl font-extrabold">Notificações</h2></div><button type="button" class="icon-button" data-close>' + icon('close') + '</button></div>' +
     '<div class="mt-5 space-y-2">' +
     (myNotifications().length ? myNotifications().map((n) => '<article class="rounded-2xl border border-line bg-panel p-4"><div class="flex items-start justify-between gap-3"><div><p class="font-semibold">' + escapeHtml(n.title) + '</p><p class="mt-1 text-sm text-ink-soft">' + escapeHtml(n.text) + '</p></div><span class="text-xs text-ink-soft">' + escapeHtml(n.time) + '</span></div></article>').join('') : '<div class="rounded-2xl border border-dashed border-line p-8 text-center text-ink-soft">Nenhuma notificação.</div>') +
     '</div><button type="button" class="btn-secondary mt-5 w-full" data-clear-notifications>Marcar como lidas</button></div>'
