@@ -645,3 +645,48 @@ body::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:n
   .login-brand .logo-mark { width:30px; height:30px; }
   .login-title { font-size: clamp(2.1rem, 1.5rem + 4vw, 3rem); }
 }
+
+/* =====================================================================================
+   Telas na folha de conteúdo + botões com gradiente + nota do card
+   Gradiente do botão: texto #17130A passa AA em todos os pontos (pior: 5.95:1 em #B98A33).
+   ===================================================================================== */
+.page-head { display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:1rem 1.5rem; padding-bottom:1.5rem; margin-bottom:1.75rem; border-bottom:1px solid var(--color-line); }
+.page-head + * { margin-top:0 !important; }
+.page-head .page-subtitle { margin-top:.5rem; }
+.content-sheet .page-title { font-size: clamp(2rem, 1.5rem + 1.8vw, 3.1rem); }
+.content-sheet .hero .page-title { font-size: clamp(2.2rem, 1.5rem + 2.4vw, 3.6rem); }
+
+/* Botão principal: dourado de cima (claro) para baixo (escuro), brilho interno e borda de luz. */
+.btn-primary {
+  background: linear-gradient(180deg, #EBCB7E 0%, #D8B05C 48%, #C4963C 100%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .45), inset 0 -1px 0 rgb(80 55 10 / .35), 0 10px 22px -12px rgb(196 150 60 / .9);
+  border: 1px solid #B98A33;
+  position: relative; overflow: hidden; isolation:isolate;
+}
+.btn-primary::after { content:""; position:absolute; inset:0; z-index:-1; background: linear-gradient(115deg, transparent 30%, rgb(255 255 255 / .35) 48%, transparent 66%); transform: translateX(-120%); transition: transform 700ms var(--ease-out); }
+.btn-primary:disabled { background: linear-gradient(180deg, #D8B05C, #C4963C); }
+@media (hover:hover) and (pointer:fine) {
+  .btn-primary:hover:not(:disabled) { background: linear-gradient(180deg, #F0D48C 0%, #DFB966 50%, #C99D42 100%); }
+  .btn-primary:hover:not(:disabled)::after { transform: translateX(120%); }
+  .btn-secondary:hover:not(:disabled) { background: linear-gradient(180deg, color-mix(in oklab, var(--color-brand) 14%, var(--color-panel)), var(--color-panel)) padding-box, linear-gradient(160deg, var(--color-brand), var(--edge-2)) border-box; }
+}
+.btn-primary.is-hover { background: linear-gradient(180deg, #F0D48C 0%, #DFB966 50%, #C99D42 100%); }
+/* Secundário: borda em degradê + leve luz no topo. */
+.btn-secondary {
+  border: 1px solid transparent;
+  background: linear-gradient(180deg, color-mix(in oklab, var(--color-chalk) 6%, var(--color-panel)), var(--color-panel)) padding-box, linear-gradient(160deg, var(--edge-1), var(--edge-2) 60%, var(--edge-3)) border-box;
+  box-shadow: inset 0 1px 0 var(--edge-inner);
+}
+.btn-secondary.is-hover { background: linear-gradient(180deg, color-mix(in oklab, var(--color-brand) 14%, var(--color-panel)), var(--color-panel)) padding-box, linear-gradient(160deg, var(--color-brand), var(--edge-2)) border-box; }
+/* Destrutivo: tinta vermelha em degradê. */
+.btn-danger { background: linear-gradient(180deg, color-mix(in oklab, var(--color-danger) 14%, transparent), color-mix(in oklab, var(--color-danger) 4%, transparent)); }
+/* Voto: dourado translúcido em degradê. */
+.vote-button { background: linear-gradient(180deg, color-mix(in oklab, var(--color-brand) 16%, transparent), color-mix(in oklab, var(--color-brand) 4%, transparent)); }
+.vote-button.voted { background: linear-gradient(180deg, color-mix(in oklab, var(--color-danger) 16%, transparent), color-mix(in oklab, var(--color-danger) 4%, transparent)); }
+
+/* Nota do card: resumo do atleta num bloco tingido pela cor da posição; destaques como chips. */
+.scout-note { position:relative; padding:.8rem .9rem; border-radius:var(--radius-control); font-size:.9rem; line-height:1.5; background: linear-gradient(135deg, color-mix(in oklab, var(--pos, var(--color-brand)) 13%, transparent) 0%, color-mix(in oklab, var(--pos, var(--color-brand)) 3%, transparent) 70%); border:1px solid color-mix(in oklab, var(--pos, var(--color-brand)) 22%, transparent); }
+.scout-note::before { content:"“"; position:absolute; top:-.55rem; left:.6rem; font-family:var(--font-display); font-size:2.2rem; line-height:1; color: var(--pos, var(--color-brand)); }
+.scout-strengths { display:flex; flex-wrap:wrap; gap:.35rem; margin-top:.55rem; }
+.scout-strengths span { padding:.15rem .55rem; border-radius:999px; font-size:.75rem; font-weight:600; color:var(--color-chalk); background: color-mix(in oklab, var(--color-chalk) 7%, transparent); }
+.scout-strengths span:first-letter { text-transform:uppercase; }
