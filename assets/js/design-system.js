@@ -31,7 +31,7 @@ export function designSystemPage({ icon, input, selectField, tag, athleteCard, p
   return '<div class="min-h-screen">' +
     '<header class="sticky top-0 z-40 border-b border-line bg-night/95 backdrop-blur"><div class="mx-auto flex min-h-[4.5rem] max-w-[1200px] items-center justify-between gap-3 px-4 sm:px-6">' +
     '<a href="#/" class="flex min-w-0 items-center gap-3"><img src="./assets/brand/simbolo.jpg" alt="" width="40" height="40" class="h-10 w-10 shrink-0 rounded-xl object-contain" /><span class="truncate font-bold font-display">Pelé Academia <span class="font-semibold text-ink-soft">· Design system</span></span></a>' +
-    '<a href="#/" class="btn-secondary shrink-0">Voltar ao app</a></div></header>' +
+    '<div class="flex shrink-0 items-center gap-2"><button type="button" class="icon-button theme-toggle" data-action="toggle-theme" aria-label="Alternar tema claro/escuro" title="Alternar tema claro/escuro">' + icon('sun', 'size-4 theme-sun') + icon('moon', 'size-4 theme-moon') + '</button><a href="#/" class="btn-secondary">Voltar ao app</a></div></div></header>' +
     '<div class="mx-auto grid max-w-[1200px] gap-x-8 px-4 sm:px-6 lg:grid-cols-[13rem_minmax(0,1fr)]">' +
     '<nav aria-label="Seções do design system" class="min-w-0 lg:sticky lg:top-24 lg:self-start lg:pt-10"><ul class="flex gap-1 overflow-x-auto py-4 lg:flex-col lg:py-0">' +
     DS_SECTIONS.map(([id, label]) => `<li><a href="#${id}" data-ds-jump="${id}" class="nav-link whitespace-nowrap">${label}</a></li>`).join('') + '</ul></nav>' +
