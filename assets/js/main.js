@@ -40,6 +40,11 @@ import {
   fetchEvaluations,
   createEvaluation,
   removeEvaluation,
+  fetchTryouts,
+  createTryout,
+  cancelTryout,
+  enrollTryout,
+  withdrawTryout,
 } from './remote.js'
 
 const app = document.querySelector('#app')
@@ -75,18 +80,18 @@ const defaultProfile = {
 }
 
 const defaultAthletes = [
-  { id: 1, foot: 'Destro', email: 'gabriel@academiapele.com', name: 'Gabriel Martins', age: 18, birth: '2008-03-14', gender: 'Masculino', city: 'São Paulo', state: 'SP', pos: 'Atacante', secondary: 'Ponta', rating: 8.8, votes: 128, status: 'Em observação', color: 'from-amber-400 to-yellow-200', tags: ['Finalização', 'Velocidade', 'Drible'] },
-  { id: 2, foot: 'Canhoto', name: 'Lucas Ferreira', age: 19, birth: '2007-07-20', gender: 'Masculino', city: 'Osasco', state: 'SP', pos: 'Meia', secondary: 'Volante', rating: 8.4, votes: 94, status: 'Disponível', color: 'from-sky-400 to-cyan-200', tags: ['Passe', 'Visão de jogo', 'Resistência'] },
-  { id: 3, foot: 'Destro', name: 'Rafael Souza', age: 17, birth: '2009-01-22', gender: 'Masculino', city: 'Guarulhos', state: 'SP', pos: 'Zagueiro', secondary: 'Lateral', rating: 8.1, votes: 76, status: 'Em avaliação', color: 'from-violet-400 to-fuchsia-200', tags: ['Marcação', 'Força', 'Cabeceio'] },
-  { id: 4, foot: 'Destro', name: 'João Vitor', age: 18, birth: '2008-10-11', gender: 'Masculino', city: 'Campinas', state: 'SP', pos: 'Volante', secondary: 'Meia', rating: 8.6, votes: 111, status: 'Destaque', color: 'from-emerald-400 to-lime-200', tags: ['Desarme', 'Passe', 'Leitura'] },
-  { id: 5, foot: 'Destro', name: 'Pedro Henrique', age: 20, birth: '2006-05-05', gender: 'Masculino', city: 'Santos', state: 'SP', pos: 'Goleiro', secondary: '—', rating: 8.0, votes: 62, status: 'Disponível', color: 'from-slate-300 to-slate-100', tags: ['Reflexo', 'Posicionamento', 'Saída'] },
-  { id: 6, foot: 'Canhoto', name: 'Matheus Alves', age: 18, birth: '2008-12-02', gender: 'Masculino', city: 'Sorocaba', state: 'SP', pos: 'Ponta', secondary: 'Atacante', rating: 8.7, votes: 103, status: 'Destaque', color: 'from-orange-400 to-amber-200', tags: ['Velocidade', 'Drible', 'Cruzamento'] },
+  { demo: true, id: 1, foot: 'Destro', email: 'gabriel@academiapele.com', name: 'Gabriel Martins', age: 18, birth: '2008-03-14', gender: 'Masculino', city: 'São Paulo', state: 'SP', pos: 'Atacante', secondary: 'Ponta', rating: 8.8, votes: 128, status: 'Em observação', color: 'from-amber-400 to-yellow-200', tags: ['Finalização', 'Velocidade', 'Drible'] },
+  { demo: true, id: 2, foot: 'Canhoto', name: 'Lucas Ferreira', age: 19, birth: '2007-07-20', gender: 'Masculino', city: 'Osasco', state: 'SP', pos: 'Meia', secondary: 'Volante', rating: 8.4, votes: 94, status: 'Disponível', color: 'from-sky-400 to-cyan-200', tags: ['Passe', 'Visão de jogo', 'Resistência'] },
+  { demo: true, id: 3, foot: 'Destro', name: 'Rafael Souza', age: 17, birth: '2009-01-22', gender: 'Masculino', city: 'Guarulhos', state: 'SP', pos: 'Zagueiro', secondary: 'Lateral', rating: 8.1, votes: 76, status: 'Em avaliação', color: 'from-violet-400 to-fuchsia-200', tags: ['Marcação', 'Força', 'Cabeceio'] },
+  { demo: true, id: 4, foot: 'Destro', name: 'João Vitor', age: 18, birth: '2008-10-11', gender: 'Masculino', city: 'Campinas', state: 'SP', pos: 'Volante', secondary: 'Meia', rating: 8.6, votes: 111, status: 'Destaque', color: 'from-emerald-400 to-lime-200', tags: ['Desarme', 'Passe', 'Leitura'] },
+  { demo: true, id: 5, foot: 'Destro', name: 'Pedro Henrique', age: 20, birth: '2006-05-05', gender: 'Masculino', city: 'Santos', state: 'SP', pos: 'Goleiro', secondary: '—', rating: 8.0, votes: 62, status: 'Disponível', color: 'from-slate-300 to-slate-100', tags: ['Reflexo', 'Posicionamento', 'Saída'] },
+  { demo: true, id: 6, foot: 'Canhoto', name: 'Matheus Alves', age: 18, birth: '2008-12-02', gender: 'Masculino', city: 'Sorocaba', state: 'SP', pos: 'Ponta', secondary: 'Atacante', rating: 8.7, votes: 103, status: 'Destaque', color: 'from-orange-400 to-amber-200', tags: ['Velocidade', 'Drible', 'Cruzamento'] },
 ]
 
 const defaultTryouts = [
-  { id: 1, title: 'Peneira Sub-20 — Atacantes', date: '2026-09-24', time: '14:00', city: 'São Paulo', state: 'SP', location: 'Centro de Treinamento Pelé', category: 'Sub-20', positions: ['Atacante', 'Ponta'], seats: 12, enrolled: ['gabriel@academiapele.com'] },
-  { id: 2, title: 'Avaliação Sub-20 — Meio-campo', date: '2026-09-28', time: '09:00', city: 'Osasco', state: 'SP', location: 'Arena Oeste', category: 'Sub-20', positions: ['Meia', 'Volante'], seats: 18, enrolled: [] },
-  { id: 3, title: 'Goleiros em Destaque', date: '2026-10-04', time: '10:30', city: 'Barueri', state: 'SP', location: 'Centro de Treinamento Oeste', category: 'Sub-20', positions: ['Goleiro'], seats: 8, enrolled: [] },
+  { id: 1, title: 'Peneira Sub-20 — Atacantes', date: '2026-11-07', time: '14:00', city: 'São Paulo', state: 'SP', location: 'Centro de Treinamento Pelé', category: 'Sub-20', positions: ['Atacante', 'Ponta'], seats: 12, enrolled: ['gabriel@academiapele.com'] },
+  { id: 2, title: 'Avaliação Sub-20 — Meio-campo', date: '2026-11-14', time: '09:00', city: 'Osasco', state: 'SP', location: 'Arena Oeste', category: 'Sub-20', positions: ['Meia', 'Volante'], seats: 18, enrolled: [] },
+  { id: 3, title: 'Goleiros em Destaque', date: '2026-11-21', time: '10:30', city: 'Barueri', state: 'SP', location: 'Centro de Treinamento Oeste', category: 'Sub-20', positions: ['Goleiro'], seats: 8, enrolled: [] },
 ]
 
 const state = {
@@ -468,6 +473,47 @@ async function hydrateRemote(uid) {
     // ser aplicada; a sincronização será tentada novamente na próxima atualização.
     console.warn('[Supabase] não foi possível carregar avaliações:', error)
   }
+  state.tryoutsStatus = 'loading'
+  refreshRemoteTryouts().then(() => { if (['tryouts', 'dashboard'].includes(currentRoute())) render() })
+}
+
+// Peneiras do Supabase → formato usado pelas telas. `enrolled` guarda e-mails: funcionários recebem
+// todos; atletas recebem só o próprio, e o restante é preenchido com '' apenas para a contagem de vagas.
+function mapRemoteTryout(row) {
+  const emails = Array.isArray(row.enrolled_emails) ? row.enrolled_emails : []
+  return {
+    id: Number(row.id), title: row.title, date: row.date, time: row.time, location: row.location, city: row.city, state: row.state,
+    category: row.category, positions: row.positions || [], seats: row.seats, status: row.status, cancelReason: row.cancel_reason,
+    createdBy: row.created_by_email, remote: true,
+    enrolled: emails.concat(Array(Math.max(0, (row.taken || 0) - emails.length)).fill('')),
+  }
+}
+
+async function refreshRemoteTryouts() {
+  if (!remote.enabled || !state.user?.uid) return
+  try {
+    state.tryouts = (await fetchTryouts()).map(mapRemoteTryout)
+    state.tryoutsStatus = 'ready'
+  } catch (error) {
+    console.warn('[Supabase] não foi possível carregar peneiras:', error)
+    state.tryoutsStatus = 'error'
+    state.tryoutsError = describeError(error)
+  }
+}
+
+// Executa uma ação de peneira no servidor com estado de carregamento no botão e erro recuperável.
+async function runTryoutAction(button, action, successMessage) {
+  button?.setAttribute('aria-busy', 'true')
+  const error = await action()
+  if (error) {
+    button?.removeAttribute('aria-busy')
+    toast(error.code === '42501' ? t('Ação não permitida: a peneira pode ter lotado ou sido cancelada. Atualize a lista.') : describeError(error), 'error')
+    return false
+  }
+  await refreshRemoteTryouts()
+  render()
+  toast(successMessage)
+  return true
 }
 
 function mapRemoteEvaluation(row) {
@@ -533,8 +579,11 @@ async function refreshRemote(force = false) {
     state.accounts = (own ? [own] : []).concat(directory.map(remoteAccount))
     syncAthletes()
     await refreshRemoteEvaluations()
+    const tryoutsBefore = JSON.stringify(state.tryouts)
+    await refreshRemoteTryouts()
     const route = currentRoute()
-    if (state.athletes.length !== before) {
+    if (JSON.stringify(state.tryouts) !== tryoutsBefore && ['tryouts', 'dashboard'].includes(route)) render()
+    else if (state.athletes.length !== before) {
       if (route === 'athletes') applyFilters()
       else if (route === 'dashboard') render()
       else if (route === 'messages') updateConversationList()
@@ -731,7 +780,7 @@ function athleteCard(a, staff = false) {
   return '<article class="group rounded-2xl border border-line bg-panel p-4 transition hover:-translate-y-0.5 hover:border-brand/30 hover:bg-panel">' +
     '<div class="flex gap-3"><div class="avatar-lg bg-gradient-to-br ' + a.color + '">' + avatar(a.name) + '</div><div class="min-w-0 flex-1"><div class="flex items-start justify-between gap-2"><button type="button" class="min-w-0 text-left" data-open-athlete="' + a.id + '"><h3 class="truncate font-bold">' + escapeHtml(a.name) + '</h3><p class="text-xs text-ink-soft">' + a.age + ' anos • ' + escapeHtml(a.city) + '/' + escapeHtml(a.state) + '</p></button>' +
     '<button type="button" class="icon-button sm" data-favorite="' + a.id + '" aria-label="' + (fav ? 'Remover dos favoritos' : 'Favoritar') + '">' + icon('heart', 'size-4 ' + (fav ? 'fill-brand text-brand' : '')) + '</button></div>' +
-    '<div class="mt-3 flex flex-wrap gap-1.5">' + tag(a.pos) + tag(a.secondary, true) + footTag(a.foot) + tag(getCategoryFromAge(a.age)) + '</div></div></div>' +
+    '<div class="mt-3 flex flex-wrap gap-1.5">' + (a.demo ? '<span class="tag ghost" title="Perfil fictício para demonstração">' + t('Perfil de exemplo') + '</span>' : '') + tag(a.pos) + tag(a.secondary, true) + footTag(a.foot) + tag(getCategoryFromAge(a.age)) + '</div></div></div>' +
     '<div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3"><div class="flex items-center gap-2 text-xs text-ink-soft">' + icon('star', 'size-4 text-brand') + '<strong class="text-chalk">' + formatRating(ratingOf(a)) + '</strong> média <span>•</span> ' + count + ' votos <span>•</span> ' + reviewCount + ' avaliação(ões)</div>' +
     '<div class="flex gap-2"><button type="button" class="vote-button ' + (voted ? 'voted' : '') + '" data-vote="' + a.id + '" title="' + t(voted ? 'Clique para retirar seu voto' : 'Votar neste atleta') + '">' + t(voted ? 'Retirar voto' : 'Votar') + '</button>' +
     (staff ? '<button type="button" class="btn-secondary px-3 py-2 text-xs" data-message-athlete="' + a.id + '">' + t('Mensagem') + '</button>' : '') +
@@ -857,12 +906,36 @@ function tryoutsPage() {
   const createButton = role === 'staff' ? '<button type="button" class="btn-primary" data-action="openTryout">' + icon('plus', 'size-4') + ' ' + t('Criar peneira') + '</button>' : ''
   return shell(
     '<div class="flex flex-wrap items-end justify-between gap-4"><div><h1 class="page-title">' + t('Peneiras') + '</h1><p class="page-subtitle">Veja oportunidades, posições, categoria, vagas e sua inscrição.</p></div>' + createButton + '</div>' +
-    '<div class="mt-6 grid gap-4 lg:grid-cols-3">' + state.tryouts.map(tryoutCard).join('') + '</div>',
+    tryoutsBody(role),
     { active: 'tryouts', role },
   )
 }
 
+function tryoutsBody(role) {
+  const status = remote.enabled ? state.tryoutsStatus : 'ready'
+  if (status === 'loading') {
+    return '<div class="mt-6 grid gap-4 lg:grid-cols-3" role="status"><span class="sr-only">' + t('Carregando peneiras…') + '</span>' +
+      [1, 2, 3].map(() => '<div class="panel space-y-3" aria-hidden="true"><div class="skeleton h-6 w-1/3"></div><div class="skeleton h-7 w-3/4"></div><div class="skeleton h-4 w-1/2"></div><div class="skeleton h-11 w-full"></div></div>').join('') + '</div>'
+  }
+  if (status === 'error') {
+    return '<div class="alert alert-error mt-6" role="alert">' + icon('close', 'size-5 shrink-0') + '<span><strong>' + t('Não foi possível carregar as peneiras.') + '</strong> ' + escapeHtml(state.tryoutsError || '') +
+      ' <button type="button" class="font-semibold underline underline-offset-4" data-action="retry-tryouts">' + t('Tentar de novo') + '</button></span></div>'
+  }
+  const list = state.tryouts.filter((tryout) => role === 'player' || tryout.status !== 'cancelled')
+  if (!list.length) {
+    return '<div class="empty-state mt-6"><strong>' + t('Nenhuma peneira aberta') + '</strong><span class="text-sm">' +
+      (role === 'staff' ? t('Crie a primeira peneira: os atletas compatíveis já poderão se inscrever.') : t('Quando a Pelé Academia abrir uma peneira, ela aparece aqui.')) + '</span>' +
+      (role === 'staff' ? '<button type="button" class="btn-primary mt-2" data-action="openTryout">' + icon('plus', 'size-4') + ' ' + t('Criar peneira') + '</button>' : '') + '</div>'
+  }
+  return '<div class="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">' + list.map(tryoutCard).join('') + '</div>'
+}
+
 function tryoutCard(tryout) {
+  if (tryout.status === 'cancelled') {
+    return '<article class="panel flex flex-col" data-tryout-card="' + tryout.id + '"><div class="flex flex-wrap gap-1.5"><span class="tag red">' + t('Cancelada') + '</span>' + tag(tryout.category || t('Aberta'), true) + '</div>' +
+      '<h2 class="mt-4 text-xl font-extrabold">' + escapeHtml(tryout.title) + '</h2><p class="mt-3 text-sm text-ink-soft">' + formatDate(tryout.date) + ' • ' + escapeHtml(tryout.time) + '</p>' +
+      '<p class="mt-4 text-sm"><strong>' + t('Motivo:') + '</strong> ' + escapeHtml(tryout.cancelReason || t('Não informado.')) + '</p></article>'
+  }
   const staff = state.user?.role === 'staff'
   const email = state.user?.email || ''
   const list = Array.isArray(tryout.enrolled) ? tryout.enrolled : []
@@ -1383,6 +1456,19 @@ function openTryoutModal() {
 
     const match = location.match(/^(.+?) — (.+)\/([A-Za-z]{2})$/)
     const cityState = (location.split(' — ')[1] || 'São Paulo/SP').split('/')
+    if (remote.enabled) {
+      const date = wrapper.querySelector('#try-date').value
+      if (!date) {
+        error.textContent = 'Informe a data da peneira.'
+        error.classList.remove('hidden')
+        return
+      }
+      runTryoutAction(wrapper.querySelector('[type="submit"]'), () => createTryout({
+        title, date, time: wrapper.querySelector('#try-time').value, location: match ? match[1] : location.split(' — ')[0],
+        city: cityState[0] || 'São Paulo', state: cityState[1] || 'SP', category: wrapper.querySelector('#try-category').value, positions, seats,
+      }), t('Peneira criada e publicada para os atletas.')).then((ok) => { if (ok) wrapper.remove() })
+      return
+    }
     state.tryouts.unshift({
       id: Date.now(),
       title,
@@ -1427,6 +1513,10 @@ function withdrawFromTryout(tryoutId) {
   const tryout = state.tryouts.find((item) => item.id === Number(tryoutId))
   const email = state.user?.email
   if (!tryout || state.user?.role !== 'player' || !Array.isArray(tryout.enrolled) || !tryout.enrolled.includes(email)) return
+  if (tryout.remote && remote.enabled) {
+    runTryoutAction(null, () => withdrawTryout(tryout.id, state.user.uid), t('Inscrição cancelada. A vaga foi liberada.'))
+    return
+  }
   tryout.enrolled = tryout.enrolled.filter((item) => item !== email)
   notify(email, 'Inscrição cancelada', 'Você saiu da peneira "' + tryout.title + '". A vaga foi liberada.')
   notifyTryoutStaff(tryout, 'Vaga liberada', state.user.name + ' cancelou a inscrição em "' + tryout.title + '" (' + tryout.enrolled.length + '/' + tryout.seats + ').')
@@ -1453,6 +1543,10 @@ function openCancelTryoutModal(tryoutId) {
     event.preventDefault()
     const reason = wrapper.querySelector('#cancel-reason').value.trim() || 'A peneira foi cancelada por uma eventualidade.'
     const when = formatDate(tryout.date) + ' • ' + tryout.time
+    if (tryout.remote && remote.enabled) {
+      runTryoutAction(wrapper.querySelector('[type="submit"]'), () => cancelTryout(tryout.id, reason), t('Peneira cancelada. Os inscritos verão o motivo na tela de peneiras.')).then((ok) => { if (ok) wrapper.remove() })
+      return
+    }
     ;(tryout.enrolled || []).forEach((email) => notify(email, 'Peneira cancelada', '"' + tryout.title + '" (' + when + ') foi cancelada. Motivo: ' + reason))
     state.tryouts = state.tryouts.filter((item) => item.id !== tryout.id)
     persist()
@@ -1940,6 +2034,11 @@ function bind() {
   document.querySelectorAll('[data-action="cancel-tryout"]').forEach((button) => button.addEventListener('click', () => openCancelTryoutModal(Number(button.dataset.id))))
   document.querySelectorAll('[data-action="view-enrolled"]').forEach((button) => button.addEventListener('click', () => openEnrolledModal(Number(button.dataset.id))))
 
+  document.querySelectorAll('[data-action="retry-tryouts"]').forEach((button) => button.addEventListener('click', () => {
+    state.tryoutsStatus = 'loading'
+    render()
+    refreshRemoteTryouts().then(render)
+  }))
   document.querySelectorAll('[data-action="enroll"]').forEach((button) => button.addEventListener('click', () => {
     const tryout = state.tryouts.find((item) => item.id === Number(button.dataset.id))
     if (!tryout || state.user?.role !== 'player') return
@@ -1951,6 +2050,12 @@ function bind() {
     if (tryout.category && tryout.category !== category) return toast(t('Sua categoria não corresponde à desta peneira.'), 'error')
     if (!compatible) return toast(t('Sua posição não está entre as posições aceitas.'), 'error')
     if (vacancies <= 0) return toast(t('Não há mais vagas nesta peneira.'), 'error')
+    if (tryout.remote && remote.enabled) {
+      runTryoutAction(button, () => enrollTryout(tryout.id), t('Inscrição confirmada.')).then((ok) => {
+        if (ok) notify(state.user.email, t('Inscrição confirmada'), 'Você se inscreveu em ' + tryout.title + '.')
+      })
+      return
+    }
     enrolled.push(state.user.email)
     notifyTryoutStaff(tryout, 'Nova inscrição', state.user.name + ' se inscreveu em "' + tryout.title + '" (' + enrolled.length + '/' + tryout.seats + ').')
     notify(state.user.email, t('Inscrição confirmada'), 'Você se inscreveu em ' + tryout.title + '.')
@@ -2066,7 +2171,7 @@ function render() {
   updateMessageBadge()
   if (route !== lastRoute) window.scrollTo(0, 0)
   lastRoute = route
-  if (['athletes', 'dashboard'].includes(route)) refreshRemote()
+  if (['athletes', 'dashboard', 'tryouts'].includes(route)) refreshRemote()
 }
 
 // Atualização automática: quando outra aba/janela altera os dados (inscrição, cancelamento,

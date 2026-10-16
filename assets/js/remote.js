@@ -165,3 +165,30 @@ export async function removeEvaluation(id) {
   const { error } = await client.from('evaluations').delete().eq('id', id)
   return error || null
 }
+
+// ---------- Peneiras (migration 20261016120000_peneiras.sql) ----------
+export async function fetchTryouts() {
+  const { data, error } = await client.rpc('list_tryouts')
+  if (error) throw error
+  return data || []
+}
+
+export async function createTryout({ title, date, time, location, city, state, category, positions, seats }) {
+  const { error } = await client.from('tryouts').insert({ title, date, time, location, city, state, category, positions, seats })
+  return error || null
+}
+
+export async function cancelTryout(id, reason) {
+  const { error } = await client.from('tryouts').update({ status: 'cancelled', cancel_reason: reason }).eq('id', id)
+  return error || null
+}
+
+export async function enrollTryout(id) {
+  const { error } = await client.from('tryout_enrollments').insert({ tryout_id: id })
+  return error || null
+}
+
+export async function withdrawTryout(id, uid) {
+  const { error } = await client.from('tryout_enrollments').delete().eq('tryout_id', id).eq('athlete_id', uid)
+  return error || null
+}
