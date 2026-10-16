@@ -38,6 +38,18 @@
   --color-focus: #F0C965;
   --color-warning: #E9C46A;
 
+  /* Posições (convenção dos games de futebol). Contraste ≥ 5.9:1 sobre raised. */
+  --color-pos-gk: #F5A34B;
+  --color-pos-def: #6FB1FF;
+  --color-pos-mid: #57D49A;
+  --color-pos-atk: #FF7B6E;
+  /* Escala da nota 0–10 (leitura em um relance). Contraste ≥ 5.4:1 sobre raised. */
+  --color-rate-1: #FF6B6B;
+  --color-rate-2: #FFA94D;
+  --color-rate-3: #9AD95F;
+  --color-rate-4: #2FD3A8;
+  --color-rate-5: #5AA8FF;
+
   --text-display: clamp(2.25rem, 1.4rem + 3.6vw, 4rem);
   --text-display--line-height: 1;
   --text-title: clamp(1.75rem, 1.2rem + 2.2vw, 2.75rem);
@@ -320,3 +332,22 @@
 /* Contagem de resultados que pulsa ao filtrar. */
 .bump { animation: bump 380ms var(--ease-spring); }
 @keyframes bump { 40% { transform:scale(1.06); color:var(--color-brand); } }
+
+/* ===== Carta de atleta, posições e notas ===== */
+.pos-gk { --pos: var(--color-pos-gk); }
+.pos-def { --pos: var(--color-pos-def); }
+.pos-mid { --pos: var(--color-pos-mid); }
+.pos-atk { --pos: var(--color-pos-atk); }
+.rate-0 { color: var(--color-ink-soft); }
+.rate-1 { color: var(--color-rate-1); }
+.rate-2 { color: var(--color-rate-2); }
+.rate-3 { color: var(--color-rate-3); }
+.rate-4 { color: var(--color-rate-4); }
+.rate-5 { color: var(--color-rate-5); }
+.pos-tag { color: var(--pos); border-color: color-mix(in oklab, var(--pos) 40%, transparent); background: color-mix(in oklab, var(--pos) 8%, transparent); }
+.athlete-card { background: radial-gradient(18rem 9rem at 0% 0%, color-mix(in oklab, var(--pos) 11%, transparent), transparent 70%), var(--color-panel); }
+.fut-badge { display:grid; align-content:center; justify-items:center; gap:.3rem; flex:none; width:4.5rem; height:5rem; border-radius:var(--radius-control); border:1px solid color-mix(in oklab, var(--pos) 35%, transparent); background: linear-gradient(160deg, color-mix(in oklab, var(--pos) 16%, transparent), transparent 75%); }
+.pos-abbr { font-family:var(--font-display); font-size:.8rem; font-weight:700; letter-spacing:.08em; color:var(--pos); }
+.card-stats dt { font-size:.75rem; color:var(--color-ink-soft); }
+.card-stats dd { margin-top:.15rem; font-size:1.1rem; font-weight:600; }
+.card-stats dd:not(.num) { font-size:.9rem; line-height:1.35rem; }

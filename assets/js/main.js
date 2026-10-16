@@ -831,24 +831,50 @@ function staffStat(value, label) {
   return '<div class="reveal rounded-2xl border border-line bg-panel p-4"><p class="num text-4xl">' + value + '</p><p class="mt-1 text-xs text-ink-soft">' + label + '</p></div>'
 }
 
+// Grupo da posição (cores da convenção dos games de futebol) e sigla de 3 letras da carta.
+const POSITION_GROUP = { Goleiro: 'gk', Zagueiro: 'def', Lateral: 'def', Volante: 'mid', Meia: 'mid', Ponta: 'atk', Atacante: 'atk' }
+const POSITION_ABBR = { Goleiro: 'GOL', Zagueiro: 'ZAG', Lateral: 'LAT', Volante: 'VOL', Meia: 'MEI', Ponta: 'PON', Atacante: 'ATA' }
+const positionGroup = (pos) => POSITION_GROUP[pos] || 'mid'
+
+// Faixa de cor da nota (escala de 0 a 10): vermelho < 6 · laranja < 7 · verde < 8 · turquesa < 9 · azul ≥ 9.
+function rateClass(value) {
+  const n = Number(value)
+  if (!Number.isFinite(n) || n <= 0) return 'rate-0'
+  return n < 6 ? 'rate-1' : n < 7 ? 'rate-2' : n < 8 ? 'rate-3' : n < 9 ? 'rate-4' : 'rate-5'
+}
+
+function posTag(pos) {
+  if (!pos || pos === '—') return ''
+  return '<span class="tag pos-tag pos-' + positionGroup(pos) + '">' + escapeHtml(pos) + '</span>'
+}
+
+const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many)
+
 function athleteCard(a, staff = false) {
   const fav = state.favorites.includes(a.id)
   const count = a.votes + (state.votes[a.id] || 0)
   const reviewCount = (state.reviews[a.id] || []).length
   const voted = hasVoted(state, a.id, state.user?.email || 'anon')
+  const rating = ratingOf(a)
 
-  return '<article class="reveal spot group rounded-2xl border border-line bg-panel p-4">' +
-    '<div class="flex gap-3"><div class="avatar-lg bg-gradient-to-br ' + a.color + '">' + avatar(a.name) + '</div><div class="min-w-0 flex-1"><div class="flex items-start justify-between gap-2"><button type="button" class="min-w-0 text-left" data-open-athlete="' + a.id + '"><h3 class="truncate font-bold">' + escapeHtml(a.name) + '</h3><p class="text-xs text-ink-soft">' + a.age + ' anos • ' + escapeHtml(a.city) + '/' + escapeHtml(a.state) + '</p></button>' +
-    '<button type="button" class="icon-button sm" data-favorite="' + a.id + '" aria-label="' + (fav ? 'Remover dos favoritos' : 'Favoritar') + '">' + icon('heart', 'size-4 ' + (fav ? 'fill-brand text-brand' : '')) + '</button></div>' +
-    '<div class="mt-3 flex flex-wrap gap-1.5">' + (a.demo ? '<span class="tag ghost" title="Perfil fictício para demonstração">' + t('Perfil de exemplo') + '</span>' : '') + tag(a.pos) + tag(a.secondary, true) + footTag(a.foot) + tag(getCategoryFromAge(a.age)) + '</div></div></div>' +
-    '<div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3"><div class="flex items-center gap-2 text-xs text-ink-soft">' + icon('star', 'size-4 text-brand') + '<strong class="text-chalk">' + formatRating(ratingOf(a)) + '</strong> média <span>•</span> ' + count + ' votos <span>•</span> ' + reviewCount + ' avaliação(ões)</div>' +
-    '<div class="flex gap-2"><button type="button" class="vote-button ' + (voted ? 'voted' : '') + '" data-vote="' + a.id + '" title="' + t(voted ? 'Clique para retirar seu voto' : 'Votar neste atleta') + '">' + t(voted ? 'Retirar voto' : 'Votar') + '</button>' +
-    (staff ? '<button type="button" class="btn-secondary px-3 py-2 text-xs" data-message-athlete="' + a.id + '">' + t('Mensagem') + '</button>' : '') +
-    '<button type="button" class="btn-ghost px-2" data-open-athlete="' + a.id + '" aria-label="Abrir perfil de ' + escapeHtml(a.name) + '">Ver perfil</button></div></div></article>'
+  return '<article class="reveal spot athlete-card pos-' + positionGroup(a.pos) + ' flex h-full flex-col rounded-card border border-line bg-panel p-4">' +
+    '<div class="flex gap-4"><div class="fut-badge" aria-label="Nota ' + formatRating(rating) + ', ' + escapeHtml(a.pos) + '"><span class="num text-[2rem] ' + rateClass(rating) + '">' + formatRating(rating) + '</span><span class="pos-abbr">' + (POSITION_ABBR[a.pos] || '—') + '</span></div>' +
+    '<div class="min-w-0 flex-1"><div class="flex items-start justify-between gap-2"><button type="button" class="min-w-0 text-left" data-open-athlete="' + a.id + '"><h3 class="truncate text-lg font-semibold leading-tight">' + escapeHtml(a.name) + '</h3><p class="mt-0.5 truncate text-sm text-ink-soft">' + a.age + ' anos · ' + escapeHtml(a.city) + '/' + escapeHtml(a.state) + '</p></button>' +
+    '<button type="button" class="icon-button sm shrink-0" data-favorite="' + a.id + '" aria-pressed="' + fav + '" aria-label="' + (fav ? 'Remover dos favoritos' : 'Favoritar') + '">' + icon('heart', 'size-4 ' + (fav ? 'fill-brand text-brand' : '')) + '</button></div>' +
+    '<div class="mt-3 flex flex-wrap gap-1.5">' + posTag(a.pos) + posTag(a.secondary) + tag(getCategoryFromAge(a.age), true) + '</div></div></div>' +
+    '<dl class="card-stats mt-4 grid grid-cols-3 gap-2 border-t border-line pt-3 text-center">' +
+    '<div><dt>' + t('Votos') + '</dt><dd class="num tabular">' + count + '</dd></div>' +
+    '<div><dt>' + t('Avaliações') + '</dt><dd class="num tabular">' + reviewCount + '</dd></div>' +
+    '<div><dt>' + t('Perna') + '</dt><dd>' + escapeHtml(a.foot === 'Destro' ? 'Direita' : a.foot === 'Canhoto' ? 'Esquerda' : (a.foot || '—')) + '</dd></div></dl>' +
+    (a.demo ? '<p class="mt-3 text-xs text-ink-soft">' + t('Perfil de exemplo, para demonstração') + '</p>' : '') +
+    '<div class="mt-auto flex flex-wrap gap-2 pt-4"><button type="button" class="vote-button ' + (voted ? 'voted' : '') + '" data-vote="' + a.id + '" aria-pressed="' + voted + '">' + t(voted ? 'Retirar voto' : 'Votar') + '</button>' +
+    (staff ? '<button type="button" class="btn-secondary" data-message-athlete="' + a.id + '">' + t('Mensagem') + '</button>' : '') +
+    '<button type="button" class="btn-ghost ml-auto" data-open-athlete="' + a.id + '" aria-label="Abrir perfil de ' + escapeHtml(a.name) + '">' + t('Ver perfil') + '</button></div></article>'
 }
 
 function tag(text, ghost = false) {
-  const safe = escapeHtml(text || '—')
+  if (!text || text === '—') return ''
+  const safe = escapeHtml(text)
   return '<span class="tag ' + (ghost ? 'ghost' : '') + '">' + safe + '</span>'
 }
 
@@ -866,7 +892,7 @@ function athletesPage() {
     '<div class="flex flex-wrap items-end justify-between gap-4"><div><h1 class="page-title">' + t('Pesquisar atletas') + '</h1><p class="page-subtitle">Abra o perfil completo, mande uma mensagem, vote e registre uma avaliação.</p></div><button type="button" class="btn-primary" data-action="openTryout">' + icon('plus', 'size-4') + ' Nova peneira</button></div>' +
     '<section class="mt-6 grid gap-5 lg:grid-cols-[280px_1fr]">' +
     filters +
-    '<div><div class="mb-4 flex flex-wrap items-center justify-between gap-2"><button type="button" class="filters-toggle btn-secondary" aria-controls="filters-panel" aria-expanded="false" data-filters-open>' + icon('filter', 'size-4') + ' Filtros</button><p id="athlete-count" class="text-sm text-ink-soft" aria-live="polite">' + state.athletes.length + ' atletas encontrados</p><button type="button" class="btn-secondary" data-action="export">' + icon('arrow', 'size-4') + ' Exportar seleção</button></div><div id="athlete-grid" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">' + state.athletes.map((a) => athleteCard(a, true)).join('') + '</div></div></section>',
+    '<div><div class="mb-4 flex flex-wrap items-center justify-between gap-2"><button type="button" class="filters-toggle btn-secondary" aria-controls="filters-panel" aria-expanded="false" data-filters-open>' + icon('filter', 'size-4') + ' Filtros</button><p id="athlete-count" class="text-sm text-ink-soft" aria-live="polite">' + plural(state.athletes.length, 'atleta encontrado', 'atletas encontrados') + '</p><button type="button" class="btn-secondary" data-action="export">' + icon('arrow', 'size-4') + ' Exportar seleção</button></div><div id="athlete-grid" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">' + state.athletes.map((a) => athleteCard(a, true)).join('') + '</div></div></section>',
     { active: 'athletes', role: 'staff' },
   )
 }
@@ -1721,6 +1747,14 @@ function exportSelection() {
   toast('CSV exportado com ' + rows.length + ' atleta(s).')
 }
 
+function clearFilters() {
+  ;['filter-name', 'filter-pos', 'filter-foot', 'filter-city', 'filter-age', 'filter-category'].forEach((id) => {
+    const field = document.querySelector('#' + id)
+    if (field) field.value = ''
+  })
+  applyFilters()
+}
+
 function applyFilters() {
   const name = document.querySelector('#filter-name')?.value || ''
   const pos = document.querySelector('#filter-pos')?.value || ''
@@ -1731,10 +1765,14 @@ function applyFilters() {
   const filtered = filterAthletes(state.athletes, { name, pos, city, age, category, foot })
   state.filteredAthletes = filtered
   const grid = document.querySelector('#athlete-grid')
-  if (grid) grid.innerHTML = filtered.map((a) => athleteCard(a, true)).join('') || '<div class="md:col-span-2 xl:col-span-3 rounded-2xl border border-dashed border-line p-10 text-center text-ink-soft">Nenhum atleta encontrado com esses filtros.</div>'
+  if (grid) {
+    grid.innerHTML = filtered.map((a) => athleteCard(a, true)).join('') ||
+      '<div class="empty-state md:col-span-2 xl:col-span-3"><strong>' + t('Nenhum atleta com esses filtros') + '</strong><span class="text-sm">' + t('Remova um filtro para ver mais atletas.') + '</span><button type="button" class="btn-secondary mt-2" data-action="clear-filters-empty">' + t('Limpar filtros') + '</button></div>'
+    grid.querySelector('[data-action="clear-filters-empty"]')?.addEventListener('click', clearFilters)
+  }
   const count = document.querySelector('#athlete-count')
   if (count) {
-    count.textContent = filtered.length + ' atleta(s) encontrado(s)'
+    count.textContent = plural(filtered.length, 'atleta encontrado', 'atletas encontrados')
     count.classList.remove('bump')
     void count.offsetWidth
     count.classList.add('bump')
@@ -2073,13 +2111,7 @@ function bind() {
   document.querySelectorAll('[data-action="notifications"]').forEach((button) => button.addEventListener('click', openNotifications))
   document.querySelectorAll('[data-action="menu"]').forEach((button) => button.addEventListener('click', openMobileMenu))
 
-  document.querySelectorAll('[data-action="clearFilters"]').forEach((button) => button.addEventListener('click', () => {
-    ;['filter-name', 'filter-pos', 'filter-foot', 'filter-city', 'filter-age', 'filter-category'].forEach((id) => {
-      const field = document.querySelector('#' + id)
-      if (field) field.value = ''
-    })
-    applyFilters()
-  }))
+  document.querySelectorAll('[data-action="clearFilters"]').forEach((button) => button.addEventListener('click', clearFilters))
 
   document.querySelectorAll('[data-action="export"]').forEach((button) => button.addEventListener('click', exportSelection))
   document.querySelectorAll('[data-action="logout"]').forEach((button) => button.addEventListener('click', async () => {

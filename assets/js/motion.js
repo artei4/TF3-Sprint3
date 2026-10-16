@@ -95,7 +95,7 @@ export function enterPage(root, isNewRoute) {
       if (element.matches('.num')) countUp(element)
       element.querySelectorAll?.('.num').forEach(countUp)
     })
-  }, { rootMargin: '0px 0px -8% 0px' })
+  }, { rootMargin: '0px 0px 12% 0px' })
   if (!isNewRoute) return
   // Ordem de cascata por grupo: cards irmãos entram um após o outro.
   root.querySelectorAll('main .reveal').forEach((element) => {
