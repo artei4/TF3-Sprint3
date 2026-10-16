@@ -10,6 +10,7 @@ import { filterAthletes } from './filters.js'
 import { toggleFavorite, registerVote, removeVote, hasVoted } from './feed.js'
 import { LANGS, getLang, setLang, t } from './i18n.js'
 import { designSystemPage, bindDesignSystem } from './design-system.js'
+import { processPhoto, illustratedAvatar } from './avatar.js'
 import { initSmoothScroll, initSpotlight, paintScreen, enterPage, scrollToTop, scrollToElement } from './motion.js'
 import {
   FEET,
@@ -255,6 +256,7 @@ function athleteFieldsFromProfile(profile = {}) {
     pos: profile.pos,
     secondary: profile.secondary || '—',
     age: Number.isFinite(age) ? age : 0,
+    photo: profile.photo || null,
   }
 }
 
@@ -317,6 +319,7 @@ function getConversations() {
         name: a.name,
         subtitle: a.pos + ' • ' + a.city,
         avatar: a.name,
+        person: a,
         key: remote.enabled ? threadKey(a.profileId, state.user.uid) : threadKey(a.id, state.user.email),
         athleteRef: a.profileId,
         staffRef: state.user.uid,
@@ -329,6 +332,7 @@ function getConversations() {
     name: a.profile?.name || a.email,
     subtitle: (a.profile?.position || 'Profissional') + ' • ' + (a.profile?.city || 'Pelé Academia'),
     avatar: a.profile?.name || a.email,
+    person: { name: a.profile?.name || a.email, photo: a.profile?.photo || null },
     key: remote.enabled ? threadKey(state.user.uid, a.uid) : threadKey(me.id, a.email),
     athleteRef: state.user.uid,
     staffRef: a.uid,
@@ -451,7 +455,7 @@ function conversationItemsHtml(conversations, selectedId) {
     const last = lastMessageOf(c.key)
     const unread = c.id === selectedId && (!isMobileView() || mobileChatOpen) ? 0 : unreadCount(c.key)
     return '<button type="button" class="conversation-item ' + (c.id === selectedId ? 'selected' : '') + '" data-thread="' + escapeHtml(c.id) + '" data-name="' + escapeHtml(c.name) + '" data-subtitle="' + escapeHtml(c.subtitle) + '">' +
-      '<span class="avatar">' + avatar(c.avatar) + '</span>' +
+      personAvatar(c.person || { name: c.avatar }) +
       '<span class="min-w-0 flex-1 text-left"><strong class="block truncate">' + escapeHtml(c.name) + '</strong>' +
       '<small class="conv-sub block truncate text-ink-soft">' + escapeHtml(c.subtitle) + '</small>' +
       '<small class="conv-preview truncate text-ink-soft">' + (last ? (last.senderRole === role ? '<span>Você: </span>' : '') + '<span translate="no">' + escapeHtml(last.text) + '</span>' : '<span>' + escapeHtml(c.subtitle) + '</span>') + '</small></span>' +
@@ -763,6 +767,7 @@ function icon(name, cls = 'size-5') {
     edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/>',
     bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/>',
     heart: '<path d="M20.8 8.8c0 5.5-8.8 10.7-8.8 10.7S3.2 14.3 3.2 8.8A4.8 4.8 0 0 1 12 6a4.8 4.8 0 0 1 8.8 2.8Z"/>',
+    camera: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
     info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
     clipboard: '<rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4.5V3h6v1.5M9 10h6M9 14h6M9 18h3"/>',
     sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
@@ -845,7 +850,7 @@ function shell(content, options = {}) {
     '<nav class="sidebar-nav" aria-label="' + t('Navegação principal') + '">' + nav.map((item) => navButton(item, 'nav-side')).join('') + '</nav>' +
     '<div class="sidebar-cta">' + cta + '</div>' +
     '<div class="sidebar-foot">' + partnerSeal() +
-    '<button type="button" class="profile-row" data-route="profile"><span class="avatar">' + avatar(state.user?.name || 'Atleta') + '</span><span class="min-w-0 text-left"><span class="block truncate text-sm font-semibold">' + escapeHtml(state.user?.name || 'Atleta') + '</span><span class="block text-xs text-ink-soft">' + (role === 'staff' ? t('Funcionário') : t('Atleta')) + '</span></span></button></div></aside>' +
+    '<button type="button" class="profile-row" data-route="profile">' + personAvatar(mePerson()) + '<span class="min-w-0 text-left"><span class="block truncate text-sm font-semibold">' + escapeHtml(state.user?.name || 'Atleta') + '</span><span class="block text-xs text-ink-soft">' + (role === 'staff' ? t('Funcionário') : t('Atleta')) + '</span></span></button></div></aside>' +
     // Coluna principal
     '<div class="app-main">' +
     '<header class="topbar site-header"><button type="button" class="topbar-brand" data-action="home" aria-label="' + t('TIER ZERO, ir para o início') + '">' + brandLockup(34) + '</button>' +
@@ -853,7 +858,7 @@ function shell(content, options = {}) {
     '<div class="topbar-actions">' +
     themeButton('hidden md:grid') + '<button type="button" class="icon-button hidden md:grid" data-action="change-lang" aria-label="' + t('Alterar idioma') + '" title="' + t('Alterar idioma') + '">' + icon('globe', 'size-4') + '</button>' +
     '<button type="button" class="icon-button relative" data-action="notifications" aria-label="' + t('Abrir notificações') + (notifCount ? ', ' + notifCount : '') + '">' + icon('bell') + '<span id="notif-badge" class="count-badge count-badge--alert" aria-hidden="true"' + (notifCount ? '' : ' hidden') + '>' + (notifCount > 9 ? '9+' : notifCount) + '</span></button>' +
-    '<button type="button" class="profile-chip topbar-profile" data-route="profile" aria-label="' + t('Meu perfil') + '"><span class="avatar">' + avatar(state.user?.name || 'Atleta') + '</span></button>' +
+    '<button type="button" class="profile-chip topbar-profile" data-route="profile" aria-label="' + t('Meu perfil') + '">' + personAvatar(mePerson()) + '</button>' +
     '<button type="button" class="icon-button md:hidden" data-action="menu" aria-label="' + t('Abrir menu') + '">' + icon('menu') + '</button>' +
     '</div></header>' +
     '<main id="conteudo" tabindex="-1" class="content-sheet outline-none">' + content + '</main>' +
@@ -1099,6 +1104,72 @@ function attributeAverages(athleteId, pos) {
   return { criteria, values, count: reviews.length }
 }
 
+// ---------- Avatares e fotos de perfil ----------
+// Foto enviada > avatar ilustrado (perfis de exemplo) > iniciais.
+function personAvatar(person, cls = 'avatar') {
+  const name = person?.name || 'Atleta'
+  if (person?.photo) return '<span class="' + cls + ' avatar-photo"><img src="' + escapeHtml(person.photo) + '" alt="" width="88" height="88" decoding="async" /></span>'
+  if (person?.demo) return '<span class="' + cls + ' avatar-photo">' + illustratedAvatar(person.id || name, positionGroup(person.pos)) + '</span>'
+  return '<span class="' + cls + '">' + avatar(name) + '</span>'
+}
+function mePerson() {
+  const account = state.accounts.find((entry) => entry.email === state.user?.email)
+  return { name: state.user?.name, photo: state.profile?.photo || account?.profile?.photo || null }
+}
+function photoUploader(person, inputId = 'photo-input') {
+  return '<div class="photo-uploader">' + personAvatar(person, 'avatar-xl profile-avatar') +
+    '<label class="photo-edit" for="' + inputId + '" title="' + t('Trocar foto') + '">' + icon('camera', 'size-4') + '<span class="sr-only">' + t('Trocar foto de perfil') + '</span></label>' +
+    '<input id="' + inputId + '" type="file" accept="image/*" class="sr-only" data-photo-input />' +
+    (person.photo ? '<button type="button" class="photo-remove" data-photo-remove>' + t('Remover foto') + '</button>' : '') + '</div>'
+}
+// Salva a foto no próprio perfil: no Supabase vai junto dos dados públicos (equipe vê no banco de atletas).
+async function savePhoto(photo) {
+  if (remote.enabled) {
+    const own = await fetchOwnProfile(state.user.uid)
+    const error = await updateOwnProfile(state.user.uid, { name: own.profile.name, data: { ...(own.profile.data || {}), photo } })
+    if (error) throw error
+  }
+  const account = state.accounts.find((entry) => entry.email === state.user.email)
+  if (state.profile) state.profile.photo = photo
+  if (account) account.profile = Object.assign(account.profile || {}, { photo })
+  syncAthletes()
+  persist()
+}
+function bindPhotoInputs(root = document) {
+  root.querySelectorAll('[data-photo-input]').forEach((input) => input.addEventListener('change', async () => {
+    const file = input.files?.[0]
+    if (!file) return
+    const box = input.closest('.photo-uploader')
+    box?.setAttribute('aria-busy', 'true')
+    try {
+      const photo = await processPhoto(file)
+      if (input.id === 'reg-photo-input') {
+        regPhoto = photo
+        box.outerHTML = photoUploader({ name: document.querySelector('#reg-name')?.value || 'Atleta', photo }, 'reg-photo-input')
+        bindPhotoInputs(document.querySelector('#register-form'))
+        return
+      }
+      await savePhoto(photo)
+      render()
+      toast(t('Foto atualizada.'))
+    } catch (error) {
+      box?.removeAttribute('aria-busy')
+      toast(error?.message && !error.code ? error.message : describeError(error), 'error')
+    }
+  }))
+  root.querySelectorAll('[data-photo-remove]').forEach((button) => button.addEventListener('click', async () => {
+    const box = button.closest('.photo-uploader')
+    if (box?.querySelector('#reg-photo-input')) {
+      regPhoto = null
+      box.outerHTML = photoUploader({ name: 'Atleta' }, 'reg-photo-input')
+      bindPhotoInputs(document.querySelector('#register-form'))
+      return
+    }
+    try { await savePhoto(null); render(); toast(t('Foto removida.')) } catch (error) { toast(describeError(error), 'error') }
+  }))
+}
+let regPhoto = null
+
 function athleteCard(a, staff = false) {
   const fav = state.favorites.includes(a.id)
   const count = a.votes + (state.votes[a.id] || 0)
@@ -1108,7 +1179,7 @@ function athleteCard(a, staff = false) {
 
   return '<article class="reveal spot athlete-card pos-' + positionGroup(a.pos) + ' flex h-full flex-col rounded-card surface p-4">' +
     '<div class="flex gap-4"><div class="fut-badge" aria-label="Nota ' + formatRating(rating) + ', ' + escapeHtml(a.pos) + '"><span class="num text-[2rem] ' + rateClass(rating) + '">' + formatRating(rating) + '</span><span class="pos-abbr">' + (POSITION_ABBR[a.pos] || '—') + '</span></div>' +
-    '<div class="min-w-0 flex-1"><div class="flex items-start justify-between gap-2"><button type="button" class="min-w-0 text-left" data-open-athlete="' + a.id + '"><h3 class="truncate text-lg font-semibold leading-tight">' + escapeHtml(a.name) + '</h3><p class="mt-0.5 truncate text-sm text-ink-soft">' + a.age + ' anos · ' + escapeHtml(a.city) + '/' + escapeHtml(a.state) + '</p></button>' +
+    '<div class="min-w-0 flex-1"><div class="flex items-start justify-between gap-2"><div class="flex min-w-0 items-center gap-3">' + personAvatar(a, 'avatar card-avatar') + '<button type="button" class="min-w-0 text-left" data-open-athlete="' + a.id + '"><h3 class="truncate text-lg font-semibold leading-tight">' + escapeHtml(a.name) + '</h3><p class="mt-0.5 truncate text-sm text-ink-soft">' + a.age + ' anos · ' + escapeHtml(a.city) + '/' + escapeHtml(a.state) + '</p></button></div>' +
     '<button type="button" class="icon-button sm shrink-0" data-favorite="' + a.id + '" aria-pressed="' + fav + '" aria-label="' + (fav ? 'Remover dos favoritos' : 'Favoritar') + '">' + icon('heart', 'size-4 ' + (fav ? 'fill-brand text-brand' : '')) + '</button></div>' +
     '<div class="mt-3 flex flex-wrap gap-1.5">' + posTag(a.pos) + posTag(a.secondary) + tag(getCategoryFromAge(a.age), true) + '</div></div></div>' +
     '<div class="scout-note mt-4"><p>' + escapeHtml(describeAthlete(a)) + '</p>' +
@@ -1151,7 +1222,7 @@ function profilePage() {
     const profile = account?.profile || { name: state.user.name, email: state.user.email, phone: '', position: t('Funcionário'), city: 'São Paulo', state: 'SP' }
     return shell(
       '<div class="page-head"><div><h1 class="page-title">' + escapeHtml(profile.name) + '</h1><p class="page-subtitle">' + t('Dados do funcionário que está conectado.') + '</p></div><button type="button" class="btn-secondary" data-action="logout">' + icon('logout', 'size-4') + ' ' + t('Sair') + '</button></div>' +
-      '<section class="mt-6 grid gap-5 md:grid-cols-2"><aside class="panel"><div class="flex items-center gap-4"><div class="avatar-xl">' + avatar(profile.name) + '</div><div><p class="text-xs text-ink-soft">' + t('Funcionário') + '</p><h2 class="mt-1 text-2xl font-bold">' + escapeHtml(profile.position || t('Profissional')) + '</h2><p class="text-sm text-ink-soft">' + escapeHtml(profile.city) + '/' + escapeHtml(profile.state) + '</p></div></div></aside><div class="panel"><h2 class="section-title">' + t('Credenciais de teste') + '</h2><p class="mt-4 text-sm leading-6 text-ink-soft">'+ t('E-mail de teste') + ': funcionario@academiapele.com<br/>' + t('Senha de teste') + ': Academia123!</p><button type="button" class="btn-primary mt-5" data-route="athletes">'+ t('Ir para o banco de atletas') + ' ' + icon('arrow', 'size-4') + '</button></div></section>',
+      '<section class="mt-6 grid gap-5 md:grid-cols-2"><aside class="panel"><div class="flex items-center gap-4">' + photoUploader({ name: profile.name, photo: profile.photo }) + '<div><p class="text-xs text-ink-soft">' + t('Funcionário') + '</p><h2 class="mt-1 text-2xl font-bold">' + escapeHtml(profile.position || t('Profissional')) + '</h2><p class="text-sm text-ink-soft">' + escapeHtml(profile.city) + '/' + escapeHtml(profile.state) + '</p></div></div></aside><div class="panel"><h2 class="section-title">' + t('Credenciais de teste') + '</h2><p class="mt-4 text-sm leading-6 text-ink-soft">'+ t('E-mail de teste') + ': funcionario@academiapele.com<br/>' + t('Senha de teste') + ': Academia123!</p><button type="button" class="btn-primary mt-5" data-route="athletes">'+ t('Ir para o banco de atletas') + ' ' + icon('arrow', 'size-4') + '</button></div></section>',
       { active: 'dashboard', role: 'staff' },
     )
   }
@@ -1166,7 +1237,7 @@ function profilePage() {
   const avg = averagePlayerRating(p)
   return shell(
     '<section class="hero surface rounded-card p-6 sm:p-8 pos-' + positionGroup(p.pos) + '"><span class="jersey" aria-hidden="true">' + (category.replace(/\D/g, '') || '10') + '</span>' +
-    '<div class="flex flex-wrap items-center gap-5"><div class="avatar-xl profile-avatar">' + avatar(p.name) + '</div><div class="min-w-0 flex-1"><h1 class="page-title !mt-0">' + escapeHtml(p.name) + '</h1>' +
+    '<div class="flex flex-wrap items-center gap-5">' + photoUploader({ name: p.name, photo: p.photo }) + '<div class="min-w-0 flex-1"><h1 class="page-title !mt-0">' + escapeHtml(p.name) + '</h1>' +
     '<p class="mt-2 text-ink-soft">' + escapeHtml(describeAthlete(p)) + ' ' + age + ' anos, ' + escapeHtml(category) + ', ' + escapeHtml(p.city || '') + '.</p>' +
     '<div class="mt-3 flex flex-wrap gap-1.5">' + posTag(p.pos) + posTag(p.secondary) + tag(category, true) + '</div></div>' +
     '<button type="button" class="btn-secondary self-start" data-action="logout">' + icon('logout', 'size-4') + ' ' + t('Sair') + '</button></div>' +
@@ -1353,7 +1424,7 @@ function messagesPage() {
     '<div id="conversation-list" class="max-h-[520px] space-y-1 overflow-y-auto p-2">' + conversationItemsHtml(conversations, selected.id) + '</div></aside>' +
     '<div class="chat-pane flex min-w-0 flex-col"><header class="chat-header flex items-center justify-between gap-3 border-b border-line px-5 py-4"><div class="flex min-w-0 items-center gap-3">' +
     '<button type="button" class="chat-back icon-button" data-action="chat-back" aria-label="Voltar para as conversas">' + icon('back') + '</button>' +
-    '<span class="avatar">' + avatar(selected.avatar) + '</span><div class="min-w-0"><p class="truncate font-bold">' + escapeHtml(selected.name) + '</p><p class="truncate text-xs text-ink-soft">' + escapeHtml(selected.subtitle) + '</p></div></div></header>' +
+    personAvatar(selected.person || { name: selected.avatar }) + '<div class="min-w-0"><p class="truncate font-bold">' + escapeHtml(selected.name) + '</p><p class="truncate text-xs text-ink-soft">' + escapeHtml(selected.subtitle) + '</p></div></div></header>' +
     '<div id="chat-messages" class="chat-messages flex-1 overflow-y-auto p-5">' + renderHistory(history, role) + '</div>' +
     '<form id="message-form" class="chat-input-bar border-t border-line p-3 sm:p-4"><div class="composer"><label for="message-input" class="sr-only">' + t('Mensagem para') + ' ' + escapeHtml(selected.name) + '</label><input id="message-input" class="composer-input" placeholder="' + t('Escreva uma mensagem') + '" autocomplete="off" maxlength="2000" required/><button class="btn-primary chat-send shrink-0" aria-label="' + t('Enviar mensagem') + '">' + icon('send', 'size-4') + '</button></div></form></div></section>',
     { active: 'messages', role },
@@ -1438,35 +1509,129 @@ async function saveRecoveredPassword() {
   await clearRemoteSession({ navigate: true })
 }
 
+// Cadastro em 3 etapas (dados sensíveis por último), com validação por etapa e volta sem perder nada.
+const REG_STEPS = [
+  { title: 'Você', hint: 'Nome, documento e idade', fields: ['reg-name', 'reg-cpf', 'reg-birth', 'reg-gender'] },
+  { title: 'Seu jogo', hint: 'Posições e perna dominante', fields: ['reg-pos', 'reg-secondary', 'reg-foot'] },
+  { title: 'Contato e acesso', hint: 'E-mail, endereço e senha', fields: ['reg-email', 'reg-phone', 'reg-zip', 'reg-city', 'reg-state', 'reg-district', 'reg-address', 'reg-number', 'reg-password', 'reg-confirm'] },
+]
 function registerPage() {
-  return '<main id="conteudo" tabindex="-1" class="outline-none min-h-screen bg-transparent px-4 py-8 text-chalk"><div class="mx-auto max-w-5xl rounded-card surface p-6 sm:p-10">' +
-    '<div class="flex flex-wrap items-center justify-between gap-4"><div><div class="mb-4">' + brandLockup(32, false) + '</div><h1 class="text-3xl font-bold">' + t('Criar conta de jogador') + '</h1></div><button type="button" class="btn-ghost" data-route="login">' + t('Voltar') + '</button></div>' +
-    '<p class="mt-3 max-w-3xl text-sm leading-6 text-ink-soft">Preencha seus dados pessoais, categoria esportiva, gênero, posições e endereço. A idade e a categoria são calculadas automaticamente pela data de nascimento.</p>' +
-    '<form id="register-form" class="mt-8 grid gap-4 sm:grid-cols-2">' +
-    input(t('Nome completo'), 'reg-name', '', 'text', true) +
-    input('CPF', 'reg-cpf', '', 'text', true) +
-    input(t('Data de nascimento'), 'reg-birth', '', 'date', true) +
-    input(t('Idade'), 'reg-age', '', 'number', false, false, true) +
-    '<label class="field-label">Categoria<select id="reg-category" class="field" disabled><option>Preencha a data de nascimento</option></select></label>' +
-    selectField(t('Gênero'), 'reg-gender', GENDERS, '') +
-    input(t('E-mail'), 'reg-email', '', 'email', true) +
-    input(t('Telefone'), 'reg-phone', '', 'tel', true) +
-    selectField(t('Posição principal'), 'reg-pos', POSITIONS, '') +
-    selectField(t('Posição secundária'), 'reg-secondary', ['—'].concat(POSITIONS), '—') +
-    selectField(t('Perna dominante'), 'reg-foot', FEET, '') +
-    '<div class="sm:col-span-2 mt-2 rounded-2xl border border-line bg-night/60 p-4"><p class="text-sm font-bold">' + t('Endereço') + '</p><p class="mt-1 text-xs text-ink-soft">A cidade informada aqui será usada também nos filtros de região.</p></div>' +
-    input(t('CEP'), 'reg-zip', '', 'text', true) +
-    input(t('Cidade'), 'reg-city', '', 'text', true) +
-    input(t('Estado'), 'reg-state', '', 'text', true) +
-    input(t('Bairro'), 'reg-district', '', 'text', true) +
-    input(t('Endereço'), 'reg-address', '', 'text', true) +
-    input(t('Número'), 'reg-number', '', 'text', true) +
-    input(t('Senha'), 'reg-password', '', 'password', true) +
-    input(t('Confirmar senha'), 'reg-confirm', '', 'password', true) +
-    '<div id="reg-feedback" class="sm:col-span-2 hidden rounded-2xl border px-4 py-3 text-sm" role="alert"></div>' +
-    '<div class="sm:col-span-2 flex flex-wrap items-center justify-between gap-3 pt-3"><p class="max-w-2xl text-xs leading-5 text-ink-soft">' + (remote.enabled ? 'Sua conta fica no servidor da Pelé Academia. CPF, telefone e endereço são visíveis só para você.' : 'Modo local: os dados ficam apenas neste navegador. Não use senhas reais.') + '</p><button class="btn-primary" type="submit">' + t('Criar conta') + ' ' + icon('check', 'size-4') + '</button></div>' +
-    '</form></div></main>'
+  regPhoto = null
+  const step = (n, body) => '<fieldset class="reg-step" data-step="' + n + '"' + (n ? ' hidden' : '') + '><legend class="sr-only">' + REG_STEPS[n].title + '</legend><h2 class="reg-step-title" tabindex="-1">' + t(REG_STEPS[n].title) + '</h2><p class="mt-1 text-sm text-ink-soft">' + t(REG_STEPS[n].hint) + '</p><div class="mt-5 grid gap-4 sm:grid-cols-2">' + body + '</div></fieldset>'
+  return '<main id="conteudo" tabindex="-1" class="register-stage outline-none text-chalk">' +
+    '<aside class="register-aside"><button type="button" class="self-start" data-route="login" aria-label="' + t('Voltar para o login') + '">' + brandLockup(36) + '</button>' +
+    '<div><h1 class="register-title">' + t('Criar conta de jogador') + '</h1><p class="mt-3 max-w-sm text-ink-soft">' + t('Três etapas curtas. A idade e a categoria saem da data de nascimento.') + '</p></div>' +
+    '<ol class="stepper" aria-label="' + t('Etapas do cadastro') + '">' + REG_STEPS.map((item, i) => '<li data-stepper="' + i + '"' + (i ? '' : ' aria-current="step"') + '><span class="stepper-dot">' + (i + 1) + '</span><span><strong>' + t(item.title) + '</strong><small>' + t(item.hint) + '</small></span></li>').join('') + '</ol>' +
+    '<div class="register-foot">' + partnerSeal() + '<p class="text-sm text-ink-soft">' + t('Já tem conta?') + ' <button type="button" class="font-semibold text-brand underline underline-offset-4" data-route="login">' + t('Entrar') + '</button></p></div></aside>' +
+    '<section class="register-card surface surface--raised"><div class="reg-progress" aria-hidden="true"><span style="width:33.3%"></span></div><p class="mt-3 text-xs font-semibold text-ink-soft" data-step-label aria-live="polite">' + t('Etapa') + ' 1 ' + t('de') + ' 3</p>' +
+    '<form id="register-form" class="mt-4" novalidate>' +
+    step(0,
+      '<div class="sm:col-span-2 flex items-center gap-4">' + photoUploader({ name: 'Atleta' }, 'reg-photo-input') + '<p class="text-sm text-ink-soft">' + t('Foto de perfil (opcional). Ajuda os olheiros a lembrarem de você.') + '</p></div>' +
+      input(t('Nome completo'), 'reg-name', '', 'text', true) + input('CPF', 'reg-cpf', '', 'text', true) +
+      input(t('Data de nascimento'), 'reg-birth', '', 'date', true) + input(t('Idade'), 'reg-age', '', 'number', false, false, true) +
+      '<label class="field-label">' + t('Categoria') + '<select id="reg-category" class="field" disabled><option>' + t('Preencha a data de nascimento') + '</option></select></label>' +
+      selectField(t('Gênero'), 'reg-gender', GENDERS, '')) +
+    step(1,
+      selectField(t('Posição principal'), 'reg-pos', POSITIONS, '') + selectField(t('Posição secundária'), 'reg-secondary', ['—'].concat(POSITIONS), '—') +
+      selectField(t('Perna dominante'), 'reg-foot', FEET, '') +
+      '<div class="sm:col-span-2" data-reg-preview></div>') +
+    step(2,
+      input(t('E-mail'), 'reg-email', '', 'email', true) + input(t('Telefone'), 'reg-phone', '', 'tel', true) +
+      '<p class="form-group-title sm:col-span-2">' + t('Endereço') + '</p>' +
+      input(t('CEP'), 'reg-zip', '', 'text', true) + input(t('Cidade'), 'reg-city', '', 'text', true) + input(t('Estado'), 'reg-state', '', 'text', true) + input(t('Bairro'), 'reg-district', '', 'text', true) +
+      input(t('Endereço'), 'reg-address', '', 'text', true) + input(t('Número'), 'reg-number', '', 'text', true) +
+      '<p class="form-group-title sm:col-span-2">' + t('Acesso') + '</p>' +
+      input(t('Senha'), 'reg-password', '', 'password', true) + input(t('Confirmar senha'), 'reg-confirm', '', 'password', true) +
+      '<p class="sm:col-span-2 text-xs leading-5 text-ink-soft">' + (remote.enabled ? t('Sua conta fica no servidor da plataforma. CPF, telefone e endereço são visíveis só para você.') : t('Modo local: os dados ficam apenas neste navegador. Não use senhas reais.')) + '</p>') +
+    '<div id="reg-feedback" class="mt-4 hidden rounded-2xl border px-4 py-3 text-sm" role="alert"></div>' +
+    '<div class="reg-nav"><button type="button" class="btn-ghost" data-reg-back hidden>' + icon('back', 'size-4') + ' ' + t('Voltar') + '</button><button type="button" class="btn-primary ml-auto" data-reg-next>' + t('Continuar') + ' ' + icon('arrow', 'size-4') + '</button><button class="btn-primary ml-auto" type="submit" hidden>' + t('Criar conta') + ' ' + icon('check', 'size-4') + '</button></div>' +
+    '</form></section></main>'
 }
+
+function setFieldError(id, message) {
+  const field = document.getElementById(id)
+  if (!field) return
+  let error = document.getElementById(id + '-err')
+  field.setAttribute('aria-invalid', message ? 'true' : 'false')
+  if (!message) { error?.remove(); field.removeAttribute('aria-describedby'); return }
+  if (!error) {
+    error = document.createElement('p')
+    error.id = id + '-err'
+    error.className = 'field-error'
+    field.insertAdjacentElement('afterend', error)
+  }
+  error.textContent = message
+  field.setAttribute('aria-describedby', error.id)
+}
+
+function validateRegisterStep(n) {
+  const v = (id) => (document.getElementById(id)?.value || '').trim()
+  const errors = []
+  if (n === 0) {
+    if (v('reg-name').length < 3) errors.push(['reg-name', t('Informe o nome completo.')])
+    if (!validateCPF(v('reg-cpf'))) errors.push(['reg-cpf', t('CPF inválido. Confira os 11 dígitos.')])
+    const age = getAgeFromBirth(v('reg-birth'))
+    if (!validBirthDate(v('reg-birth'))) errors.push(['reg-birth', t('Informe uma data de nascimento válida.')])
+    else if (age < 7 || age > 20) errors.push(['reg-birth', t('A faixa da plataforma é de 7 a 20 anos (até Sub-20).')])
+    if (!v('reg-gender')) errors.push(['reg-gender', t('Selecione uma opção.')])
+  }
+  if (n === 1) {
+    if (!v('reg-pos')) errors.push(['reg-pos', t('Selecione a posição principal.')])
+    if (v('reg-secondary') === v('reg-pos') && v('reg-pos')) errors.push(['reg-secondary', t('Escolha uma posição diferente da principal.')])
+    if (!v('reg-foot')) errors.push(['reg-foot', t('Selecione a perna dominante.')])
+  }
+  if (n === 2) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v('reg-email'))) errors.push(['reg-email', t('Informe um e-mail válido.')])
+    ;['reg-phone', 'reg-zip', 'reg-city', 'reg-state', 'reg-district', 'reg-address', 'reg-number'].forEach((id) => { if (!v(id)) errors.push([id, t('Campo obrigatório.')]) })
+    if (v('reg-password').length < 6) errors.push(['reg-password', t('Use pelo menos 6 caracteres.')])
+    if (v('reg-confirm') !== v('reg-password')) errors.push(['reg-confirm', t('As senhas não coincidem.')])
+  }
+  REG_STEPS[n].fields.forEach((id) => setFieldError(id, ''))
+  errors.forEach(([id, message]) => setFieldError(id, message))
+  if (errors.length) document.getElementById(errors[0][0])?.focus()
+  return !errors.length
+}
+
+function initRegisterSteps() {
+  const form = document.querySelector('#register-form')
+  if (!form || form.dataset.steps) return
+  form.dataset.steps = '1'
+  let current = 0
+  const show = (n) => {
+    current = n
+    form.querySelectorAll('.reg-step').forEach((fieldset) => { fieldset.hidden = Number(fieldset.dataset.step) !== n })
+    document.querySelectorAll('[data-stepper]').forEach((li) => {
+      const i = Number(li.dataset.stepper)
+      li.toggleAttribute('data-done', i < n)
+      if (i === n) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current')
+    })
+    form.querySelector('[data-reg-back]').hidden = n === 0
+    form.querySelector('[data-reg-next]').hidden = n === REG_STEPS.length - 1
+    form.querySelector('[type="submit"]').hidden = n !== REG_STEPS.length - 1
+    document.querySelector('.reg-progress span').style.width = ((n + 1) / REG_STEPS.length * 100) + '%'
+    document.querySelector('[data-step-label]').textContent = t('Etapa') + ' ' + (n + 1) + ' ' + t('de') + ' ' + REG_STEPS.length
+    if (n === 1) {
+      const name = (document.querySelector('#reg-name')?.value || '').trim().split(' ')[0]
+      const age = getAgeFromBirth(document.querySelector('#reg-birth')?.value)
+      document.querySelector('[data-reg-preview]').innerHTML = name && Number.isFinite(age) ? '<p class="scout-note">' + escapeHtml(name) + ', ' + age + ' ' + t('anos') + ' · ' + escapeHtml(getCategoryFromAge(age)) + '. ' + t('Escolha onde você joga melhor; a secundária ajuda a encontrar mais peneiras.') + '</p>' : ''
+    }
+    form.querySelector('.reg-step:not([hidden]) .reg-step-title')?.focus()
+  }
+  // O erro some assim que a pessoa corrige o campo.
+  form.addEventListener('input', (event) => { if (event.target.getAttribute('aria-invalid') === 'true') setFieldError(event.target.id, '') })
+  form.addEventListener('change', (event) => { if (event.target.getAttribute('aria-invalid') === 'true') setFieldError(event.target.id, '') })
+  form.querySelector('[data-reg-next]').addEventListener('click', () => { if (validateRegisterStep(current)) show(current + 1) })
+  form.querySelector('[data-reg-back]').addEventListener('click', () => show(current - 1))
+  // Enter num campo avança a etapa em vez de enviar o formulário inteiro
+  form.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && event.target.matches('input') && current < REG_STEPS.length - 1) {
+      event.preventDefault()
+      if (validateRegisterStep(current)) show(current + 1)
+    }
+  })
+  form.addEventListener('submit', (event) => { if (!validateRegisterStep(current)) { event.preventDefault(); event.stopImmediatePropagation() } }, true)
+}
+
 
 function input(label, id, value = '', type = 'text', required = false, disabled = false, readonly = false) {
   return '<label class="field-label">' + escapeHtml(label) + '<input id="' + id + '" class="field" type="' + type + '" value="' + escapeHtml(value) + '"' + (required ? ' required' : '') + (disabled ? ' disabled' : '') + (readonly ? ' readonly' : '') + ' /></label>'
@@ -1537,16 +1702,27 @@ function openAthleteModal(athleteId) {
   const wrapper = document.createElement('div')
   wrapper.id = 'modal-root'
   wrapper.className = 'fixed inset-0 z-[90] grid place-items-center bg-black/75 p-4 backdrop-blur-md'
+  const attrs = attributeAverages(athlete.id, athlete.pos)
+  const rating = ratingOf(athlete)
+  const voted = hasVoted(state, athlete.id, state.user?.email || 'anon')
+  const strengths = strengthsOf(athlete)
   wrapper.innerHTML =
-    '<div class="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-card surface surface--raised p-6 shadow-2xl sm:p-8" role="dialog" aria-modal="true" aria-labelledby="athlete-modal-title">' +
-    '<div class="flex items-start justify-between gap-4"><div class="flex items-center gap-4"><div class="avatar-xl bg-gradient-to-br ' + athlete.color + '">' + avatar(athlete.name) + '</div><div><h2 id="athlete-modal-title" class="mt-1 text-2xl font-bold">' + escapeHtml(athlete.name) + '</h2><p class="text-sm text-ink-soft">' + athlete.age + ' ' + t('anos') + ' • ' + escapeHtml(athlete.city) + '/' + escapeHtml(athlete.state) + '</p></div></div><button type="button" class="icon-button" data-close-modal aria-label="Fechar">' + icon('close') + '</button></div>' +
-    '<div class="mt-6 flex flex-wrap gap-2">' + tag(t(athlete.pos)) + tag(t(athlete.secondary), true) + footTag(t(athlete.foot)) + tag(t(getCategoryFromAge(athlete.age))) + tag(t(athlete.gender || 'Não informado'), true) + '</div>' +
-    '<div class="mt-6 grid gap-4 md:grid-cols-3"><div class="panel"><p class="text-xs text-ink-soft">' + t('Avaliação média') + '</p><p class="mt-2 text-3xl font-bold text-brand">' + formatRating(ratingOf(athlete)) + '</p></div><div class="panel"><p class="text-xs text-ink-soft">' + t('Votos') + '</p><p id="modal-votes" class="mt-2 text-3xl font-bold">' + (athlete.votes + (state.votes[athlete.id] || 0)) + '</p></div><div class="panel"><p class="text-xs text-ink-soft">' + t('Status') + '</p><p class="mt-2 text-lg font-bold">' + escapeHtml(athlete.status) + '</p></div></div>' +
-    '<div class="mt-6"><span class="eyebrow">' + t('Atributos') + '</span><div class="mt-3 flex flex-wrap gap-2">' + (athlete.tags || []).map((item) => tag(item)).join('') + '</div></div>' +
-    '<div class="mt-6 flex flex-wrap gap-2"><button type="button" class="btn-primary" data-message-athlete="' + athlete.id + '">' + icon('message', 'size-4') + ' ' + t('Abrir conversa') + '</button><button type="button" class="btn-secondary" data-vote="' + athlete.id + '">' + icon('star', 'size-4') + '<span>' + (hasVoted(state, athlete.id, state.user?.email || 'anon') ? t('Retirar voto') : t('Votar')) + '</span></button>' +
+    '<div class="athlete-modal pos-' + positionGroup(athlete.pos) + ' max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-card surface surface--raised shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="athlete-modal-title" data-lenis-prevent>' +
+    '<header class="athlete-modal-hero"><button type="button" class="icon-button athlete-modal-close" data-close-modal aria-label="Fechar">' + icon('close') + '</button>' +
+    '<div class="flex flex-wrap items-end gap-5">' + personAvatar(athlete, 'avatar-xl profile-avatar athlete-modal-avatar') +
+    '<div class="min-w-0 flex-1"><h2 id="athlete-modal-title" class="text-3xl font-semibold leading-tight">' + escapeHtml(athlete.name) + '</h2>' +
+    '<p class="mt-1 text-ink-soft">' + athlete.age + ' ' + t('anos') + ' · ' + escapeHtml(athlete.city) + '/' + escapeHtml(athlete.state) + (athlete.demo ? ' · ' + t('perfil de exemplo') : '') + '</p>' +
+    '<div class="mt-3 flex flex-wrap gap-1.5">' + posTag(athlete.pos) + posTag(athlete.secondary) + tag(getCategoryFromAge(athlete.age), true) + (athlete.gender ? tag(athlete.gender, true) : '') + '</div></div>' +
+    '<div class="fut-badge" aria-label="Nota ' + formatRating(rating) + '"><span class="num text-[2rem] ' + rateClass(rating) + '">' + formatRating(rating) + '</span><span class="pos-abbr">' + (POSITION_ABBR[athlete.pos] || '—') + '</span></div></div></header>' +
+    '<div class="p-6 sm:p-8">' +
+    '<div class="scout-note"><p>' + escapeHtml(describeAthlete(athlete)) + '</p>' + (strengths.length ? '<p class="scout-strengths">' + strengths.map((item) => '<span>' + escapeHtml(item) + '</span>').join('') + '</p>' : '') + '</div>' +
+    '<dl class="profile-stats mt-5 grid grid-cols-3 gap-3"><div><dt>' + t('Votos') + '</dt><dd id="modal-votes" class="num">' + (athlete.votes + (state.votes[athlete.id] || 0)) + '</dd></div><div><dt>' + t('Avaliações') + '</dt><dd class="num">' + reviews.length + '</dd></div><div><dt>' + t('Status') + '</dt><dd class="text-base font-semibold">' + escapeHtml(athlete.status || '—') + '</dd></div></dl>' +
+    '<div class="mt-6 flex flex-wrap gap-2"><button type="button" class="btn-primary" data-message-athlete="' + athlete.id + '">' + icon('message', 'size-4') + ' ' + t('Abrir conversa') + '</button><button type="button" class="btn-secondary" data-vote="' + athlete.id + '">' + icon('star', 'size-4') + '<span>' + (voted ? t('Retirar voto') : t('Votar')) + '</span></button>' +
     (state.user?.role === 'staff' ? '<button type="button" class="btn-secondary" data-review-athlete="' + athlete.id + '">' + icon('edit', 'size-4') + ' ' + t('Registrar avaliação') + '</button>' : '') + '</div>' +
-    '<section class="mt-8"><div class="flex items-center justify-between gap-3"><div><span class="eyebrow">' + t('Avaliações') + '</span><h3 class="section-title">' + reviews.length + ' ' + t('registro(s)') + '</h3></div></div><div class="mt-4 grid gap-4 md:grid-cols-2">' + (reviews.length ? reviews.map((review) => reviewCard(review, athlete.id)).join('') : '<div class="md:col-span-2 rounded-2xl border border-dashed border-line p-8 text-center text-ink-soft">' + t('Nenhuma avaliação registrada ainda.') + '</div>') + '</div></section>' +
-    '</div>'
+    '<section class="mt-8 grid gap-6 md:grid-cols-[1fr_1.1fr]"><div><h3 class="section-title !mt-0">' + t('Atributos') + '</h3>' +
+    (Object.keys(attrs.values).length ? '<div class="mt-3">' + radarChart(attrs.criteria, attrs.values) + '</div>' : '<div class="empty-state mt-3"><strong>' + t('Sem avaliação ainda') + '</strong><span class="text-sm">' + t('O radar aparece depois da primeira avaliação registrada.') + '</span></div>') + '</div>' +
+    '<div><h3 class="section-title !mt-0">' + t('Avaliações') + ' <span class="text-ink-soft">(' + reviews.length + ')</span></h3><div class="mt-3 grid gap-3">' + (reviews.length ? reviews.map((review) => reviewCard(review, athlete.id)).join('') : '<p class="text-sm text-ink-soft">' + t('Nenhuma avaliação registrada ainda.') + '</p>') + '</div></div></section>' +
+    '</div></div>'
 
   document.body.appendChild(wrapper)
   wrapper.querySelectorAll('[data-close-modal]').forEach((button) => button.addEventListener('click', () => wrapper.remove()))
@@ -2115,7 +2291,7 @@ async function saveProfile() {
   if (remote.enabled) {
     const failure = await updateOwnProfile(state.user.uid, {
       name: next.name,
-      data: { birth: next.birth, gender: next.gender, foot: next.foot, pos: next.pos, secondary: next.secondary, city: next.city, state: next.state },
+      data: { birth: next.birth, gender: next.gender, foot: next.foot, pos: next.pos, secondary: next.secondary, city: next.city, state: next.state, photo: p.photo || null },
       privateData: { cpf: next.cpf, phone: next.phone, zip: next.zip, district: next.district, address: next.address, number: next.number },
     })
     if (failure) return showFeedback('profile-feedback', describeError(failure), true)
@@ -2196,6 +2372,7 @@ async function registerAccount() {
     number,
     district,
     zip,
+    photo: regPhoto,
   }
 
   if (remote.enabled) {
@@ -2222,6 +2399,7 @@ async function registerAccount() {
       submit?.removeAttribute('disabled')
       return showFeedback('reg-feedback', describeError(error), true)
     }
+    if (regPhoto) { try { await savePhoto(regPhoto) } catch (error) { console.warn('[Supabase] foto não salva:', error) } }
     notify(email, 'Conta criada', 'Seu cadastro foi concluído com categoria ' + getCategoryFromAge(age) + '.')
     persist()
     go('dashboard')
@@ -2404,6 +2582,8 @@ function bind() {
     go(button.dataset.route)
   }))
   initLoginRoleButtons()
+  bindPhotoInputs(app)
+  initRegisterSteps()
   // Prancheta do login: com "reduzir movimento", congela num quadro da jogada (o SMIL não obedece ao CSS).
   const board = document.querySelector('.tactic-board')
   if (board && matchMedia('(prefers-reduced-motion: reduce)').matches) { board.pauseAnimations(); board.setCurrentTime(3.6) }
