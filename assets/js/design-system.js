@@ -10,7 +10,7 @@ const DS_COLORS = [
 const DS_SECTIONS = [['ds-cores', 'Cores'], ['ds-tipo', 'Tipografia'], ['ds-espaco', 'Espaço, raios e sombras'], ['ds-botoes', 'Botões'], ['ds-campos', 'Campos'], ['ds-tags', 'Tags e navegação'], ['ds-feedback', 'Feedback'], ['ds-cards', 'Cards e modais']]
 
 const section = (id, title, desc, body) =>
-  `<section aria-labelledby="${id}-t" class="border-t border-line py-10"><h2 id="${id}-t" tabindex="-1" class="section-title outline-none">${title}</h2><p class="mt-2 max-w-[65ch] text-sm text-ink-soft">${desc}</p><div class="mt-6">${body}</div></section>`
+  `<section aria-labelledby="${id}-t" class="reveal border-t border-line py-10"><h2 id="${id}-t" tabindex="-1" class="section-title outline-none">${title}</h2><p class="mt-2 max-w-[65ch] text-sm text-ink-soft">${desc}</p><div class="mt-6">${body}</div></section>`
 
 const row = (label, html) =>
   `<div class="grid gap-3 border-b border-line py-4 last:border-0 sm:grid-cols-[10rem_1fr] sm:items-center"><p class="text-sm font-semibold text-ink-soft">${label}</p><div class="flex flex-wrap items-center gap-3">${html}</div></div>`
@@ -28,7 +28,7 @@ export function designSystemPage({ icon, input, selectField, tag, athleteCard, p
 
   return '<div class="min-h-screen">' +
     '<header class="sticky top-0 z-40 border-b border-line bg-night/95 backdrop-blur"><div class="mx-auto flex min-h-[4.5rem] max-w-[1200px] items-center justify-between gap-3 px-4 sm:px-6">' +
-    '<a href="#/" class="flex min-w-0 items-center gap-3"><img src="./assets/brand/simbolo.jpg" alt="" width="40" height="40" class="h-10 w-10 shrink-0 rounded-xl object-contain" /><span class="truncate font-extrabold [font-stretch:80%]">Pelé Academia <span class="font-semibold text-ink-soft">· Design system</span></span></a>' +
+    '<a href="#/" class="flex min-w-0 items-center gap-3"><img src="./assets/brand/simbolo.jpg" alt="" width="40" height="40" class="h-10 w-10 shrink-0 rounded-xl object-contain" /><span class="truncate font-bold font-display">Pelé Academia <span class="font-semibold text-ink-soft">· Design system</span></span></a>' +
     '<a href="#/" class="btn-secondary shrink-0">Voltar ao app</a></div></header>' +
     '<div class="mx-auto grid max-w-[1200px] gap-x-8 px-4 sm:px-6 lg:grid-cols-[13rem_minmax(0,1fr)]">' +
     '<nav aria-label="Seções do design system" class="min-w-0 lg:sticky lg:top-24 lg:self-start lg:pt-10"><ul class="flex gap-1 overflow-x-auto py-4 lg:flex-col lg:py-0">' +
@@ -38,9 +38,9 @@ export function designSystemPage({ icon, input, selectField, tag, athleteCard, p
 
     section('ds-cores', 'Cores', 'Valores lidos do CSS em tempo real. Todos os pares de texto passam o contraste AA (4.5:1) sobre os fundos.',
       '<ul class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">' + DS_COLORS.map(([name, use]) =>
-        `<li class="overflow-hidden rounded-[var(--radius-control)] border border-line"><span class="block h-16" style="background:var(--color-${name})"></span><span class="block p-3 text-sm"><strong class="block">${name}</strong><span class="block text-ink-soft">${use}</span><code class="tabular mt-1 block text-xs text-ink-soft" data-ds-token="--color-${name}"></code></span></li>`).join('') + '</ul>') +
+        `<li class="reveal spot overflow-hidden rounded-[var(--radius-control)] border border-line"><span class="block h-16" style="background:var(--color-${name})"></span><span class="block p-3 text-sm"><strong class="block">${name}</strong><span class="block text-ink-soft">${use}</span><code class="tabular mt-1 block text-xs text-ink-soft" data-ds-token="--color-${name}"></code></span></li>`).join('') + '</ul>') +
 
-    section('ds-tipo', 'Tipografia', 'Uma família variável (Archivo). Títulos e números em largura condensada, como os números das camisas; texto corrido em largura normal.',
+    section('ds-tipo', 'Tipografia', 'Bricolage Grotesque (títulos e números, eixo óptico) + Instrument Sans (texto). Ambas variáveis, carregadas com display=swap.',
       row('Display', '<p class="page-title !mt-0">Peneira Sub-17</p>') +
       row('Título de seção', '<p class="section-title !mt-0">Atletas para observar</p>') +
       row('Numeral', '<p class="num text-5xl text-brand">8,6</p><p class="num text-5xl">12/18</p>') +
@@ -93,13 +93,13 @@ export function designSystemPage({ icon, input, selectField, tag, athleteCard, p
     '</main></div></div>'
 }
 
-export function bindDesignSystem(root, { toast, confirmDialog }) {
+export function bindDesignSystem(root, { toast, confirmDialog, scrollToElement }) {
   const styles = getComputedStyle(document.documentElement)
   root.querySelectorAll('[data-ds-token]').forEach((el) => { el.textContent = styles.getPropertyValue(el.dataset.dsToken).trim() })
   root.querySelectorAll('[data-ds-jump]').forEach((link) => link.addEventListener('click', (event) => {
     event.preventDefault() // o roteador usa o hash; a âncora só rola e foca a seção
     const heading = document.getElementById(link.dataset.dsJump + '-t')
-    heading?.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' })
+    scrollToElement(heading)
     heading?.focus({ preventScroll: true })
   }))
   root.querySelectorAll('[data-ds-demo]').forEach((button) => button.addEventListener('click', () => toast('Exemplo do design system: no app, este controle executa a ação real.')))

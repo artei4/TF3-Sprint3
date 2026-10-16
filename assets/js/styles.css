@@ -20,7 +20,8 @@
   --color-ink-soft: #A7B5AA;
   --color-success: #78D2A3;
   --color-danger: #EF8B8B;
-  --font-sans: "Archivo", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Bricolage Grotesque", "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
   --radius-card: 1.25rem;
   --radius-control: .75rem;
   --spacing-page: 1.25rem;
@@ -46,6 +47,10 @@
   --shadow-modal: 0 32px 64px -24px rgb(0 0 0 / .75);
 
   --ease-out: cubic-bezier(.23, 1, .32, 1);
+  --ease-in-out: cubic-bezier(.77, 0, .175, 1);
+  /* Mola (overshoot leve) para toasts, chips e indicadores. */
+  --ease-spring: linear(0, .009, .035 2.1%, .141, .281 6.7%, .723 12.9%, .938 16.7%, 1.017, 1.077, 1.121, 1.149 24.3%, 1.159, 1.163, 1.161, 1.154 29.9%, 1.129 32.8%, 1.051 39.6%, 1.017 43.1%, .991, .977 51%, .974 53.8%, .975 57.1%, .997 69.8%, 1.003 76.9%, 1.004 83.8%, 1);
+  --dur-enter: 700ms;
   --dur-press: 120ms;
   --dur-hover: 200ms;
   --dur-state: 250ms;
@@ -56,8 +61,12 @@
   html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   body {
     margin: 0; color: var(--color-chalk); overflow-x: hidden;
-    /* Faixas de gramado cortado: o único ornamento do sistema. */
-    background: repeating-linear-gradient(90deg, var(--color-night) 0 7rem, var(--color-stripe) 7rem 14rem) fixed;
+    /* Marcação do campo (meio-campo e círculo central) em cal bem tênue + luz de refletor no topo. */
+    background:
+      radial-gradient(60rem 28rem at 85% -10%, color-mix(in oklab, var(--color-brand) 9%, transparent), transparent 70%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='1200' viewBox='0 0 1200 1200' fill='none' stroke='%23EEF1E8' stroke-opacity='.045' stroke-width='2'%3E%3Ccircle cx='600' cy='600' r='183'/%3E%3Ccircle cx='600' cy='600' r='4' fill='%23EEF1E8' fill-opacity='.06'/%3E%3Cpath d='M0 600h1200'/%3E%3C/svg%3E") right -30rem top -24rem / 75rem no-repeat,
+      var(--color-night);
+    background-attachment: fixed;
   }
   button, input, select, textarea { font: inherit; }
   button { cursor: pointer; }
@@ -65,6 +74,7 @@
   ::selection { background: var(--color-brand); color: var(--color-brand-ink); }
   input, textarea { caret-color: var(--color-brand); }
   :focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
+  h1, h2, h3, .font-display { font-family: var(--font-display); font-optical-sizing: auto; }
   * { scrollbar-color: var(--color-line) transparent; }
   table, .tabular { font-variant-numeric: tabular-nums; }
 }
@@ -78,11 +88,11 @@
 @layer components {
 /* ===== Tipografia ===== */
 .eyebrow { display:inline-block; color:var(--color-ink-soft); font-size:.8rem; font-weight:600; }
-.page-title { margin-top:.35rem; font-size:var(--text-display); line-height:1; font-weight:800; font-stretch:75%; letter-spacing:-.02em; text-wrap:balance; }
+.page-title { margin-top:.35rem; font-family:var(--font-display); font-size:var(--text-display); line-height:1.02; font-weight:600; letter-spacing:-.035em; text-wrap:balance; }
 .page-subtitle { margin-top:.75rem; max-width:65ch; color:var(--color-ink-soft); line-height:1.65; }
-.section-title { margin-top:.25rem; font-size:1.5rem; font-weight:800; font-stretch:80%; letter-spacing:-.01em; }
+.section-title { margin-top:.25rem; font-family:var(--font-display); font-size:clamp(1.25rem, 1.1rem + .6vw, 1.6rem); font-weight:600; letter-spacing:-.025em; }
 /* Numeral de camisa: notas, contagens e vagas. */
-.num { font-stretch:70%; font-weight:800; font-variant-numeric:tabular-nums; letter-spacing:-.01em; line-height:1; }
+.num { font-family:var(--font-display); font-weight:600; font-variant-numeric:tabular-nums; letter-spacing:-.04em; line-height:1; }
 
 /* ===== Superfícies ===== */
 .panel { border:1px solid var(--color-line); background:var(--color-panel); border-radius:var(--radius-card); padding:1.25rem; }
@@ -101,7 +111,7 @@
 .profile-chip { display:flex; align-items:center; gap:.55rem; min-height:2.75rem; padding:.2rem .6rem .2rem .2rem; border-radius:999px; border:1px solid var(--color-line); }
 
 /* ===== Avatares ===== */
-.avatar,.avatar-lg,.avatar-xl { display:grid; place-items:center; border-radius:50%; font-weight:800; font-stretch:80%; flex:none; }
+.avatar,.avatar-lg,.avatar-xl { display:grid; place-items:center; border-radius:50%; font-family:var(--font-display); font-weight:600; flex:none; }
 .avatar { width:2.25rem; height:2.25rem; font-size:.75rem; background:var(--color-brand); color:var(--color-brand-ink); }
 .avatar-lg { width:3.75rem; height:3.75rem; color:var(--color-brand-ink); font-size:1rem; }
 .avatar-xl { width:5.5rem; height:5.5rem; color:var(--color-brand-ink); font-size:1.5rem; background:var(--color-brand-strong); }
@@ -229,3 +239,84 @@
   .field { font-size:1rem; } /* evita zoom do iOS */
 }
 }
+
+/* =====================================================================================
+   Movimento e detalhes (Sprint 4). Tudo é desligado por prefers-reduced-motion no topo.
+   ===================================================================================== */
+
+/* Troca de tela: a página antiga desce e some; a nova sobe. O header não pisca. */
+@view-transition { navigation: none; }
+::view-transition-old(root) { animation: vt-out 220ms var(--ease-in-out) both; }
+::view-transition-new(root) { animation: vt-in 420ms var(--ease-out) both; }
+@keyframes vt-out { to { opacity:0; transform:translateY(8px); filter:blur(4px); } }
+@keyframes vt-in { from { opacity:0; transform:translateY(14px); filter:blur(6px); } }
+.site-header { view-transition-name: site-header; }
+::view-transition-group(site-header) { animation-duration: 0s; }
+.nav-indicator { view-transition-name: nav-indicator; }
+::view-transition-group(nav-indicator) { animation-duration: 420ms; animation-timing-function: var(--ease-spring); }
+
+/* Título em cascata por palavra. */
+.word { display:inline-block; overflow:hidden; vertical-align:top; padding-bottom:.08em; margin-bottom:-.08em; }
+.word > span { display:inline-block; animation: word-in var(--dur-enter) var(--ease-out) both; animation-delay: calc(var(--i) * 45ms + 60ms); }
+@keyframes word-in { from { transform:translateY(105%); opacity:0; } }
+
+/* Reveal ao rolar (classe colocada pelo JS; sem JS, nada fica escondido). */
+.will-reveal { opacity:0; transform:translateY(18px) scale(.985); filter:blur(4px); }
+.will-reveal.is-in { opacity:1; transform:none; filter:none; transition: opacity 600ms var(--ease-out), transform 700ms var(--ease-out), filter 600ms var(--ease-out); transition-delay: calc(var(--i, 0) * 70ms); }
+
+/* Spotlight dourado que segue o cursor + leve elevação. */
+.spot { position:relative; isolation:isolate; transition: transform 400ms var(--ease-out), border-color var(--dur-hover), box-shadow 400ms var(--ease-out); }
+.spot::before { content:""; position:absolute; inset:0; z-index:-1; border-radius:inherit; pointer-events:none; opacity:0; transition: opacity 300ms; background: radial-gradient(22rem circle at var(--mx, 50%) var(--my, 0%), color-mix(in oklab, var(--color-brand) 13%, transparent), transparent 60%); }
+@media (hover:hover) and (pointer:fine) {
+  .spot:hover { transform:translateY(-3px); border-color: color-mix(in oklab, var(--color-brand) 40%, var(--color-line)); box-shadow: var(--shadow-lift); }
+  .spot:hover::before { opacity:1; }
+}
+
+/* Barra de vagas preenche ao entrar. */
+.bar-fill { transform-origin:left; animation: bar-in 1.1s var(--ease-out) both; animation-delay:.25s; }
+@keyframes bar-in { from { transform:scaleX(0); } }
+
+/* Toast entra com mola e sai deslizando. */
+.toast { animation: toast-in 520ms var(--ease-spring) both; }
+.toast.is-out { animation: toast-out 260ms var(--ease-in-out) both; }
+@keyframes toast-in { from { opacity:0; transform:translateY(1rem) scale(.96); } }
+@keyframes toast-out { to { opacity:0; transform:translateX(1.5rem); } }
+
+/* Modais: fundo esmaece e o painel sobe com mola. */
+[role="dialog"] { animation: dialog-in 480ms var(--ease-spring) both; }
+@keyframes dialog-in { from { opacity:0; transform:translateY(1.25rem) scale(.97); } }
+
+/* Indicador da navegação. */
+.nav-indicator { position:absolute; left:.85rem; right:.85rem; bottom:.15rem; height:2px; border-radius:2px; background:var(--color-brand); }
+.nav-link.active::after, .nav-link[aria-current="page"]::after { content:none; }
+
+/* Número de camisa vazado: o elemento gráfico do hero (10 = Pelé). */
+.jersey { position:absolute; right:-.14em; bottom:-.22em; z-index:0; pointer-events:none; user-select:none; font-family:var(--font-display); font-weight:700; font-size:clamp(11rem, 8rem + 16vw, 24rem); line-height:.8; letter-spacing:-.06em; color:transparent; -webkit-text-stroke:1.5px color-mix(in oklab, var(--color-brand) 22%, transparent); }
+@supports (animation-timeline: scroll()) {
+  .jersey { animation: jersey-drift linear both; animation-timeline: scroll(root); animation-range: 0 60vh; }
+  @keyframes jersey-drift { to { transform: translateY(-14%) rotate(-3deg); opacity:.35; } }
+}
+.hero { position:relative; overflow:hidden; isolation:isolate; }
+.hero > :not(.jersey) { position:relative; z-index:1; }
+
+/* Navegação inferior no celular (zona do polegar). */
+.bottom-nav { position:fixed; inset:auto .75rem calc(.75rem + env(safe-area-inset-bottom)) .75rem; z-index:50; display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:.25rem; padding:.35rem; border:1px solid var(--color-line); border-radius:1.25rem; background: color-mix(in oklab, var(--color-raised) 88%, transparent); backdrop-filter: blur(14px); box-shadow: var(--shadow-modal); }
+.bottom-nav button { position:relative; display:grid; justify-items:center; gap:.2rem; min-height:3.25rem; padding:.45rem .25rem; border-radius:.9rem; font-size:.7rem; font-weight:600; color:var(--color-ink-soft); transition: color var(--dur-hover), background-color var(--dur-hover); }
+.bottom-nav button[aria-current="page"] { color:var(--color-brand-ink); background:var(--color-brand); }
+.bottom-nav button:active { transform:scale(.95); }
+@media (max-width:47.99rem) { .has-bottom-nav main { padding-bottom:6.5rem; } .has-bottom-nav footer { padding-bottom:6.5rem; } }
+@media (min-width:48rem) { .bottom-nav { display:none; } }
+
+/* Filtros de atletas: bottom sheet no celular/tablet, coluna fixa no desktop. */
+.filters-toggle, .filters-scrim { display:none; }
+@media (max-width:63.99rem) {
+  .filters-toggle { display:inline-flex; }
+  .filters-panel { position:fixed; inset:auto 0 0 0; z-index:80; max-height:85dvh; overflow-y:auto; border-radius:1.5rem 1.5rem 0 0; background:var(--color-raised); box-shadow:var(--shadow-modal); padding-bottom:calc(1.5rem + env(safe-area-inset-bottom)); transform:translateY(105%); visibility:hidden; transition: transform 480ms var(--ease-out), visibility 0s 480ms; }
+  .filters-panel[data-open="true"] { transform:none; visibility:visible; transition: transform 520ms var(--ease-spring), visibility 0s; }
+  .filters-scrim { display:block; position:fixed; inset:0; z-index:79; background:rgb(0 0 0 / .6); opacity:0; pointer-events:none; transition: opacity 300ms; }
+  .filters-scrim[data-open="true"] { opacity:1; pointer-events:auto; }
+}
+
+/* Contagem de resultados que pulsa ao filtrar. */
+.bump { animation: bump 380ms var(--ease-spring); }
+@keyframes bump { 40% { transform:scale(1.06); color:var(--color-brand); } }

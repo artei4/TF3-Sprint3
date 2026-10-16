@@ -7,17 +7,17 @@
     <meta name="theme-color" content="#0D1612" />
     <title>Pelé Academia | TIER-ZERO</title>
     <link rel="icon" href="./assets/brand/simbolo.jpg" />
-    <!-- Uma família variável (Archivo, eixos de largura e peso), display=swap -->
+    <!-- Duas famílias variáveis: Bricolage Grotesque (títulos) + Instrument Sans (texto), display=swap -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..100,400..800&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..700&family=Instrument+Sans:wght@400..600&display=swap" />
     <link rel="stylesheet" href="./assets/js/styles.css" />
   </head>
   <body>
     <a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
     <div id="app"></div>
     <!-- Avisos (toasts): fora do #app para sobreviver à troca de telas; anunciados por leitores de tela -->
-    <div id="toast-root" role="status" aria-live="polite" class="pointer-events-none fixed bottom-5 right-5 z-[120] flex w-[min(92vw,380px)] flex-col gap-2"></div>
+    <div id="toast-root" role="status" aria-live="polite" class="pointer-events-none fixed bottom-24 right-5 md:bottom-5 z-[120] flex w-[min(92vw,380px)] flex-col gap-2"></div>
     <script type="module" src="./assets/js/main.js"></script>
   </body>
 </html>
