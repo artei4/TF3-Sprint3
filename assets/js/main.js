@@ -219,8 +219,9 @@ function updateNotificationBadge() {
   if (!badge) return
   const count = myNotifications().length
   badge.textContent = count > 9 ? '9+' : String(count)
-  badge.style.display = count ? 'grid' : 'none'
+  badge.hidden = !count
 }
+
 
 function seedDemoAccounts() {
   DEMO_STAFF.forEach((demo) => {
@@ -371,7 +372,7 @@ function unreadSummary() {
   return { total: withUnread.reduce((sum, item) => sum + item.n, 0), people: withUnread.map((item) => item.c.name), first: withUnread[0]?.c || null }
 }
 
-const BASE_TITLE = 'Pelé Academia | TIER-ZERO'
+const BASE_TITLE = 'TIER ZERO | Pelé Academia'
 function updateMessageBadge() {
   const { total } = unreadSummary()
   const text = total > 9 ? '9+' : String(total)
@@ -763,6 +764,7 @@ function icon(name, cls = 'size-5') {
     bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/>',
     heart: '<path d="M20.8 8.8c0 5.5-8.8 10.7-8.8 10.7S3.2 14.3 3.2 8.8A4.8 4.8 0 0 1 12 6a4.8 4.8 0 0 1 8.8 2.8Z"/>',
     info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
+    clipboard: '<rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4.5V3h6v1.5M9 10h6M9 14h6M9 18h3"/>',
     sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
     moon: '<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/>',
     send: '<path d="M4 12 20 4l-4 16-4-7-8-1Z"/><path d="m12 13 8-9"/>',
@@ -831,31 +833,39 @@ function shell(content, options = {}) {
   const nav = role === 'staff'
     ? [['dashboard', t('Visão geral'), 'home'], ['athletes', t('Atletas'), 'search'], ['tryouts', t('Peneiras'), 'calendar'], ['messages', t('Conversas'), 'message']]
     : [['dashboard', t('Início'), 'home'], ['profile', t('Meu perfil'), 'user'], ['tryouts', t('Peneiras'), 'calendar'], ['messages', t('Conversas'), 'message']]
+  const navButton = (item, extra = '') => '<button type="button" data-route="' + item[0] + '" class="nav-link ' + extra + (active === item[0] ? ' active" aria-current="page' : '') + '"' + (item[0] === 'messages' ? ' data-badge-host aria-label="' + item[1] + '"' : '') + '>' + icon(item[2], 'size-[1.1rem]') + '<span>' + item[1] + '</span>' + (item[0] === 'messages' ? '<span class="count-badge nav-badge" data-msg-badge aria-hidden="true" hidden></span>' : '') + (active === item[0] ? '<span class="nav-indicator" aria-hidden="true"></span>' : '') + '</button>'
+  const cta = role === 'staff'
+    ? '<button type="button" class="btn-primary w-full" data-action="openTryout">' + icon('plus', 'size-4') + ' ' + t('Criar peneira') + '</button>'
+    : '<button type="button" class="btn-primary w-full" data-route="tryouts">' + icon('calendar', 'size-4') + ' ' + t('Ver peneiras') + '</button>'
+  const notifCount = myNotifications().length
 
-  return '<div class="has-bottom-nav min-h-screen bg-transparent text-chalk">' +
-    '<header class="site-header sticky top-0 z-40 border-b border-line bg-night/80 backdrop-blur-xl">' +
-    '<div class="mx-auto flex min-h-[4.5rem] max-w-[1440px] items-center justify-between gap-3 px-4 py-2 sm:px-6 lg:px-10">' +
-    '<button type="button" class="flex items-center gap-3" data-action="home" aria-label="Ir para o início">' +
-    '<img src="./assets/brand/simbolo.jpg" width="112" height="112" decoding="async" alt="Pelé Academia" class="h-11 w-11 rounded-xl object-contain bg-black ring-1 ring-line" />' +
-    '<div class="hidden sm:block text-left"><p class="text-lg font-bold leading-none font-display">Pelé Academia</p><p class="text-xs text-ink-soft">Plataforma de talentos</p></div></button>' +
-    '<nav class="hidden md:flex items-center gap-1" aria-label="Navegação principal">' +
-    nav.map((item) => '<button type="button" data-route="' + item[0] + '" class="nav-link ' + (active === item[0] ? 'active" aria-current="page' : '') + '">' + icon(item[2], 'size-4') + item[1] + (active === item[0] ? '<span class="nav-indicator" aria-hidden="true"></span>' : '') + '</button>').join('') +
-    '</nav>' +
-    '<div class="flex items-center gap-2">' +
-    '<button type="button" class="icon-button relative" data-route="messages" data-badge-host aria-label="Conversas">' + icon('message') + '<span class="count-badge" data-msg-badge aria-hidden="true" hidden></span></button>' +
-    themeButton() + '<button type="button" class="icon-button" data-action="change-lang" aria-label="Alterar idioma" title="' + t('Alterar idioma') + '">' + icon('globe', 'size-4') + '</button>' +
-    '<button type="button" class="icon-button relative" data-action="notifications" aria-label="Abrir notificações">' + icon('bell') + '<span id="notif-badge" class="absolute -right-1 -top-1 min-w-[1.1rem] place-items-center rounded-full bg-danger px-1 text-xs font-bold leading-[1.1rem] text-chalk" style="display:' + (myNotifications().length ? 'grid' : 'none') + '">' + (myNotifications().length > 9 ? '9+' : myNotifications().length) + '</span></button>' +
-    '<button type="button" class="profile-chip" data-route="profile"><span class="avatar">' + avatar(state.user?.name || 'Atleta') + '</span><span class="hidden lg:block max-w-28 truncate text-sm">' + escapeHtml(state.user?.name || 'Atleta') + '</span></button>' +
-    '<button type="button" class="icon-button md:hidden" data-action="menu" aria-label="Abrir menu">' + icon('menu') + '</button>' +
-    '</div></div></header>' +
-    '<main id="conteudo" tabindex="-1" class="mx-auto max-w-[1440px] px-4 py-5 outline-none sm:px-6 lg:px-10 lg:py-8">' + content + '</main>' +
-    '<footer class="mx-auto max-w-[1440px] border-t border-line px-4 py-6 text-sm text-ink-soft sm:px-6 lg:px-10"><p>Pelé Academia · Plataforma de talentos — TIER-ZERO, FIAP 2026. <a class="underline underline-offset-4 hover:text-chalk" href="#/design-system">Design system</a></p></footer>' +
-    '<nav class="bottom-nav" aria-label="Navegação rápida">' +
+  return '<div class="app-shell has-bottom-nav text-chalk">' +
+    // Barra lateral (desktop)
+    '<aside class="sidebar" aria-label="' + t('Menu lateral') + '"><button type="button" class="sidebar-brand" data-action="home" aria-label="' + t('TIER ZERO, ir para o início') + '">' + brandLockup(36) + '</button>' +
+    '<nav class="sidebar-nav" aria-label="' + t('Navegação principal') + '">' + nav.map((item) => navButton(item, 'nav-side')).join('') + '</nav>' +
+    '<div class="sidebar-cta">' + cta + '</div>' +
+    '<div class="sidebar-foot">' + partnerSeal() +
+    '<button type="button" class="profile-row" data-route="profile"><span class="avatar">' + avatar(state.user?.name || 'Atleta') + '</span><span class="min-w-0 text-left"><span class="block truncate text-sm font-semibold">' + escapeHtml(state.user?.name || 'Atleta') + '</span><span class="block text-xs text-ink-soft">' + (role === 'staff' ? t('Funcionário') : t('Atleta')) + '</span></span></button></div></aside>' +
+    // Coluna principal
+    '<div class="app-main">' +
+    '<header class="topbar site-header"><button type="button" class="topbar-brand" data-action="home" aria-label="' + t('TIER ZERO, ir para o início') + '">' + brandLockup(34) + '</button>' +
+    '<nav class="topbar-nav" aria-label="' + t('Navegação principal') + '">' + nav.map((item) => navButton(item)).join('') + '</nav>' +
+    '<div class="topbar-actions">' +
+    themeButton('hidden md:grid') + '<button type="button" class="icon-button hidden md:grid" data-action="change-lang" aria-label="' + t('Alterar idioma') + '" title="' + t('Alterar idioma') + '">' + icon('globe', 'size-4') + '</button>' +
+    '<button type="button" class="icon-button relative" data-action="notifications" aria-label="' + t('Abrir notificações') + (notifCount ? ', ' + notifCount : '') + '">' + icon('bell') + '<span id="notif-badge" class="count-badge count-badge--alert" aria-hidden="true"' + (notifCount ? '' : ' hidden') + '>' + (notifCount > 9 ? '9+' : notifCount) + '</span></button>' +
+    '<button type="button" class="profile-chip topbar-profile" data-route="profile" aria-label="' + t('Meu perfil') + '"><span class="avatar">' + avatar(state.user?.name || 'Atleta') + '</span></button>' +
+    '<button type="button" class="icon-button md:hidden" data-action="menu" aria-label="' + t('Abrir menu') + '">' + icon('menu') + '</button>' +
+    '</div></header>' +
+    '<main id="conteudo" tabindex="-1" class="content-sheet outline-none">' + content + '</main>' +
+    '<footer class="app-footer"><p>TIER ZERO · ' + t('Plataforma de talentos em parceria com a Pelé Academia') + ' · FIAP 2026. <a class="underline underline-offset-4 hover:text-chalk" href="#/design-system">Design system</a></p></footer>' +
+    '</div>' +
+    '<nav class="bottom-nav" aria-label="' + t('Navegação rápida') + '">' +
     nav.map((item) => '<button type="button" data-route="' + item[0] + '"' + (item[0] === 'messages' ? ' data-badge-host aria-label="' + item[1] + '"' : '') + (active === item[0] ? ' aria-current="page"' : '') + '>' + icon(item[2], 'size-5') + '<span>' + item[1] + '</span>' + (item[0] === 'messages' ? '<span class="count-badge" data-msg-badge aria-hidden="true" hidden></span>' : '') + '</button>').join('') +
     '</nav>' +
     '<div id="mobile-menu"></div>' +
     '</div>'
 }
+
 
 function stat(value, label, sub) {
   return '<div class="reveal rounded-2xl surface p-4"><p class="num text-4xl text-brand">' + value + '</p><p class="mt-1 text-sm font-semibold">' + label + '</p><p class="mt-1 text-xs text-ink-soft">' + sub + '</p></div>'
@@ -984,6 +994,16 @@ function squadLegend(athletes) {
     '<li class="tag pos-tag pos-' + key + '"><span class="num">' + athletes.filter((a) => positionGroup(a.pos) === key).length + '</span> ' + label + '</li>').join('') + '</ul>'
 }
 
+// ---------- Marca TIER ZERO ----------
+// Símbolo "Pontapé inicial": o zero é o círculo central cortado pela linha do meio-campo (lê como Ø).
+function logoMark(size = 40, cls = '') {
+  return '<svg class="logo-mark ' + cls + '" width="' + size + '" height="' + size + '" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><rect width="48" height="48" rx="12" fill="#D8B05C"/><circle cx="24" cy="24" r="13" fill="none" stroke="#17130A" stroke-width="4"/><path d="M24 6v36" stroke="#17130A" stroke-width="4" stroke-linecap="round"/><circle cx="24" cy="24" r="3.2" fill="#17130A"/></svg>'
+}
+function brandLockup(size = 40, sub = true) {
+  return '<span class="brand-lockup">' + logoMark(size) + '<span class="brand-text"><span class="brand-word">TIER ZERO</span>' + (sub ? '<span class="brand-sub">' + t('Plataforma de talentos') + '</span>' : '') + '</span></span>'
+}
+const partnerSeal = () => '<span class="partner-seal"><img src="./assets/brand/simbolo.jpg" width="28" height="28" decoding="async" alt="" />' + t('Em parceria com a Pelé Academia') + '</span>'
+
 // ---------- Tema claro/escuro ----------
 // Preferência salva vence; sem preferência, segue o sistema. O <head> aplica antes da 1ª pintura.
 const currentTheme = () => document.documentElement.dataset.theme === 'light' ? 'light' : 'dark'
@@ -1011,6 +1031,11 @@ matchMedia('(prefers-color-scheme: light)').addEventListener('change', (event) =
 
 // Cliques globais que precisam funcionar em qualquer tela (inclusive conteúdo re-renderizado).
 document.addEventListener('click', (event) => {
+  if (event.target.closest('[data-action="change-lang"]')) {
+    document.querySelector('#mobile-menu')?.replaceChildren()
+    setLang(getLang() === 'es' ? 'pt' : 'es')
+    render()
+  }
   const toggle = event.target.closest('[data-action="toggle-theme"]')
   if (toggle) applyTheme(currentTheme() === 'light' ? 'dark' : 'light')
   const quick = event.target.closest('[data-quick-reply]')
@@ -1361,10 +1386,12 @@ const TACTIC_BOARD = '<svg class="tactic-board" viewBox="0 0 1600 900" preserveA
 
 function loginPage() {
   return '<main id="conteudo" tabindex="-1" class="login-stage outline-none text-chalk">' + TACTIC_BOARD +
-    '<div class="login-layout"><section class="login-intro"><img src="./assets/brand/simbolo.jpg" width="112" height="112" decoding="async" alt="Pelé Academia" class="hidden h-20 w-20 rounded-card object-contain lg:block"/>' +
-    '<h1 class="page-title mt-6 max-w-xl">' + t('Onde o futebol encontra o próximo talento.') + '</h1><p class="mt-4 max-w-md text-ink-soft">' + t('Atletas de base, treinadores e olheiros da Pelé Academia no mesmo campo.') + '</p></section>' +
-    '<div class="login-card surface surface--raised"><img src="./assets/brand/simbolo.jpg" width="112" height="112" decoding="async" alt="Pelé Academia" class="mx-auto h-24 w-24 rounded-card object-contain lg:hidden"/><h2 class="mt-3 text-3xl font-bold">' + t('Entrar na Pelé Academia') + '</h2><p class="mt-2 text-sm text-ink-soft">' + t('Escolha o tipo de conta antes de entrar.') + '</p>' +
-    '<div class="mt-6 grid grid-cols-2 gap-2 rounded-2xl border border-line bg-night/60 p-1"><button type="button" class="role-tab active" data-role="player">' + t('Jogador') + '</button><button type="button" class="role-tab" data-role="staff">' + t('Funcionário') + '</button></div>' +
+    '<header class="login-brand">' + brandLockup(40) + '</header>' +
+    '<div class="login-layout"><section class="login-intro"><p class="live-pill"><span class="live-dot" aria-hidden="true"></span>' + t('Peneiras abertas · Sub-7 a Sub-20') + '</p>' +
+    '<h1 class="login-title">' + t('Seu próximo jogo começa aqui.') + '</h1><p class="mt-4 max-w-md text-lg">' + t('Atletas de base, treinadores e olheiros no mesmo campo.') + '</p>' +
+    '<div class="mt-8">' + partnerSeal() + '</div></section>' +
+    '<div class="login-card surface surface--raised"><h2 class="text-3xl font-bold">' + t('Entrar') + '</h2><p class="mt-2 text-sm text-ink-soft">' + t('Escolha o tipo de conta antes de entrar.') + '</p>' +
+    '<div class="segmented mt-6" role="group" aria-label="' + t('Tipo de conta') + '" data-active="0"><span class="seg-pill" aria-hidden="true"></span><button type="button" class="role-tab active" data-role="player" aria-pressed="true">' + icon('user', 'size-4 seg-icon') + t('Jogador') + '</button><button type="button" class="role-tab" data-role="staff" aria-pressed="false">' + icon('clipboard', 'size-4 seg-icon') + t('Funcionário') + '</button></div>' +
     '<form id="login-form" class="mt-6 space-y-4">' + input(t('E-mail'), 'login-email', '', 'email', true) + input(t('Senha'), 'login-password', '', 'password', true) + '<p id="login-error" class="hidden rounded-xl border border-danger/40 bg-danger/10 px-3 py-2 text-xs font-semibold text-danger"></p><button class="btn-primary w-full" type="submit">' + t('Entrar') + ' ' + icon('arrow', 'size-4') + '</button></form>' +
     '<button type="button" class="mt-3 w-full text-center text-xs text-brand hover:text-brand-strong" data-action="forgot-password">' + t('Esqueci minha senha') + '</button>' +
     '<div class="my-6 flex items-center gap-3"><span class="h-px flex-1 bg-line"></span><span class="text-xs text-ink-soft">' + t('ou') + '</span><span class="h-px flex-1 bg-line"></span></div>' +
@@ -1375,7 +1402,7 @@ function loginPage() {
 
 function passwordRecoveryPage() {
   return '<main id="conteudo" tabindex="-1" class="outline-none grid min-h-screen place-items-center bg-night px-4 py-8 text-chalk"><div class="w-full max-w-md rounded-card surface p-6 sm:p-10">' +
-    '<h1 class="mt-2 text-3xl font-bold">' + t('Crie uma nova senha') + '</h1><p class="mt-3 text-sm leading-6 text-ink-soft">' + t('Escolha uma senha nova para voltar a acessar sua conta.') + '</p>' +
+    '<div class="mb-6">' + brandLockup(32, false) + '</div><h1 class="text-3xl font-bold">' + t('Crie uma nova senha') + '</h1><p class="mt-3 text-sm leading-6 text-ink-soft">' + t('Escolha uma senha nova para voltar a acessar sua conta.') + '</p>' +
     '<form id="password-recovery-form" class="mt-6 space-y-4">' + input(t('Nova senha'), 'recovery-password', '', 'password', true) + input(t('Confirmar senha'), 'recovery-confirm', '', 'password', true) + '<p id="recovery-feedback" class="hidden rounded-2xl border px-4 py-3 text-sm" role="alert"></p><button class="btn-primary w-full" type="submit">' + t('Salvar nova senha') + '</button></form>' +
     '</div></main>'
 }
@@ -1411,7 +1438,7 @@ async function saveRecoveredPassword() {
 
 function registerPage() {
   return '<main id="conteudo" tabindex="-1" class="outline-none min-h-screen bg-transparent px-4 py-8 text-chalk"><div class="mx-auto max-w-5xl rounded-card surface p-6 sm:p-10">' +
-    '<div class="flex flex-wrap items-center justify-between gap-4"><div class="flex items-center gap-3"><img src="./assets/brand/simbolo.jpg" width="112" height="112" decoding="async" alt="Pelé Academia" class="h-16 w-16 rounded-2xl object-contain"/><div><h1 class="mt-1 text-3xl font-bold">' + t('Criar conta de jogador') + '</h1></div></div><button type="button" class="btn-ghost" data-route="login">' + t('Voltar') + '</button></div>' +
+    '<div class="flex flex-wrap items-center justify-between gap-4"><div><div class="mb-4">' + brandLockup(32, false) + '</div><h1 class="text-3xl font-bold">' + t('Criar conta de jogador') + '</h1></div><button type="button" class="btn-ghost" data-route="login">' + t('Voltar') + '</button></div>' +
     '<p class="mt-3 max-w-3xl text-sm leading-6 text-ink-soft">Preencha seus dados pessoais, categoria esportiva, gênero, posições e endereço. A idade e a categoria são calculadas automaticamente pela data de nascimento.</p>' +
     '<form id="register-form" class="mt-8 grid gap-4 sm:grid-cols-2">' +
     input(t('Nome completo'), 'reg-name', '', 'text', true) +
@@ -1963,6 +1990,7 @@ function openMobileMenu() {
       ? [['dashboard',t('Visão geral')],['athletes',t('Atletas')],['tryouts',t('Peneiras')],['messages',t('Conversas')],['profile',t('Perfil')]]
       : [['dashboard',t('Início')],['profile',t('Meu perfil')],['tryouts',t('Peneiras')],['messages',t('Conversas')]]
     ).map((item) => '<button type="button" class="nav-link justify-start" data-route="' + item[0] + '" data-close-mobile>' + item[1] + '</button>').join('') +
+    '<div class="mt-3 flex items-center gap-2 border-t border-line pt-3">' + themeButton() + '<button type="button" class="btn-ghost" data-action="change-lang">' + icon('globe', 'size-4') + ' ' + LANGS.find((l) => l.code !== getLang())?.label + '</button></div>' +
     '</div></div></div>'
   root.querySelectorAll('[data-route]').forEach((button) => button.addEventListener('click', () => { root.innerHTML = ''; go(button.dataset.route) }))
   root.querySelectorAll('[data-close-mobile]').forEach((button) => button.addEventListener('click', (event) => { if (event.target === button || button.hasAttribute('aria-label')) root.innerHTML = '' }))
@@ -2304,11 +2332,28 @@ function safely(promise) {
   })
 }
 
+// Seletor segmentado (Jogador/Funcionário): pílula desliza com mola; setas do teclado trocam a opção.
 function initLoginRoleButtons() {
-  document.querySelectorAll('[data-role]').forEach((button) => button.addEventListener('click', () => {
-    document.querySelectorAll('[data-role]').forEach((item) => item.classList.toggle('active', item === button))
-  }))
+  document.querySelectorAll('.segmented').forEach((group) => {
+    const buttons = [...group.querySelectorAll('[data-role]')]
+    const select = (index, focus = false) => {
+      group.dataset.active = String(index)
+      buttons.forEach((item, i) => {
+        item.classList.toggle('active', i === index)
+        item.setAttribute('aria-pressed', String(i === index))
+      })
+      if (focus) buttons[index].focus()
+    }
+    buttons.forEach((button, i) => button.addEventListener('click', () => select(i)))
+    group.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+        event.preventDefault()
+        select(event.key === 'ArrowRight' ? Math.min(buttons.length - 1, Number(group.dataset.active) + 1) : Math.max(0, Number(group.dataset.active) - 1), true)
+      }
+    })
+  })
 }
+
 
 // Atualiza as listas de atletas sem perder os filtros digitados.
 function refreshAthleteViews() {
@@ -2364,10 +2409,7 @@ function bind() {
   if (board && matchMedia('(max-width: 63.99rem)').matches) board.setAttribute('preserveAspectRatio', 'xMidYMin meet')
   bindDynamicCards()
 
-  document.querySelectorAll('[data-action="change-lang"]').forEach((button) => button.addEventListener('click', () => {
-    setLang(getLang() === 'es' ? 'pt' : 'es')
-    render()
-  }))
+
   document.querySelectorAll('[data-action="home"]').forEach((button) => button.addEventListener('click', () => {
     document.querySelectorAll('body > div.fixed.inset-0').forEach((modal) => modal.remove())
     if (currentRoute() === 'dashboard') window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -2513,7 +2555,7 @@ function render() {
     lastRoute = route
     paintScreen(() => {
       app.innerHTML = designSystemPage({ icon, input, selectField, tag, athleteCard, positions: POSITIONS, posTag, ballLoader, scoreboard, pitchFormation, rateClass })
-      bindDesignSystem(app, { toast, confirmDialog, scrollToElement })
+      bindDesignSystem(app, { toast, confirmDialog, scrollToElement, initSegmented: initLoginRoleButtons })
       if (isNew) scrollToTop()
       enterPage(app, isNew)
     }, isNew)

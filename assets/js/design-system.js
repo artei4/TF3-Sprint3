@@ -30,7 +30,7 @@ export function designSystemPage({ icon, input, selectField, tag, athleteCard, p
 
   return '<div class="min-h-screen">' +
     '<header class="sticky top-0 z-40 border-b border-line bg-night/95 backdrop-blur"><div class="mx-auto flex min-h-[4.5rem] max-w-[1200px] items-center justify-between gap-3 px-4 sm:px-6">' +
-    '<a href="#/" class="flex min-w-0 items-center gap-3"><img src="./assets/brand/simbolo.jpg" alt="" width="40" height="40" class="h-10 w-10 shrink-0 rounded-xl object-contain" /><span class="truncate font-bold font-display">Pelé Academia <span class="font-semibold text-ink-soft">· Design system</span></span></a>' +
+    '<a href="#/" class="flex min-w-0 items-center gap-3"><svg width="36" height="36" viewBox="0 0 48 48" aria-hidden="true" class="shrink-0"><rect width="48" height="48" rx="12" fill="#D8B05C"/><circle cx="24" cy="24" r="13" fill="none" stroke="#17130A" stroke-width="4"/><path d="M24 6v36" stroke="#17130A" stroke-width="4" stroke-linecap="round"/><circle cx="24" cy="24" r="3.2" fill="#17130A"/></svg><span class="truncate font-bold font-display">TIER ZERO <span class="font-semibold text-ink-soft">· Design system</span></span></a>' +
     '<div class="flex shrink-0 items-center gap-2"><button type="button" class="icon-button theme-toggle" data-action="toggle-theme" aria-label="Alternar tema claro/escuro" title="Alternar tema claro/escuro">' + icon('sun', 'size-4 theme-sun') + icon('moon', 'size-4 theme-moon') + '</button><a href="#/" class="btn-secondary">Voltar ao app</a></div></div></header>' +
     '<div class="mx-auto grid max-w-[1200px] gap-x-8 px-4 sm:px-6 lg:grid-cols-[13rem_minmax(0,1fr)]">' +
     '<nav aria-label="Seções do design system" class="min-w-0 lg:sticky lg:top-24 lg:self-start lg:pt-10"><ul class="flex gap-1 overflow-x-auto py-4 lg:flex-col lg:py-0">' +
@@ -69,7 +69,7 @@ export function designSystemPage({ icon, input, selectField, tag, athleteCard, p
       input('Idade (desabilitado)', 'ds-age', '16', 'number', false, true) +
       selectField('Posição principal', 'ds-pos', positions, '') +
       '<fieldset class="sm:col-span-2"><legend class="field-label">Posições aceitas</legend><div class="mt-2 flex flex-wrap gap-2">' + ['Meia', 'Volante', 'Atacante'].map((p, i) => `<label class="check-pill"><input type="checkbox" ${i === 0 ? 'checked' : ''} /> ${p}</label>`).join('') + '</div></fieldset>' +
-      '<div class="sm:col-span-2"><p class="field-label">Abas de papel</p><div class="mt-2 grid max-w-sm grid-cols-2 gap-2 rounded-[var(--radius-control)] border border-line p-1" role="group" aria-label="Tipo de conta (exemplo)"><button type="button" class="role-tab active" aria-pressed="true" data-ds-demo>Jogador</button><button type="button" class="role-tab" aria-pressed="false" data-ds-demo>Funcionário</button></div></div>' +
+      '<div class="sm:col-span-2"><p class="field-label">Seletor segmentado (clique ou setas)</p><div class="segmented mt-2 max-w-sm" role="group" aria-label="Tipo de conta (exemplo)" data-active="0"><span class="seg-pill" aria-hidden="true"></span><button type="button" class="role-tab active" data-role="player" aria-pressed="true">Jogador</button><button type="button" class="role-tab" data-role="staff" aria-pressed="false">Funcionário</button></div></div>' +
       '</div>') +
 
     section('ds-tags', 'Tags e navegação', 'Tags identificam posição, categoria e status; a navegação marca a página atual com aria-current.',
@@ -102,7 +102,8 @@ export function designSystemPage({ icon, input, selectField, tag, athleteCard, p
     '</main></div></div>'
 }
 
-export function bindDesignSystem(root, { toast, confirmDialog, scrollToElement }) {
+export function bindDesignSystem(root, { toast, confirmDialog, scrollToElement, initSegmented }) {
+  initSegmented?.()
   const styles = getComputedStyle(document.documentElement)
   root.querySelectorAll('[data-ds-token]').forEach((el) => { el.textContent = styles.getPropertyValue(el.dataset.dsToken).trim() })
   root.querySelectorAll('[data-ds-jump]').forEach((link) => link.addEventListener('click', (event) => {
