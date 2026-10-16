@@ -125,6 +125,16 @@
 [aria-busy="true"] { pointer-events:none; }
 @keyframes spin { to { transform:rotate(360deg); } }
 
+/* Estados forçados para a vitrine do design system (#/design-system). */
+.btn-primary.is-hover { background:var(--color-brand-strong); }
+.btn-secondary.is-hover { border-color:var(--color-brand); }
+.btn-danger.is-hover { background:color-mix(in oklab, var(--color-danger) 12%, transparent); border-color:var(--color-danger); }
+.vote-button.is-hover { background:color-mix(in oklab, var(--color-brand) 12%, transparent); }
+.nav-link.is-hover { color:var(--color-chalk); background:color-mix(in oklab, var(--color-chalk) 6%, transparent); }
+.is-focus { outline:2px solid var(--color-focus); outline-offset:3px; }
+.field.is-focus { outline:none; border-color:var(--color-brand); box-shadow:0 0 0 3px color-mix(in oklab, var(--color-brand) 25%, transparent); }
+.is-active { transform:scale(.97); }
+
 @media (hover:hover) and (pointer:fine) {
   .nav-link:hover { color:var(--color-chalk); background:color-mix(in oklab, var(--color-chalk) 6%, transparent); }
   .icon-button:hover { color:var(--color-chalk); border-color:color-mix(in oklab, var(--color-brand) 50%, transparent); }

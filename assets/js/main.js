@@ -9,6 +9,7 @@ import {
 import { filterAthletes } from './filters.js'
 import { toggleFavorite, registerVote, removeVote, hasVoted } from './feed.js'
 import { LANGS, getLang, setLang, t } from './i18n.js'
+import { designSystemPage, bindDesignSystem } from './design-system.js'
 import {
   FEET,
   STRENGTHS,
@@ -2020,6 +2021,13 @@ function render() {
       mobileChatOpen = true
       pushChatEntry = true
     }
+  }
+  if (route === 'design-system') {
+    app.innerHTML = designSystemPage({ icon, input, selectField, tag, athleteCard, positions: POSITIONS })
+    bindDesignSystem(app, { toast, confirmDialog })
+    if (route !== lastRoute) window.scrollTo(0, 0)
+    lastRoute = route
+    return
   }
   if (!state.user && !['login', 'register', 'reset-password'].includes(route)) {
     go('login')
