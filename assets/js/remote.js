@@ -192,3 +192,21 @@ export async function withdrawTryout(id, uid) {
   const { error } = await client.from('tryout_enrollments').delete().eq('tryout_id', id).eq('athlete_id', uid)
   return error || null
 }
+
+// ---------- Conversas ----------
+const MESSAGE_COLUMNS = 'id,athlete_id,staff_id,sender_id,body,created_at'
+
+export async function fetchMessages() {
+  const { data, error } = await client.from('messages').select(MESSAGE_COLUMNS).order('created_at', { ascending: true }).limit(2000)
+  if (error) throw error
+  return data || []
+}
+
+export async function sendMessage({ athleteId, staffId, senderId, body }) {
+  const { data, error } = await client
+    .from('messages')
+    .insert({ athlete_id: athleteId, staff_id: staffId, sender_id: senderId, body })
+    .select(MESSAGE_COLUMNS)
+    .single()
+  return { row: data || null, error }
+}

@@ -45,6 +45,8 @@ import {
   cancelTryout,
   enrollTryout,
   withdrawTryout,
+  fetchMessages,
+  sendMessage,
 } from './remote.js'
 
 const app = document.querySelector('#app')
@@ -172,17 +174,17 @@ function migrateLegacyStorage(){
 }
 
 function persist() {
-  // Mensagens de demonstração permanecem locais mesmo quando a autenticação usa o Supabase.
+  // Com o Supabase, contas, mensagens e peneiras vivem no servidor; o navegador guarda só preferências.
   if (!remote.enabled) {
     localStorage.setItem('ap_user', JSON.stringify(state.user))
     localStorage.setItem('ap_accounts', JSON.stringify(state.accounts))
     localStorage.setItem('ap_profile', JSON.stringify(state.profile))
+    localStorage.setItem('ap_messages', JSON.stringify(state.messages))
+    localStorage.setItem('ap_tryouts', JSON.stringify(state.tryouts))
   }
-  localStorage.setItem('ap_messages', JSON.stringify(state.messages))
   localStorage.setItem('ap_favorites', JSON.stringify(state.favorites))
   localStorage.setItem('ap_votes', JSON.stringify(state.votes))
   localStorage.setItem('ap_voted', JSON.stringify(state.voted))
-  localStorage.setItem('ap_tryouts', JSON.stringify(state.tryouts))
   localStorage.setItem('ap_reviews', JSON.stringify(state.reviews))
   localStorage.setItem('ap_notifications', JSON.stringify(state.notifications))
 }
@@ -421,9 +423,56 @@ function closeMobileChat() {
 }
 
 // ---------- envio e recebimento ----------
+function mapRemoteMessage(row) {
+  return {
+    id: Number(row.id), thread: threadKey(row.athlete_id, row.staff_id), text: row.body,
+    senderRole: row.sender_id === row.staff_id ? 'staff' : 'player', ts: Date.parse(row.created_at), remote: true,
+  }
+}
+
+async function refreshRemoteMessages() {
+  if (!remote.enabled || !state.user?.uid) return
+  try {
+    state.messages = (await fetchMessages()).map(mapRemoteMessage)
+  } catch (error) {
+    console.warn('[Supabase] não foi possível carregar mensagens:', error)
+  }
+}
+
+// Sem Realtime (custo): enquanto a tela de conversas está aberta e visível, busca novas mensagens a cada 8 s.
+let messagePoll = null
+function syncMessagePolling(route) {
+  clearInterval(messagePoll)
+  messagePoll = null
+  if (route !== 'messages' || !remote.enabled) return
+  messagePoll = setInterval(async () => {
+    if (document.hidden) return
+    const known = new Set(state.messages.map((m) => m.id))
+    await refreshRemoteMessages()
+    const fresh = state.messages.filter((m) => !known.has(m.id))
+    if (!fresh.length) return
+    fresh.filter((m) => m.thread === activeConversation?.key).forEach(appendBubble)
+    if (activeConversation) markRead(activeConversation.key)
+    updateConversationList()
+    updateMessageBadge()
+  }, 8000)
+}
+
 async function sendChatMessage(text) {
   const conversation = activeConversation
   if (!conversation) return false
+  if (remote.enabled) {
+    const { row, error } = await sendMessage({ athleteId: conversation.athleteRef, staffId: conversation.staffRef, senderId: state.user.uid, body: text })
+    if (error) {
+      toast(describeError(error), 'error')
+      return false
+    }
+    const message = mapRemoteMessage(row)
+    state.messages.push(message)
+    appendBubble(message)
+    markRead(conversation.key)
+    return true
+  }
   const role = myRole()
   const message = { id: Date.now(), thread: conversation.key, senderRole: role, text, ts: Date.now() }
   state.messages.push(message)
@@ -453,7 +502,8 @@ async function hydrateRemote(uid) {
   state.accounts = [ownAccount].concat(directory.map(remoteAccount))
   state.user = { name: own.profile.name, email: own.profile.email, role: own.profile.role, uid }
   state.profile = own.profile.role === 'player' ? ownAccount.profile : null
-  state.messages = readStorage('ap_messages', state.messages)
+  state.messages = []
+  await refreshRemoteMessages()
   ensureReadBaseline(uid)
   stopAuthWatch?.()
   stopAuthWatch = onSignedOut((event) => {
@@ -579,6 +629,8 @@ async function refreshRemote(force = false) {
     state.accounts = (own ? [own] : []).concat(directory.map(remoteAccount))
     syncAthletes()
     await refreshRemoteEvaluations()
+    await refreshRemoteMessages()
+    updateMessageBadge()
     const tryoutsBefore = JSON.stringify(state.tryouts)
     await refreshRemoteTryouts()
     const route = currentRoute()
@@ -1093,7 +1145,7 @@ function registerPage() {
     input(t('Senha'), 'reg-password', '', 'password', true) +
     input(t('Confirmar senha'), 'reg-confirm', '', 'password', true) +
     '<div id="reg-feedback" class="sm:col-span-2 hidden rounded-2xl border px-4 py-3 text-sm" role="alert"></div>' +
-    '<div class="sm:col-span-2 flex flex-wrap items-center justify-between gap-3 pt-3"><p class="max-w-2xl text-xs leading-5 text-ink-soft">Nesta versão front-end, os dados são armazenados localmente no navegador para permitir a demonstração do fluxo. Não use senhas reais.</p><button class="btn-primary" type="submit">' + t('Criar conta') + ' ' + icon('check', 'size-4') + '</button></div>' +
+    '<div class="sm:col-span-2 flex flex-wrap items-center justify-between gap-3 pt-3"><p class="max-w-2xl text-xs leading-5 text-ink-soft">' + (remote.enabled ? 'Sua conta fica no servidor da Pelé Academia. CPF, telefone e endereço são visíveis só para você.' : 'Modo local: os dados ficam apenas neste navegador. Não use senhas reais.') + '</p><button class="btn-primary" type="submit">' + t('Criar conta') + ' ' + icon('check', 'size-4') + '</button></div>' +
     '</form></div></main>'
 }
 
@@ -2172,14 +2224,17 @@ function render() {
   if (route !== lastRoute) window.scrollTo(0, 0)
   lastRoute = route
   if (['athletes', 'dashboard', 'tryouts'].includes(route)) refreshRemote()
+  syncMessagePolling(route)
 }
 
 // Atualização automática: quando outra aba/janela altera os dados (inscrição, cancelamento,
 // mensagem...), esta tela é atualizada sem precisar recarregar.
 function reloadSharedState() {
-  state.tryouts = readStorage('ap_tryouts', state.tryouts)
+  if (!remote.enabled) {
+    state.tryouts = readStorage('ap_tryouts', state.tryouts)
+    state.messages = readStorage('ap_messages', state.messages)
+  }
   state.notifications = readStorage('ap_notifications', state.notifications)
-  state.messages = readStorage('ap_messages', state.messages)
   if (!remote.enabled) {
     state.accounts = readStorage('ap_accounts', state.accounts)
   }
