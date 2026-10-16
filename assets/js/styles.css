@@ -579,7 +579,15 @@ button.pitch-dot { cursor:pointer; min-width:2.75rem; min-height:2.75rem; backgr
 body::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:none; background-image: radial-gradient(var(--dot) 1px, transparent 1.3px); background-size: 22px 22px; -webkit-mask-image: radial-gradient(120% 90% at 80% 0%, #000 25%, transparent 75%); mask-image: radial-gradient(120% 90% at 80% 0%, #000 25%, transparent 75%); }
 
 .brand-lockup { display:inline-flex; align-items:center; gap:.65rem; }
-.logo-mark { flex:none; border-radius:28%; box-shadow: 0 6px 18px -8px rgb(216 176 92 / .7); }
+.logo-mark { flex:none; overflow:visible; }
+.lm-o { stroke: var(--color-brand); }
+.lm-run { stroke: var(--color-chalk); }
+.login-brand .lm-o { stroke:#D8B05C; }
+.login-brand .lm-run { stroke:#EEF1E8; }
+/* No login o O se desenha (giz na prancheta) e a corrida aparece em seguida. */
+.login-brand .lm-o { stroke-dasharray:1; stroke-dashoffset:1; animation: tb-draw 1.1s var(--ease-out) .25s forwards; }
+.login-brand .lm-run { opacity:0; animation: tb-fade .6s ease 1.1s forwards; }
+@keyframes tb-fade { from { opacity:0; } to { opacity:1; } }
 .brand-text { display:grid; line-height:1.05; text-align:left; }
 .brand-word { font-family:var(--font-display); font-weight:700; font-size:1.05rem; letter-spacing:.04em; white-space:nowrap; }
 .brand-sub { font-size:.72rem; color:var(--color-ink-soft); }
@@ -642,7 +650,7 @@ body::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:n
 .login-intro .partner-seal { color: rgb(238 241 232 / .75); }
 @media (max-width:63.99rem) {
   .login-brand { top:1rem; left:1rem; }
-  .login-brand .logo-mark { width:30px; height:30px; }
+  .login-brand .logo-mark { width:38px; height:30px; }
   .login-title { font-size: clamp(2.1rem, 1.5rem + 4vw, 3rem); }
 }
 

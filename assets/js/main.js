@@ -995,10 +995,12 @@ function squadLegend(athletes) {
 }
 
 // ---------- Marca TIER ZERO ----------
-// Símbolo "Pontapé inicial": o zero é o círculo central cortado pela linha do meio-campo (lê como Ø).
+// Símbolo "O da prancheta": na prancheta o treinador marca o jogador com um O (o zero) e o movimento
+// com uma seta; a corrida em curva sai da abertura do O, "do zero para a frente".
 function logoMark(size = 40, cls = '') {
-  return '<svg class="logo-mark ' + cls + '" width="' + size + '" height="' + size + '" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><rect width="48" height="48" rx="12" fill="#D8B05C"/><circle cx="24" cy="24" r="13" fill="none" stroke="#17130A" stroke-width="4"/><path d="M24 6v36" stroke="#17130A" stroke-width="4" stroke-linecap="round"/><circle cx="24" cy="24" r="3.2" fill="#17130A"/></svg>'
+  return '<svg class="logo-mark ' + cls + '" width="' + Math.round(size * 1.25) + '" height="' + size + '" viewBox="0 0 80 64" aria-hidden="true" focusable="false"><path class="lm-o" d="M48.07 26.13A19 19 0 1 1 40.07 15.89" pathLength="1" fill="none" stroke-width="5.5" stroke-linecap="round"/><path class="lm-run" d="M46.5 20.5C54 10 63 9.5 70 17.5" fill="none" stroke-width="3.2" stroke-linecap="round" stroke-dasharray="1 6.5"/><path class="lm-run lm-head" d="M70.13 10.68L70.99 18.63L63.22 16.72" fill="none" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 }
+
 function brandLockup(size = 40, sub = true) {
   return '<span class="brand-lockup">' + logoMark(size) + '<span class="brand-text"><span class="brand-word">TIER ZERO</span>' + (sub ? '<span class="brand-sub">' + t('Plataforma de talentos') + '</span>' : '') + '</span></span>'
 }
