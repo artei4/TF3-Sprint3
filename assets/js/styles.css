@@ -761,3 +761,37 @@ body::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:n
 .crop-ring { position:absolute; inset:0; pointer-events:none; background: radial-gradient(circle closest-side, transparent calc(100% - 2px), rgb(238 241 232 / .9) calc(100% - 2px), rgb(238 241 232 / .9) 100%, rgb(0 0 0 / .6) 100%); }
 .crop-zoom { display:flex; align-items:center; gap:.75rem; margin-top:1rem; font-size:.85rem; font-weight:600; }
 .crop-zoom input { flex:1; accent-color: var(--color-cta); }
+
+/* ===== Peneiras ===== */
+.tab-bar { display:flex; flex-wrap:wrap; gap:.5rem; }
+.tab-chip { display:inline-flex; align-items:center; gap:.5rem; min-height:2.5rem; padding:.4rem .9rem; border-radius:999px; font-size:.9rem; font-weight:600; color:var(--color-ink-soft); border:1px solid var(--color-line); background:var(--color-panel); transition: color var(--dur-hover), background-color var(--dur-hover), border-color var(--dur-hover), transform var(--dur-press); }
+.tab-chip:active { transform: scale(.97); }
+.tab-chip[aria-pressed="true"] { color:var(--color-brand-ink); border-color:transparent; background: linear-gradient(180deg, #EBCB7E, #C4963C); box-shadow: 0 8px 18px -10px rgb(196 150 60 / .9); }
+.tab-count { min-width:1.4rem; padding:0 .35rem; border-radius:999px; font-size:.75rem; text-align:center; background: color-mix(in oklab, var(--color-chalk) 10%, transparent); }
+.tab-chip[aria-pressed="true"] .tab-count { background: rgb(23 19 10 / .15); }
+@media (hover:hover) and (pointer:fine) { .tab-chip:hover:not([aria-pressed="true"]) { color:var(--color-chalk); border-color: color-mix(in oklab, var(--color-brand) 50%, var(--color-line)); } }
+.tryout-card { position:relative; }
+.tryout-card .scoreboard { min-width:4.75rem; }
+.tryout-card.is-enrolled { --edge-1: color-mix(in oklab, var(--color-success) 70%, transparent); --edge-3: color-mix(in oklab, var(--color-success) 45%, transparent); }
+.tryout-card.is-off > *:not(.enrolled-ribbon):not(.fit-line):not(.mt-auto) { opacity:.72; }
+.enrolled-ribbon { position:absolute; top:-.7rem; right:1rem; display:inline-flex; align-items:center; gap:.3rem; padding:.2rem .65rem; border-radius:999px; font-size:.75rem; font-weight:700; color:#04140A; background:var(--color-success); box-shadow: 0 6px 14px -6px rgb(0 0 0 / .5); }
+.countdown { display:inline-flex; align-items:center; gap:.35rem; margin-top:.5rem; font-size:.8rem; font-weight:600; color:var(--color-ink-soft); }
+.countdown.is-soon { color:var(--color-warning); }
+.fit-line { display:flex; align-items:flex-start; gap:.45rem; margin-top:.9rem; padding:.55rem .75rem; border-radius:var(--radius-control); font-size:.85rem; line-height:1.4; }
+.fit-ok { color:var(--color-success); background: color-mix(in oklab, var(--color-success) 9%, transparent); }
+.fit-no { color:var(--color-chalk); background: color-mix(in oklab, var(--color-chalk) 6%, transparent); }
+.fit-no svg { color:var(--color-warning); }
+.tag.warn { color:var(--color-warning); border-color: color-mix(in oklab, var(--color-warning) 45%, transparent); }
+.bg-warning { background:var(--color-warning); }
+
+/* ===== Painel do atleta ===== */
+.next-tryout { display:flex; flex-direction:column; }
+.countdown-big { font-size: clamp(3.5rem, 2.5rem + 3vw, 5rem); color:var(--color-brand); line-height:.9; }
+.checklist { display:grid; gap:.25rem; padding:0; margin:0; list-style:none; }
+.checklist li { display:flex; align-items:center; gap:.75rem; padding:.6rem .4rem; border-radius:var(--radius-control); }
+.checklist li + li { border-top:1px solid var(--color-line); }
+.checklist strong { display:block; font-size:.92rem; font-weight:600; }
+.checklist small { display:block; font-size:.8rem; color:var(--color-ink-soft); }
+.check-mark { display:grid; place-items:center; flex:none; width:1.5rem; height:1.5rem; border-radius:50%; border:1.5px solid var(--color-line-strong); }
+.checklist li.is-done .check-mark { border-color:transparent; color:#04140A; background:var(--color-success); }
+.checklist li.is-done strong { color:var(--color-ink-soft); text-decoration: line-through; text-decoration-color: color-mix(in oklab, var(--color-ink-soft) 60%, transparent); }

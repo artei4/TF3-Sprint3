@@ -886,40 +886,85 @@ function dashboard(role = 'player') {
   return role === 'staff' ? staffDashboard() : playerDashboard()
 }
 
+// Painel do atleta: uma próxima ação clara, a próxima peneira com contagem regressiva e um
+// checklist curto do perfil (3 a 7 itens, verbo de ação, progresso, pode ocultar).
+function playerChecklist(profile) {
+  const myMessages = state.messages.some((m) => m.senderRole === 'player' && String(m.thread).includes(String(getCurrentAthlete()?.id ?? '')))
+  return [
+    [!!profile.photo, t('Adicione uma foto de perfil'), t('Ajuda os olheiros a lembrarem de você.'), 'profile'],
+    [!!profile.secondary && profile.secondary !== '—', t('Defina uma posição secundária'), t('Abre mais peneiras compatíveis.'), 'profile'],
+    [state.tryouts.some(isEnrolledIn), t('Inscreva-se numa peneira'), t('É assim que você entra no radar da Academia.'), 'tryouts:for-you'],
+    [myMessages, t('Mande uma mensagem a um treinador'), t('Apresente-se e tire dúvidas.'), 'messages'],
+    [!!(profile.city && profile.zip), t('Confira seu endereço'), t('Usado para indicar peneiras perto de você.'), 'profile'],
+  ]
+}
+
 function playerDashboard() {
-  const name = escapeHtml(state.user?.name || state.profile?.name || 'Atleta')
   const profile = state.profile || defaultProfile
-  const next = state.tryouts.find((t) => {
-    const enrolled = Array.isArray(t.enrolled) && t.enrolled.includes(state.user?.email)
-    return enrolled
-  }) || state.tryouts[0] || { title: t('Nenhuma peneira aberta'), category: '—', date: '', time: '', location: '—', city: '—', state: '', positions: [] }
+  const firstName = escapeHtml((state.user?.name || profile.name || 'Atleta').split(' ')[0])
+  const category = getCategoryFromAge(getAgeFromProfile(profile.birth))
+  const upcoming = state.tryouts.filter((tryout) => !isPastTryout(tryout) && tryout.status !== 'cancelled').sort((x, y) => String(x.date).localeCompare(String(y.date)))
+  const mine = upcoming.filter(isEnrolledIn)
+  const forYou = upcoming.filter((tryout) => tryoutFit(tryout).ok && !isEnrolledIn(tryout))
+  const next = mine[0] || forYou[0] || null
+  const unread = unreadSummary().total
+  const avg = averagePlayerRating(profile)
+  const status = mine.length
+    ? t('Você tem') + ' ' + plural(mine.length, 'inscrição', 'inscrições') + '. ' + t('Sua próxima peneira é') + ' ' + countdownLabel(mine[0].date).toLowerCase() + '.'
+    : forYou.length
+      ? t('Há') + ' ' + plural(forYou.length, 'peneira aberta', 'peneiras abertas') + ' ' + t('para') + ' ' + escapeHtml(profile.pos.toLowerCase()) + ' ' + t('na') + ' ' + escapeHtml(category) + '.'
+      : t('Nenhuma peneira compatível agora. Complete o perfil para aparecer para os olheiros.')
+  const cta = mine.length
+    ? '<button type="button" class="btn-primary" data-tryout-filter="mine">' + icon('calendar', 'size-4') + ' ' + t('Ver minhas inscrições') + '</button>'
+    : forYou.length
+      ? '<button type="button" class="btn-primary" data-tryout-filter="for-you">' + t('Ver peneiras para você') + ' ' + icon('arrow', 'size-4') + '</button>'
+      : '<button type="button" class="btn-primary" data-route="profile">' + t('Completar perfil') + ' ' + icon('arrow', 'size-4') + '</button>'
+
+  const checklist = playerChecklist(profile)
+  const done = checklist.filter((item) => item[0]).length
+  let hidden = false
+  try { hidden = localStorage.getItem('ap_hide_checklist:' + state.user?.email) === '1' } catch {}
+  const checklistPanel = hidden ? '' : '<div class="reveal panel"><div class="flex items-start justify-between gap-3"><div><h2 class="section-title !mt-0">' + t('Seu perfil para os olheiros') + '</h2><p class="mt-1 text-sm text-ink-soft">' + done + ' ' + t('de') + ' ' + checklist.length + ' ' + t('passos concluídos') + '</p></div><button type="button" class="btn-ghost text-sm" data-hide-checklist>' + t('Ocultar') + '</button></div>' +
+    '<div class="reg-progress mt-4" aria-hidden="true"><span style="width:' + Math.round(done / checklist.length * 100) + '%"></span></div>' +
+    (done === checklist.length
+      ? '<div class="alert alert-success mt-5">' + icon('check', 'size-5 shrink-0') + '<span><strong>' + t('Perfil completo.') + '</strong> ' + t('Agora é com você em campo.') + '</span></div>'
+      : '<ul class="checklist mt-4">' + checklist.map(([ok, title, hint, target]) => {
+        const attrs = target.startsWith('tryouts:') ? 'data-tryout-filter="' + target.split(':')[1] + '"' : 'data-route="' + target + '"'
+        return '<li class="' + (ok ? 'is-done' : '') + '"><span class="check-mark" aria-hidden="true">' + (ok ? icon('check', 'size-3.5') : '') + '</span><span class="min-w-0 flex-1"><strong>' + title + '</strong><small>' + hint + '</small></span>' +
+          (ok ? '<span class="sr-only">' + t('concluído') + '</span>' : '<button type="button" class="btn-ghost text-sm" ' + attrs + '>' + t('Fazer') + '</button>') + '</li>'
+      }).join('') + '</ul>') + '</div>'
+
+  const nextCard = next
+    ? '<aside class="next-tryout reveal surface rounded-card p-6"><div class="flex items-center justify-between gap-3"><p class="text-sm text-ink-soft">' + (isEnrolledIn(next) ? t('Sua próxima peneira') : t('Próxima peneira para você')) + '</p>' +
+      '<span class="tag ' + (isEnrolledIn(next) ? 'green' : '') + '">' + (isEnrolledIn(next) ? t('Inscrito') : t('Aberta')) + '</span></div>' +
+      '<div class="mt-4 flex items-end gap-3"><span class="num countdown-big">' + (daysUntil(next.date) <= 0 ? t('Hoje') : daysUntil(next.date)) + '</span>' + (daysUntil(next.date) > 0 ? '<span class="pb-2 text-sm text-ink-soft">' + (daysUntil(next.date) === 1 ? t('dia') : t('dias')) + '<br/>' + t('para o jogo') + '</span>' : '') + '</div>' +
+      '<h2 class="mt-4 text-xl font-semibold leading-tight">' + escapeHtml(next.title) + '</h2>' +
+      '<div class="mt-3 flex items-center gap-3">' + scoreboard(next.date, next.time) + '<p class="text-sm text-ink-soft">' + escapeHtml(next.location) + '<br/>' + escapeHtml(next.city) + '/' + escapeHtml(next.state) + '</p></div>' +
+      '<button type="button" class="btn-secondary mt-6 w-full" data-tryout-filter="' + (isEnrolledIn(next) ? 'mine' : 'for-you') + '">' + (isEnrolledIn(next) ? t('Ver detalhes') : t('Inscrever-me')) + ' ' + icon('arrow', 'size-4') + '</button></aside>'
+    : '<aside class="next-tryout reveal surface rounded-card p-6"><div class="empty-state"><strong>' + t('Nenhuma peneira aberta para você') + '</strong><span class="text-sm">' + t('Assim que abrir uma peneira compatível, ela aparece aqui.') + '</span><button type="button" class="btn-secondary mt-2" data-tryout-filter="all">' + t('Ver todas') + '</button></div></aside>'
 
   return shell(
-    '<section class="grid gap-6 xl:grid-cols-[1.55fr_.8fr]">' +
-    '<div class="hero rounded-card surface p-6 shadow-2xl sm:p-8"><span class="jersey" aria-hidden="true">' + ((getCategoryFromAge(getAgeFromProfile(profile.birth)) || '').replace(/\D/g, '') || '10') + '</span>' +
-    '<div class="flex flex-wrap items-center justify-between gap-4"><div><h1 class="page-title max-w-2xl">Olá, ' + name + '. Sua carreira em movimento.</h1><p class="mt-4 max-w-2xl text-base leading-7 text-ink-soft">Acompanhe oportunidades, avaliações e conversas com profissionais da Pelé Academia.</p></div>' +
-    '<div class="hidden sm:flex h-28 w-28 items-center justify-center rounded-card border border-brand/25 bg-brand/10"><img src="./assets/brand/simbolo.jpg" width="112" height="112" decoding="async" alt="" class="h-24 w-24 rounded-2xl object-contain" /></div></div>' +
-    '<div class="mt-8 grid gap-3 sm:grid-cols-3">' +
-    stat(averagePlayerRating(profile), t('Avaliação média'), 'notas registradas') +
-    stat(String(state.tryouts.filter((t) => Array.isArray(t.enrolled) && t.enrolled.includes(state.user?.email)).length).padStart(2, '0'), t('Peneiras inscritas'), 'acompanhe suas vagas') +
-    stat(String(myNotifications().length).padStart(2, '0'), t('Notificações'), 'atualizadas recentemente') +
-    '</div></div>' +
-    '<aside class="rounded-card surface p-6"><div class="flex items-center justify-between gap-3"><div><p class="text-sm text-ink-soft">Próxima peneira</p><h2 class="mt-1 text-2xl font-bold font-display">' + escapeHtml(next.title) + '</h2></div><span class="status-dot">' + escapeHtml(next.category || t('Aberta')) + '</span></div>' +
-    '<div class="mt-6 space-y-4"><div class="flex gap-3">' + icon('calendar', 'size-5 text-brand') + '<div><p class="text-sm font-semibold">' + formatDate(next.date) + ' • ' + escapeHtml(next.time) + '</p><p class="text-xs text-ink-soft">' + escapeHtml(next.location) + ' • ' + escapeHtml(next.city) + '/' + escapeHtml(next.state) + '</p></div></div>' +
-    '<div class="flex gap-3">' + icon('pin', 'size-5 text-brand') + '<div><p class="text-sm font-semibold">Posições aceitas</p><p class="text-xs text-ink-soft">' + escapeHtml(next.positions.join(', ')) + '</p></div></div></div>' +
-    '<button type="button" class="btn-primary mt-6 w-full" data-route="tryouts">Ver peneiras ' + icon('arrow', 'size-4') + '</button></aside></section>' +
-    '<section class="mt-8 grid gap-5 lg:grid-cols-[1.15fr_.85fr]">' +
-    '<div class="reveal panel"><div class="flex items-center justify-between"><div><p class="text-sm text-ink-soft">Meu perfil</p><h2 class="section-title">' + escapeHtml(profile.pos) + ' • ' + escapeHtml(profile.city) + '</h2></div><button type="button" class="btn-ghost" data-route="profile">Editar perfil ' + icon('edit', 'size-4') + '</button></div>' +
-    '<div class="mt-5 flex flex-wrap gap-2">' + posTag(profile.pos) + posTag(profile.secondary) + tag(getCategoryFromAge(getAgeFromProfile(profile.birth)), true) + '</div>' +
-    '<div class="mt-5">' + pitchFormation([{ id: 'me', name: profile.name || state.user?.name || 'Você', pos: profile.pos }], { highlight: 'me', interactive: false }) + '</div></div>' +
-    '<div class="reveal panel"><div class="flex items-center justify-between"><div><h2 class="section-title !mt-0">Minha atividade</h2></div>' + icon('arrow', 'size-5 text-ink-soft') + '</div><div class="mt-5 space-y-4">' +
+    '<section class="grid gap-5 xl:grid-cols-[1.5fr_.9fr]">' +
+    '<div class="hero rounded-card surface p-6 sm:p-8"><span class="jersey" aria-hidden="true">' + (category.replace(/\D/g, '') || '10') + '</span>' +
+    '<p class="text-sm text-ink-soft">' + escapeHtml(profile.pos) + ' · ' + escapeHtml(category) + ' · ' + escapeHtml(profile.city || '') + '</p>' +
+    '<h1 class="page-title mt-2 max-w-2xl">' + t('Olá,') + ' ' + firstName + '.</h1><p class="mt-3 max-w-xl text-lg leading-7">' + status + '</p>' +
+    '<div class="mt-6 flex flex-wrap gap-2">' + cta + '<button type="button" class="btn-secondary" data-route="profile">' + icon('user', 'size-4') + ' ' + t('Meu perfil') + '</button></div>' +
+    '<dl class="profile-stats mt-8 grid grid-cols-2 gap-3 md:grid-cols-4">' +
+    '<div><dt>' + t('Nota média') + '</dt><dd class="num ' + rateClass(avg) + '">' + escapeHtml(String(avg)) + '</dd></div>' +
+    '<div><dt>' + t('Inscrições') + '</dt><dd class="num">' + mine.length + '</dd></div>' +
+    '<div><dt>' + t('Avaliações') + '</dt><dd class="num">' + getPlayerReviewCount() + '</dd></div>' +
+    '<div><dt>' + t('Mensagens novas') + '</dt><dd class="num">' + unread + '</dd></div></dl></div>' +
+    nextCard + '</section>' +
+    '<section class="mt-6 grid gap-5 ' + (checklistPanel ? 'lg:grid-cols-2' : '') + '">' + checklistPanel +
+    '<div class="reveal panel"><h2 class="section-title !mt-0">' + t('Minha atividade') + '</h2><div class="mt-5 space-y-4">' +
     (myNotifications().length
-      ? myNotifications().slice(0, 3).map((n) => activity(escapeHtml(n.title), escapeHtml(n.text), notificationTime(n))).join('')
-      : '<div class="empty-state"><strong>Nada por aqui ainda</strong><span class="text-sm">Inscrições, avaliações e mensagens de treinadores aparecem aqui.</span><button type="button" class="btn-secondary mt-2" data-route="tryouts">Ver peneiras</button></div>') +
+      ? myNotifications().slice(0, 4).map((n) => activity(escapeHtml(n.title), escapeHtml(n.text), notificationTime(n))).join('')
+      : '<div class="empty-state"><strong>' + t('Nada por aqui ainda') + '</strong><span class="text-sm">' + t('Inscrições, avaliações e mensagens de treinadores aparecem aqui.') + '</span></div>') +
     '</div></div></section>',
     { active: 'dashboard', role: 'player' },
   )
 }
+
 
 function staffDashboard() {
   return shell(
@@ -1351,13 +1396,65 @@ function tryoutsBody(role) {
     return '<div class="alert alert-error mt-6" role="alert">' + icon('close', 'size-5 shrink-0') + '<span><strong>' + t('Não foi possível carregar as peneiras.') + '</strong> ' + escapeHtml(state.tryoutsError || '') +
       ' <button type="button" class="font-semibold underline underline-offset-4" data-action="retry-tryouts">' + t('Tentar de novo') + '</button></span></div>'
   }
-  const list = state.tryouts.filter((tryout) => role === 'player' || tryout.status !== 'cancelled')
-  if (!list.length) {
+  const all = state.tryouts.filter((tryout) => role === 'player' || tryout.status !== 'cancelled')
+  const { bar, items: list, key } = tryoutTabs(role, all)
+  if (all.length && !list.length) {
+    const empty = {
+      'for-you': [t('Nenhuma peneira para o seu perfil agora'), t('Veja todas as peneiras ou ajuste suas posições no perfil.'), '<button type="button" class="btn-secondary mt-2" data-tryout-filter="all">' + t('Ver todas') + '</button>'],
+      mine: [t('Você ainda não se inscreveu'), t('As peneiras em que você se inscrever aparecem aqui, com a data e o local.'), '<button type="button" class="btn-primary mt-2" data-tryout-filter="for-you">' + t('Ver peneiras para você') + '</button>'],
+      past: [t('Nenhuma peneira encerrada'), t('Peneiras que já aconteceram ou foram canceladas ficam guardadas aqui.'), ''],
+    }[key] || [t('Nenhuma peneira aberta'), '', '']
+    return bar + '<div class="empty-state mt-6"><strong>' + empty[0] + '</strong><span class="text-sm">' + empty[1] + '</span>' + empty[2] + '</div>'
+  }
+  if (!all.length) {
     return '<div class="empty-state mt-6"><strong>' + t('Nenhuma peneira aberta') + '</strong><span class="text-sm">' +
       (role === 'staff' ? t('Crie a primeira peneira: os atletas compatíveis já poderão se inscrever.') : t('Quando a Pelé Academia abrir uma peneira, ela aparece aqui.')) + '</span>' +
       (role === 'staff' ? '<button type="button" class="btn-primary mt-2" data-action="openTryout">' + icon('plus', 'size-4') + ' ' + t('Criar peneira') + '</button>' : '') + '</div>'
   }
-  return '<div class="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">' + list.map(tryoutCard).join('') + '</div>'
+  return bar + '<div class="mt-6 grid gap-4 md:grid-cols-2 2xl:grid-cols-3">' + list.map(tryoutCard).join('') + '</div>'
+}
+
+// ---------- Peneiras: datas, compatibilidade e filtros ----------
+const todayIso = () => new Date().toISOString().slice(0, 10)
+const isPastTryout = (tryout) => !!tryout.date && tryout.date < todayIso()
+function daysUntil(date) {
+  if (!date) return null
+  const [y, m, d] = date.split('-').map(Number)
+  const target = new Date(y, m - 1, d)
+  const now = new Date(); now.setHours(0, 0, 0, 0)
+  return Math.round((target - now) / 864e5)
+}
+function countdownLabel(date) {
+  const n = daysUntil(date)
+  if (n === null) return ''
+  if (n < 0) return t('Encerrada')
+  if (n === 0) return t('Hoje')
+  if (n === 1) return t('Amanhã')
+  return t('Em') + ' ' + n + ' ' + t('dias')
+}
+const isEnrolledIn = (tryout) => Array.isArray(tryout.enrolled) && tryout.enrolled.includes(state.user?.email)
+// Por que a peneira serve (ou não) para o atleta logado.
+function tryoutFit(tryout) {
+  const profile = state.profile || {}
+  const category = getCategoryFromAge(getAgeFromProfile(profile.birth))
+  const positionOk = tryout.positions.includes(profile.pos) || tryout.positions.includes(profile.secondary)
+  const categoryOk = !tryout.category || tryout.category === category
+  const reasons = []
+  if (!positionOk) reasons.push(t('aceita') + ' ' + joinPt(tryout.positions.map((pos) => pos.toLowerCase())))
+  if (!categoryOk) reasons.push(t('é') + ' ' + tryout.category + ' ' + t('e a sua categoria é') + ' ' + category)
+  return { ok: positionOk && categoryOk, reasons, category }
+}
+let tryoutFilter = null
+function tryoutTabs(role, list) {
+  const upcoming = list.filter((tryout) => !isPastTryout(tryout) && tryout.status !== 'cancelled')
+  const tabs = role === 'staff'
+    ? [['upcoming', t('Próximas'), upcoming], ['past', t('Encerradas'), list.filter(isPastTryout)]]
+    : [['for-you', t('Para você'), upcoming.filter((tryout) => tryoutFit(tryout).ok)], ['mine', t('Minhas inscrições'), list.filter(isEnrolledIn)], ['all', t('Todas'), upcoming], ['past', t('Encerradas'), list.filter((tryout) => isPastTryout(tryout) || tryout.status === 'cancelled')]]
+  if (!tryoutFilter || !tabs.some((tab) => tab[0] === tryoutFilter)) tryoutFilter = tabs[0][0]
+  const current = tabs.find((tab) => tab[0] === tryoutFilter)
+  const bar = '<div class="tab-bar" role="group" aria-label="' + t('Filtrar peneiras') + '">' + tabs.map(([key, label, items]) =>
+    '<button type="button" class="tab-chip" data-tryout-filter="' + key + '" aria-pressed="' + (key === tryoutFilter) + '">' + label + '<span class="tab-count">' + items.length + '</span></button>').join('') + '</div>'
+  return { bar, items: current[2].slice().sort((a, b) => String(a.date).localeCompare(String(b.date))), key: current[0] }
 }
 
 function tryoutCard(tryout) {
@@ -1384,21 +1481,33 @@ function tryoutCard(tryout) {
     actions = '<button type="button" class="btn-secondary w-full" data-action="view-enrolled" data-id="' + tryout.id + '">' + t('Ver inscritos') + ' (' + taken + '/' + seats + ') ' + icon('arrow', 'size-4') + '</button>' +
       '<button type="button" class="btn-danger w-full" data-action="cancel-tryout" data-id="' + tryout.id + '">' + icon('close', 'size-4') + ' ' + t('Cancelar peneira') + '</button>'
   } else if (enrolled) {
-    actions = '<div class="btn-secondary w-full cursor-default" role="status">' + t('Inscrição confirmada') + ' ' + icon('check', 'size-4') + '</div>' +
-      '<button type="button" class="btn-danger w-full" data-action="withdraw" data-id="' + tryout.id + '">' + t('Cancelar minha inscrição') + '</button>'
+    actions = '<button type="button" class="btn-danger w-full" data-action="withdraw" data-id="' + tryout.id + '">' + t('Cancelar minha inscrição') + '</button>'
   } else {
     actions = '<button type="button" class="btn-' + (incompatible ? 'incompatible' : 'primary') + ' w-full" data-action="enroll" data-id="' + tryout.id + '" ' + (!canEnroll || full ? 'disabled' : '') + '>' +
-      (full ? t('Sem vagas') : canEnroll ? t('Inscrever-me') : t('Posição/categoria incompatível')) + ' ' + icon('arrow', 'size-4') + '</button>'
+      (full ? t('Sem vagas') : canEnroll ? t('Inscrever-me') : t('Indisponível para o seu perfil')) + (canEnroll && !full ? ' ' + icon('arrow', 'size-4') : '') + '</button>'
   }
 
-  return '<article class="reveal spot panel flex flex-col" data-tryout-card="' + tryout.id + '"><div class="flex flex-wrap gap-1.5">' + tag(tryout.category || t('Aberta')) + tryout.positions.map(posTag).join('') + '</div>' +
-    '<div class="mt-4 flex items-start justify-between gap-3"><h2 class="text-xl font-bold leading-tight">' + escapeHtml(tryout.title) + '</h2>' + scoreboard(tryout.date, tryout.time) + '</div><div class="mt-4 space-y-3 text-sm text-ink-soft">' +
-    '<p class="flex gap-2">' + icon('pin', 'size-4 text-brand') + escapeHtml(tryout.location) + ' — ' + escapeHtml(tryout.city) + '/' + escapeHtml(tryout.state) + '</p></div>' +
-    '<div class="mt-6 flex items-end justify-between gap-3"><div><p class="text-xs font-bold text-ink-soft">' + t('Vagas preenchidas') + '</p>' +
-    '<p class="num mt-1 text-4xl" aria-label="' + taken + ' de ' + seats + ' vagas preenchidas"><span class="' + (full ? 'text-danger' : 'text-brand') + '">' + taken + '</span><span class="text-ink-soft">/' + seats + '</span></p></div>' +
-    '<span class="tag ' + (full ? 'red' : 'green') + '">' + (full ? t('Lotada') : vacancies + ' ' + t(vacancies === 1 ? 'vaga livre' : 'vagas livres')) + '</span></div>' +
-    '<div class="mt-3 h-2 overflow-hidden rounded-full bg-line"><div class="bar-fill h-full rounded-full ' + (full ? 'bg-danger' : 'bg-brand') + '" style="width:' + Math.min(100, taken / seats * 100) + '%"></div></div>' +
-    '<div class="mt-6 grid gap-2">' + actions + '</div></article>'
+  const past = isPastTryout(tryout)
+  const fit = staff ? { ok: true, reasons: [] } : tryoutFit(tryout)
+  const scarce = !full && vacancies <= Math.max(2, Math.ceil(seats * 0.2))
+  const fitLine = staff ? '' : enrolled
+    ? '<p class="fit-line fit-ok">' + icon('check', 'size-4 shrink-0') + t('Você está inscrito. Chegue 30 minutos antes.') + '</p>'
+    : fit.ok
+      ? '<p class="fit-line fit-ok">' + icon('check', 'size-4 shrink-0') + t('Compatível com você:') + ' ' + escapeHtml(state.profile?.pos || '') + ' · ' + escapeHtml(fit.category) + '</p>'
+      : '<p class="fit-line fit-no">' + icon('info', 'size-4 shrink-0') + t('Fora do seu perfil: esta peneira') + ' ' + escapeHtml(fit.reasons.join(' e ')) + '.</p>'
+  if (past) actions = '<p class="text-sm text-ink-soft">' + t('Peneira encerrada.') + '</p>'
+  return '<article class="tryout-card reveal spot panel flex flex-col' + (enrolled ? ' is-enrolled' : '') + (!staff && !fit.ok && !enrolled ? ' is-off' : '') + '" data-tryout-card="' + tryout.id + '">' +
+    (enrolled ? '<span class="enrolled-ribbon">' + icon('check', 'size-3.5') + t('Inscrito') + '</span>' : '') +
+    '<div class="flex items-start gap-4">' + scoreboard(tryout.date, tryout.time) +
+    '<div class="min-w-0 flex-1"><h2 class="text-xl font-semibold leading-tight">' + escapeHtml(tryout.title) + '</h2>' +
+    '<p class="mt-1 flex items-start gap-1.5 text-sm text-ink-soft">' + icon('pin', 'size-4 mt-0.5 shrink-0 text-brand') + '<span>' + escapeHtml(tryout.location) + ' · ' + escapeHtml(tryout.city) + '/' + escapeHtml(tryout.state) + '</span></p>' +
+    '<p class="countdown' + (daysUntil(tryout.date) !== null && daysUntil(tryout.date) <= 3 && !past ? ' is-soon' : '') + '">' + icon('calendar', 'size-3.5') + countdownLabel(tryout.date) + '</p></div></div>' +
+    '<div class="mt-4 flex flex-wrap gap-1.5">' + tag(tryout.category || t('Livre'), true) + tryout.positions.map(posTag).join('') + '</div>' +
+    fitLine +
+    '<div class="mt-5"><div class="flex items-baseline justify-between gap-3 text-sm"><span><strong class="num text-2xl ' + (full ? 'text-danger' : 'text-chalk') + '">' + taken + '</strong><span class="text-ink-soft"> ' + t('de') + ' ' + seats + ' ' + t('vagas preenchidas') + '</span></span>' +
+    '<span class="tag ' + (full ? 'red' : scarce ? 'warn' : 'green') + '">' + (full ? t('Lotada') : scarce ? (vacancies === 1 ? t('Última vaga') : t('Últimas') + ' ' + vacancies + ' ' + t('vagas')) : plural(vacancies, 'vaga livre', 'vagas livres')) + '</span></div>' +
+    '<div class="mt-2 h-2 overflow-hidden rounded-full bg-line"><div class="bar-fill h-full rounded-full ' + (full ? 'bg-danger' : scarce ? 'bg-warning' : 'bg-brand') + '" style="width:' + Math.min(100, taken / seats * 100) + '%"></div></div></div>' +
+    '<div class="mt-auto grid gap-2 pt-5">' + actions + '</div></article>'
 }
 
 function messagesPage() {
@@ -2642,6 +2751,16 @@ function bind() {
     document.querySelectorAll('[data-filters-close]').forEach((el) => el.addEventListener('click', () => setFilters(false)))
     filtersPanel.addEventListener('keydown', (event) => { if (event.key === 'Escape' && filtersPanel.dataset.open === 'true') setFilters(false) })
   }
+  document.querySelectorAll('[data-tryout-filter]').forEach((button) => button.addEventListener('click', () => {
+    tryoutFilter = button.dataset.tryoutFilter
+    if (currentRoute() !== 'tryouts') { go('tryouts'); return }
+    render()
+    document.querySelector('[data-tryout-filter="' + tryoutFilter + '"]')?.focus()
+  }))
+  document.querySelector('[data-hide-checklist]')?.addEventListener('click', () => {
+    try { localStorage.setItem('ap_hide_checklist:' + state.user.email, '1') } catch {}
+    render()
+  })
   document.querySelectorAll('[data-action="retry-tryouts"]').forEach((button) => button.addEventListener('click', () => {
     state.tryoutsStatus = 'loading'
     render()
