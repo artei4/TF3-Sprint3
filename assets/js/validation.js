@@ -36,6 +36,8 @@ export function validBirthDate(birth){
   if(!birth || !/^\d{4}-\d{2}-\d{2}$/.test(birth)) return false
   const date=new Date(birth+'T00:00:00')
   if(Number.isNaN(date.getTime())) return false
+  // 31/02 vira 03/03 no Date: só vale se o dia continuar o mesmo.
+  if(date.getDate()!==Number(birth.slice(8))) return false
   const today=new Date()
   if(date>today) return false
   return date.getFullYear()>=1900

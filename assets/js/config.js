@@ -7,5 +7,7 @@
 //
 // Para usar o site SEM Supabase (modo local, dados só no navegador), deixe os dois valores
 // vazios ou abra o site com ?local=1 no final do endereço.
-export const SUPABASE_URL = 'https://delhjdfecknikusehrga.supabase.co'
-export const SUPABASE_KEY = 'sb_publishable_mD9C-MKt0WEeE9H9A4R0Lg_04yZo_dF'
+// Os valores vêm do .env (veja .env.example) ou das variáveis do projeto na Vercel.
+// Sem .env, usa o projeto da equipe abaixo (chave publicável, pode ficar no código).
+export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? 'https://delhjdfecknikusehrga.supabase.co'
+export const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_KEY ?? 'sb_publishable_mD9C-MKt0WEeE9H9A4R0Lg_04yZo_dF'

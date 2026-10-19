@@ -42,6 +42,10 @@ export async function initRemote() {
 export function describeError(error) {
   const text = String(error?.message || error || '').toLowerCase()
   const code = String(error?.code || '').toLowerCase()
+  if (text.includes('tryout_full')) return t('As vagas desta peneira acabaram.')
+  if (text.includes('tryout_past') || text.includes('tryout_closed')) return t('Esta peneira já foi encerrada.')
+  if (text.includes('not_player')) return t('Só atletas podem se inscrever em peneiras.')
+  if (text.includes('message_rate_limit')) return t('Você enviou muitas mensagens seguidas. Aguarde um minuto.')
   if (text.includes('invalid login credentials')) return t('E-mail ou senha incorretos.')
   if (text.includes('already registered') || code === 'user_already_exists') return t('Já existe uma conta com esse e-mail.')
   if (text.includes('email not confirmed')) return t('Confirme seu e-mail antes de entrar (veja sua caixa de entrada).')
@@ -184,7 +188,8 @@ export async function cancelTryout(id, reason) {
 }
 
 export async function enrollTryout(id) {
-  const { error } = await client.from('tryout_enrollments').insert({ tryout_id: id })
+  // Pela função do servidor: ela trava a última vaga e confere data e status.
+  const { error } = await client.rpc('enroll_tryout', { p_tryout: id })
   return error || null
 }
 

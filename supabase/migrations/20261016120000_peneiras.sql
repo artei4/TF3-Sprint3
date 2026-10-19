@@ -39,7 +39,7 @@ $$;
 -- Funcionários recebem os e-mails de todos os inscritos; atletas, só o próprio.
 create or replace function public.list_tryouts()
 returns table (
-  id bigint, title text, date date, time text, location text, city text, state text, category text,
+  id bigint, title text, date date, "time" text, location text, city text, state text, category text,
   positions text[], seats int, status text, cancel_reason text, created_by_email text, taken int, enrolled_emails text[]
 ) language sql stable security definer set search_path = public as $$
   select t.id, t.title, t.date, t.time, t.location, t.city, t.state, t.category, t.positions, t.seats, t.status,

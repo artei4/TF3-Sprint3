@@ -28,10 +28,14 @@ em tempo real.
 4. Clique em **Run**. Ele cria as tabelas de contas, perfis e conversas, já com as regras de
    segurança e o tempo real ligados. Pode rodar de novo no futuro sem quebrar nada.
 5. No menu **Authentication → Providers**, confirme que **Email** está habilitado (vem assim
-   por padrão). Em **Authentication → Settings**, eu recomendo desligar "Confirm email"
-   enquanto vocês estão testando — assim a conta já entra na hora, sem precisar confirmar
-   e-mail. Antes de ir para produção de verdade, vale ligar de novo.
-6. Pronto. Abra o site normalmente (sem nada extra na URL) — ele detecta o Supabase sozinho.
+   por padrão). Em **Authentication → Sign In / Providers → Email**, deixe **"Confirm email" ligado**.
+   Motivo: quem vira funcionário é decidido pelo e-mail (tabela `staff_allowlist`). Sem a
+   confirmação, qualquer pessoa poderia criar a conta com um e-mail da lista antes do dono e
+   entrar como funcionário.
+6. Rode também, na ordem, `20261016120000_peneiras.sql` e `20261019120000_seguranca.sql`
+   (a última trava a última vaga das peneiras, bloqueia inscrição em peneira passada e
+   limita o envio de mensagens a 8 por minuto). Nenhuma delas apaga dados.
+7. Pronto. Abra o site normalmente (sem nada extra na URL) — ele detecta o Supabase sozinho.
 
 ## Como o site decide "local" ou "online"
 - Ao abrir, o site tenta se conectar ao Supabase. Se conseguir, tudo (contas, perfis,

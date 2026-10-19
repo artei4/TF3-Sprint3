@@ -795,3 +795,8 @@ body::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:n
 .check-mark { display:grid; place-items:center; flex:none; width:1.5rem; height:1.5rem; border-radius:50%; border:1.5px solid var(--color-line-strong); }
 .checklist li.is-done .check-mark { border-color:transparent; color:#04140A; background:var(--color-success); }
 .checklist li.is-done strong { color:var(--color-ink-soft); text-decoration: line-through; text-decoration-color: color-mix(in oklab, var(--color-ink-soft) 60%, transparent); }
+
+/* Mensagem recusada (limite de envio ou erro): o campo treme e a borda fica vermelha por um instante. */
+#message-form.is-refused { animation: refuse .42s cubic-bezier(.36,.07,.19,.97); }
+#message-form.is-refused #message-input { border-color: var(--color-danger); }
+@keyframes refuse { 20%, 60% { transform: translateX(-5px); } 40%, 80% { transform: translateX(5px); } }

@@ -529,9 +529,18 @@ function syncMessagePolling(route) {
   }, 8000)
 }
 
+// Mesmo limite do servidor (8 por minuto): no modo local também, e no remoto avisa antes de ir à rede.
+const recentSends = []
 async function sendChatMessage(text) {
   const conversation = activeConversation
   if (!conversation) return false
+  const now = Date.now()
+  while (recentSends.length && now - recentSends[0] > 60000) recentSends.shift()
+  if (recentSends.length >= 8) {
+    toast(t('Você enviou muitas mensagens seguidas. Aguarde um minuto.'), 'error')
+    return false
+  }
+  recentSends.push(now)
   if (remote.enabled) {
     const { row, error } = await sendMessage({ athleteId: conversation.athleteRef, staffId: conversation.staffRef, senderId: state.user.uid, body: text })
     if (error) {
@@ -635,6 +644,7 @@ async function runTryoutAction(button, action, successMessage) {
   if (error) {
     button?.removeAttribute('aria-busy')
     toast(error.code === '42501' ? t('Ação não permitida: a peneira pode ter lotado ou sido cancelada. Atualize a lista.') : describeError(error), 'error')
+    if (/tryout_(full|past|closed)/.test(error.message || '')) refreshRemoteTryouts().then(render)
     return false
   }
   await refreshRemoteTryouts()
@@ -1415,14 +1425,12 @@ function tryoutsBody(role) {
 }
 
 // ---------- Peneiras: datas, compatibilidade e filtros ----------
-const todayIso = () => new Date().toISOString().slice(0, 10)
+// "Hoje" no fuso da academia (o mesmo do servidor), não em UTC: às 21h de Brasília o UTC já é amanhã.
+const todayIso = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })
 const isPastTryout = (tryout) => !!tryout.date && tryout.date < todayIso()
 function daysUntil(date) {
-  if (!date) return null
-  const [y, m, d] = date.split('-').map(Number)
-  const target = new Date(y, m - 1, d)
-  const now = new Date(); now.setHours(0, 0, 0, 0)
-  return Math.round((target - now) / 864e5)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) return null
+  return Math.round((Date.parse(date) - Date.parse(todayIso())) / 864e5)
 }
 function countdownLabel(date) {
   const n = daysUntil(date)
@@ -2771,6 +2779,7 @@ function bind() {
     if (!tryout || state.user?.role !== 'player') return
     const enrolled = Array.isArray(tryout.enrolled) ? tryout.enrolled : (tryout.enrolled = [])
     if (enrolled.includes(state.user.email)) return
+    if (tryout.status === 'cancelled' || isPastTryout(tryout)) return toast(t('Esta peneira já foi encerrada.'), 'error')
     const vacancies = Number(tryout.seats) - enrolled.length
     const category = getCategoryFromAge(getAgeFromProfile(state.profile?.birth))
     const compatible = tryout.positions.includes(state.profile?.pos) || tryout.positions.includes(state.profile?.secondary)
@@ -2843,7 +2852,14 @@ function bind() {
     field.value = ''
     field.focus()
     const sent = await sendChatMessage(text)
-    if (sent === false && !field.value) field.value = text
+    if (sent === false) {
+      if (!field.value) field.value = text
+      // Treme o campo: mostra onde está a mensagem que não saiu.
+      messageForm.classList.remove('is-refused')
+      void messageForm.offsetWidth
+      messageForm.classList.add('is-refused')
+      messageForm.addEventListener('animationend', () => messageForm.classList.remove('is-refused'), { once: true })
+    }
   })
 }
 
