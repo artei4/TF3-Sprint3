@@ -43,7 +43,10 @@ export function describeError(error) {
   const text = String(error?.message || error || '').toLowerCase()
   const code = String(error?.code || '').toLowerCase()
   if (text.includes('tryout_full')) return t('As vagas desta peneira acabaram.')
-  if (text.includes('tryout_past') || text.includes('tryout_closed')) return t('Esta peneira já foi encerrada.')
+  if (text.includes('tryout_past')) return t('As inscrições fecharam no horário de início da peneira.')
+  if (text.includes('tryout_closed')) return t('Esta peneira já foi encerrada.')
+  if (text.includes('venues_name_city_key')) return t('Já existe um local com esse nome nesta cidade.')
+  if (text.includes('venue_inactive')) return t('Este local foi desativado. Escolha outro.')
   if (text.includes('not_player')) return t('Só atletas podem se inscrever em peneiras.')
   if (text.includes('message_rate_limit')) return t('Você enviou muitas mensagens seguidas. Aguarde um minuto.')
   if (text.includes('invalid login credentials')) return t('E-mail ou senha incorretos.')
@@ -177,8 +180,9 @@ export async function fetchTryouts() {
   return data || []
 }
 
-export async function createTryout({ title, date, time, location, city, state, category, positions, seats }) {
-  const { error } = await client.from('tryouts').insert({ title, date, time, location, city, state, category, positions, seats })
+// O servidor copia nome, cidade e UF do local (venue_id); os campos de texto vão só porque são obrigatórios.
+export async function createTryout({ title, date, time, location, city, state, category, positions, seats, venueId }) {
+  const { error } = await client.from('tryouts').insert({ title, date, time, location, city, state, category, positions, seats, venue_id: venueId })
   return error || null
 }
 
@@ -196,6 +200,22 @@ export async function enrollTryout(id) {
 export async function withdrawTryout(id, uid) {
   const { error } = await client.from('tryout_enrollments').delete().eq('tryout_id', id).eq('athlete_id', uid)
   return error || null
+}
+
+// ---------- Locais de peneira ----------
+const VENUE_COLUMNS = 'id,name,address,district,city,state,zip,reference,active,updated_by,updated_at'
+
+export async function fetchVenues() {
+  const { data, error } = await client.from('venues').select(VENUE_COLUMNS).order('name')
+  if (error) throw error
+  return data || []
+}
+
+// Sem id cria; com id edita (inclusive ativar/desativar). Apagar não existe: só desativar.
+export async function saveVenue(id, fields) {
+  const query = id ? client.from('venues').update(fields).eq('id', id) : client.from('venues').insert(fields)
+  const { data, error } = await query.select(VENUE_COLUMNS).single()
+  return { row: data || null, error }
 }
 
 // ---------- Conversas ----------

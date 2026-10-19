@@ -32,9 +32,12 @@ em tempo real.
    Motivo: quem vira funcionário é decidido pelo e-mail (tabela `staff_allowlist`). Sem a
    confirmação, qualquer pessoa poderia criar a conta com um e-mail da lista antes do dono e
    entrar como funcionário.
-6. Rode também, na ordem, `20261016120000_peneiras.sql` e `20261019120000_seguranca.sql`
-   (a última trava a última vaga das peneiras, bloqueia inscrição em peneira passada e
-   limita o envio de mensagens a 8 por minuto). Nenhuma delas apaga dados.
+6. Rode também, na ordem, `20261016120000_peneiras.sql`, `20261019120000_seguranca.sql` e
+   `20261020120000_locais.sql`. A de segurança trava a última vaga das peneiras e limita o envio
+   de mensagens a 8 por minuto. A de locais cria o cadastro de locais (aba **Peneiras → Locais**),
+   fecha as inscrições no horário de início e guarda quem criou/alterou locais e peneiras na
+   tabela `audit_log` (consulta pelo Table Editor). Nenhuma delas apaga dados. Se rodar de novo
+   uma migration antiga, rode as mais novas depois dela.
 7. Pronto. Abra o site normalmente (sem nada extra na URL) — ele detecta o Supabase sozinho.
 
 ## Como o site decide "local" ou "online"

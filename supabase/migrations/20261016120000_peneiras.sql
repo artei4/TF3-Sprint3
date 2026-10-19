@@ -37,7 +37,9 @@ $$;
 
 -- Lista para a tela de peneiras: abertas + canceladas em que o usuário estava inscrito.
 -- Funcionários recebem os e-mails de todos os inscritos; atletas, só o próprio.
-create or replace function public.list_tryouts()
+-- drop antes: a migration de locais muda as colunas que a função devolve.
+drop function if exists public.list_tryouts();
+create function public.list_tryouts()
 returns table (
   id bigint, title text, date date, "time" text, location text, city text, state text, category text,
   positions text[], seats int, status text, cancel_reason text, created_by_email text, taken int, enrolled_emails text[]

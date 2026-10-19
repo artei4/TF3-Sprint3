@@ -73,5 +73,53 @@ expect('o limite é por remetente (o treinador ainda responde)', !r.error, r)
 r = await as('p1', `update profiles set role = 'staff' where id = auth.uid()`); expect('atleta NÃO se promove a funcionário', /permission denied/.test(r.error || ''), r)
 r = await as('p2', `select data from profile_private where id = '${ids.p1}'`); expect('atleta NÃO lê CPF/endereço de outro', r.rows?.length === 0, r)
 
+// Locais de peneira
+const venue = `insert into venues (name, address, district, city, state, zip, reference)`
+r = await as('staff', `${venue} values ('Arena Oeste', 'Rua das Flores, 100', 'Centro', 'Osasco', 'SP', '06010-000', 'Portão 2') returning id`)
+expect('funcionário cadastra local', !r.error, r)
+const arena = r.rows?.[0]?.id
+r = await as('p1', `${venue} values ('Campo do Atleta', 'Rua A, 1', '', 'Osasco', 'SP', '', '')`)
+expect('atleta NÃO cadastra local', /row-level security/.test(r.error || ''), r)
+r = await as('staff', `${venue} values ('  arena oeste ', 'Outra rua, 5', '', 'OSASCO', 'SP', '', '')`)
+expect('local duplicado (mesmo nome e cidade) é recusado', /venues_name_city_key/.test(r.error || ''), r)
+r = await as('staff', `${venue} values ('Arena Oeste', 'Rua B, 2', '', 'Barueri', 'SP', '', '') returning id`)
+expect('mesmo nome em outra cidade é permitido', !r.error, r)
+r = await as('staff', `${venue} values ('CT', 'Rua C, 3', '', 'Santos', 'Sao Paulo', '', '')`)
+expect('UF inválida é recusada', /check/.test(r.error || ''), r)
+r = await as('p1', `update venues set name = 'Hackeado' where id = ${arena} returning id`)
+expect('atleta NÃO edita local', !r.rows?.length, r)
+
+r = await as('staff', `insert into tryouts (title, date, "time", location, city, state, positions, seats, venue_id) values ('Com local', ${today} + 3, '09:00', 'qualquer', 'x', 'XX', '{Meia}', 5, ${arena}) returning location, city, state`)
+expect('peneira copia nome/cidade/UF do local', r.rows?.[0]?.location === 'Arena Oeste' && r.rows?.[0]?.state === 'SP', r)
+r = await as('staff', `select address, reference from list_tryouts() where venue_id = ${arena}`)
+expect('lista de peneiras traz endereço e referência', r.rows?.[0]?.address === 'Rua das Flores, 100' && r.rows?.[0]?.reference === 'Portão 2', r)
+r = await as('staff', `insert into tryouts (title, date, "time", location, city, state, positions, seats) values ('Hora ruim', ${today} + 3, '25:00', 'CT', 'SP', 'SP', '{Meia}', 5)`)
+expect('horário fora do formato HH:MM é recusado', /tryouts_time_format/.test(r.error || ''), r)
+
+r = await as('staff', `update venues set active = false where id = ${arena} returning active`)
+expect('funcionário desativa local', r.rows?.[0]?.active === false, r)
+r = await as('staff', `insert into tryouts (title, date, location, city, state, positions, seats, venue_id) values ('Local inativo', ${today} + 3, 'x', 'x', 'SP', '{Meia}', 5, ${arena})`)
+expect('local desativado não aceita peneira nova', /venue_inactive/.test(r.error || ''), r)
+r = await as('staff', `select count(*)::int n from tryouts where venue_id = ${arena}`)
+expect('desativar NÃO apaga as peneiras do local', r.rows?.[0]?.n === 1, r)
+r = await as('p1', `select id from venues where id = ${arena}`)
+expect('atleta não vê local desativado', r.rows?.length === 0, r)
+r = await as('staff', `delete from venues where id = ${arena}`)
+expect('ninguém apaga local pela API', /permission denied/.test(r.error || ''), r)
+
+r = await as('staff', `select action, details from audit_log where entity = 'venue' and entity_id = '${arena}' order by id`)
+expect('registro guarda criação e desativação', r.rows?.map((row) => row.action).join(',') === 'create,deactivate' && r.rows?.[1]?.details?.active?.para === false, r)
+r = await as('staff', `select updated_by from venues where id = ${arena}`)
+expect('local guarda quem alterou por último', r.rows?.[0]?.updated_by === ids.staff, r)
+r = await as('p1', `select id from audit_log`)
+expect('atleta NÃO lê o registro de alterações', r.rows?.length === 0, r)
+r = await as('staff', `insert into audit_log (action, entity, entity_id) values ('x', 'y', 'z')`)
+expect('ninguém escreve no registro direto', /permission denied/.test(r.error || ''), r)
+
+// Inscrição fecha no horário de início (peneira de hoje que já começou)
+const started = (await db.query(`insert into tryouts (created_by, title, date, "time", location, city, state, positions, seats) values ('${ids.staff}', 'Já começou', ${today}, to_char((now() at time zone 'America/Sao_Paulo') - interval '1 minute', 'HH24:MI'), 'CT', 'SP', 'SP', '{Meia}', 5) returning id`)).rows[0].id
+r = await as('p2', `select enroll_tryout(${started})`)
+expect('inscrição depois do horário de início recebe tryout_past', /tryout_past/.test(r.error || ''), r)
+
 console.log(`\n${pass} ok, ${fail} falharam`)
 process.exit(fail ? 1 : 0)

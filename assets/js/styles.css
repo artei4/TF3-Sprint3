@@ -167,7 +167,6 @@
   .btn-ghost:hover { color:var(--color-chalk); background:color-mix(in oklab, var(--color-chalk) 6%, transparent); }
   .btn-danger:hover:not(:disabled) { background:color-mix(in oklab, var(--color-danger) 12%, transparent); border-color:var(--color-danger); }
   .conversation-item:hover { background:color-mix(in oklab, var(--color-chalk) 6%, transparent); }
-  .location-option:hover { border-color:var(--color-brand); }
 }
 
 /* ===== Tags ===== */
@@ -213,9 +212,6 @@
 .conversation-item { display:flex; width:100%; align-items:center; gap:.7rem; border-radius:var(--radius-control); padding:.7rem; text-align:left; color:var(--color-chalk); }
 .conversation-item[hidden],#conversation-empty[hidden] { display:none; }
 .conversation-item.selected { background:color-mix(in oklab, var(--color-brand) 10%, transparent); }
-.location-option { display:flex; width:100%; min-height:2.75rem; align-items:center; gap:.8rem; border:1px solid var(--color-line); border-radius:var(--radius-control); padding:.8rem; background:transparent; }
-.location-option + .location-option { margin-top:.55rem; }
-.location-option small { display:block; margin-top:.1rem; color:var(--color-ink-soft); font-size:.8rem; }
 
 /* ===== Conversas ===== */
 .chat-back { display:none; }
@@ -769,6 +765,15 @@ body::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:n
 .enrolled-ribbon { position:absolute; top:-.7rem; right:1rem; display:inline-flex; align-items:center; gap:.3rem; padding:.2rem .65rem; border-radius:999px; font-size:.75rem; font-weight:700; color:#04140A; background:var(--color-success); box-shadow: 0 6px 14px -6px rgb(0 0 0 / .5); }
 .countdown { display:inline-flex; align-items:center; gap:.35rem; margin-top:.5rem; font-size:.8rem; font-weight:600; color:var(--color-ink-soft); }
 .countdown.is-soon { color:var(--color-warning); }
+.countdown.is-muted { color:var(--color-ink-soft); opacity:.8; }
+.countdown.is-urgent, .countdown.is-live { color:var(--color-success); }
+.countdown.is-urgent [data-cd-text] { font-variant-numeric: tabular-nums; }
+.countdown .live-dot { display:none; width:.5rem; height:.5rem; border-radius:50%; background:currentColor; box-shadow:0 0 0 0 currentColor; }
+.countdown.is-live .live-dot, .countdown.is-urgent .live-dot { display:inline-block; animation: live-pulse 1.6s ease-out infinite; }
+.countdown.is-live .cd-icon, .countdown.is-urgent .cd-icon { display:none; }
+@keyframes live-pulse { 0% { box-shadow:0 0 0 0 color-mix(in oklab, currentColor 55%, transparent); } 100% { box-shadow:0 0 0 .55rem transparent; } }
+.big-countdown .countdown-big { font-variant-numeric: tabular-nums; transition: color var(--dur-hover); }
+.big-countdown.is-urgent .countdown-big { color:var(--color-success); }
 .fit-line { display:flex; align-items:flex-start; gap:.45rem; margin-top:.9rem; padding:.55rem .75rem; border-radius:var(--radius-control); font-size:.85rem; line-height:1.4; }
 .fit-ok { color:var(--color-success); background: color-mix(in oklab, var(--color-success) 9%, transparent); }
 .fit-no { color:var(--color-chalk); background: color-mix(in oklab, var(--color-chalk) 6%, transparent); }
@@ -802,3 +807,13 @@ body::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:n
 .save-toggle.just-saved::after { content:""; position:absolute; inset:-3px; border-radius:inherit; border:2px solid var(--color-brand); pointer-events:none; animation: save-ring .55s ease-out forwards; }
 @keyframes save-pop { 30% { transform: translateY(-3px) scale(1.3); } 60% { transform: translateY(0) scale(.92); } }
 @keyframes save-ring { from { opacity:.8; transform:scale(.85); } to { opacity:0; transform:scale(1.45); } }
+
+/* Locais de peneira */
+.venue-head { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:1rem; }
+.venue-pin { display:grid; place-items:center; flex:none; width:2.75rem; height:2.75rem; border-radius:var(--radius-control); color:var(--color-brand); background: linear-gradient(160deg, color-mix(in oklab, var(--color-brand) 22%, transparent), color-mix(in oklab, var(--color-brand) 6%, transparent)); }
+.venue-card { transition: opacity .4s var(--ease-out), filter .4s var(--ease-out); }
+.venue-card.is-inactive { opacity:.6; filter: saturate(.25); }
+.venue-card.is-new { animation: venue-new 1.4s var(--ease-out); }
+@keyframes venue-new { 0%, 35% { box-shadow: 0 0 0 2px var(--color-brand), 0 18px 40px -18px color-mix(in oklab, var(--color-brand) 70%, transparent); } }
+.map-link { font-weight:600; color:var(--color-brand); text-decoration: underline; text-decoration-thickness:1px; text-underline-offset:3px; white-space:nowrap; }
+.map-link::after { content:" ↗"; }

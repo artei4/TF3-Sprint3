@@ -11,6 +11,7 @@ import { toggleFavorite } from './feed.js'
 import { LANGS, getLang, setLang, t } from './i18n.js'
 import { designSystemPage, bindDesignSystem } from './design-system.js'
 import { cropPhoto, illustratedAvatar } from './avatar.js'
+import { todayIso, isPastTryout, daysUntil, startsAt, validTime, validTryoutDate, tryoutPhase, enrollmentOpen, countdown, bigCountdown } from './schedule.js'
 import { initSmoothScroll, initSpotlight, paintScreen, enterPage, scrollToTop, scrollToElement } from './motion.js'
 import {
   FEET,
@@ -49,6 +50,8 @@ import {
   withdrawTryout,
   fetchMessages,
   sendMessage,
+  fetchVenues,
+  saveVenue,
 } from './remote.js'
 
 const app = document.querySelector('#app')
@@ -93,10 +96,20 @@ const defaultAthletes = [
 ]
 
 const defaultTryouts = [
-  { id: 1, title: 'Peneira Sub-20 — Atacantes', date: '2026-11-07', time: '14:00', city: 'São Paulo', state: 'SP', location: 'Centro de Treinamento Pelé', category: 'Sub-20', positions: ['Atacante', 'Ponta'], seats: 12, enrolled: ['gabriel@academiapele.com'] },
-  { id: 2, title: 'Avaliação Sub-20 — Meio-campo', date: '2026-11-14', time: '09:00', city: 'Osasco', state: 'SP', location: 'Arena Oeste', category: 'Sub-20', positions: ['Meia', 'Volante'], seats: 18, enrolled: [] },
-  { id: 3, title: 'Goleiros em Destaque', date: '2026-11-21', time: '10:30', city: 'Barueri', state: 'SP', location: 'Centro de Treinamento Oeste', category: 'Sub-20', positions: ['Goleiro'], seats: 8, enrolled: [] },
+  { id: 1, title: 'Peneira Sub-20 — Atacantes', date: '2026-11-07', time: '14:00', city: 'São Paulo', state: 'SP', location: 'Centro de Treinamento Pelé', venueId: 1, category: 'Sub-20', positions: ['Atacante', 'Ponta'], seats: 12, enrolled: ['gabriel@academiapele.com'] },
+  { id: 2, title: 'Avaliação Sub-20 — Meio-campo', date: '2026-11-14', time: '09:00', city: 'Osasco', state: 'SP', location: 'Arena Oeste', venueId: 2, category: 'Sub-20', positions: ['Meia', 'Volante'], seats: 18, enrolled: [] },
+  { id: 3, title: 'Goleiros em Destaque', date: '2026-11-21', time: '10:30', city: 'Barueri', state: 'SP', location: 'Centro de Treinamento Oeste', venueId: 4, category: 'Sub-20', positions: ['Goleiro'], seats: 8, enrolled: [] },
 ]
+
+// Locais de exemplo: os mesmos que o seletor antigo trazia fixos no código. O endereço fica em branco
+// de propósito (não inventamos endereço): o funcionário completa pela aba Locais.
+const defaultVenues = [
+  { id: 1, name: 'Centro de Treinamento Pelé', address: '', district: '', city: 'São Paulo', state: 'SP', zip: '', reference: '', active: true },
+  { id: 2, name: 'Arena Oeste', address: '', district: '', city: 'Osasco', state: 'SP', zip: '', reference: '', active: true },
+  { id: 3, name: 'CT Litoral', address: '', district: '', city: 'Santos', state: 'SP', zip: '', reference: '', active: true },
+  { id: 4, name: 'Centro de Treinamento Oeste', address: '', district: '', city: 'Barueri', state: 'SP', zip: '', reference: '', active: true },
+]
+const UFS = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO']
 
 // Os votos foram removidos (avaliação é a única medida do atleta): apaga o que ficou salvo no navegador.
 try { localStorage.removeItem('ap_votes'); localStorage.removeItem('ap_voted') } catch {}
@@ -110,6 +123,7 @@ const state = {
   messages: readStorage('ap_messages', []),
   profile: readStorage('ap_profile', null),
   tryouts: readStorage('ap_tryouts', defaultTryouts),
+  venues: readStorage('ap_venues', defaultVenues),
   reviews: readStorage('ap_reviews', {}),
   notifications: readStorage('ap_notifications', []),
   lastRead: readStorage('ap_lastread', {}),
@@ -184,6 +198,7 @@ function persist() {
     localStorage.setItem('ap_profile', JSON.stringify(state.profile))
     localStorage.setItem('ap_messages', JSON.stringify(state.messages))
     localStorage.setItem('ap_tryouts', JSON.stringify(state.tryouts))
+    localStorage.setItem('ap_venues', JSON.stringify(state.venues))
   }
   localStorage.setItem('ap_favorites', JSON.stringify(state.favorites))
   localStorage.setItem('ap_reviews', JSON.stringify(state.reviews))
@@ -619,6 +634,7 @@ function mapRemoteTryout(row) {
     id: Number(row.id), title: row.title, date: row.date, time: row.time, location: row.location, city: row.city, state: row.state,
     category: row.category, positions: row.positions || [], seats: row.seats, status: row.status, cancelReason: row.cancel_reason,
     createdBy: row.created_by_email, remote: true,
+    venueId: row.venue_id == null ? null : Number(row.venue_id), address: row.address || '', district: row.district || '', reference: row.reference || '',
     enrolled: emails.concat(Array(Math.max(0, (row.taken || 0) - emails.length)).fill('')),
   }
 }
@@ -628,10 +644,24 @@ async function refreshRemoteTryouts() {
   try {
     state.tryouts = (await fetchTryouts()).map(mapRemoteTryout)
     state.tryoutsStatus = 'ready'
+    if (state.user.role === 'staff') {
+      try { state.venues = (await fetchVenues()).map(mapRemoteVenue) } catch (error) {
+        console.warn('[Supabase] não foi possível carregar locais:', error)
+        state.venues = []
+      }
+    }
   } catch (error) {
     console.warn('[Supabase] não foi possível carregar peneiras:', error)
     state.tryoutsStatus = 'error'
     state.tryoutsError = describeError(error)
+  }
+}
+
+function mapRemoteVenue(row) {
+  const editor = row.updated_by === state.user?.uid ? state.user?.name : state.accounts.find((account) => account.uid === row.updated_by)?.profile?.name
+  return {
+    id: Number(row.id), name: row.name, address: row.address, district: row.district, city: row.city, state: row.state,
+    zip: row.zip, reference: row.reference, active: row.active, updatedBy: editor || '', updatedAt: row.updated_at,
   }
 }
 
@@ -908,18 +938,29 @@ function playerChecklist(profile) {
   ]
 }
 
+// Frase do painel sobre a próxima peneira do atleta.
+function nextTryoutLine(tryout) {
+  const phase = tryoutPhase(tryout)
+  const at = validTime(tryout.time) ? ' ' + t('às') + ' ' + tryout.time : ''
+  if (phase === 'live') return t('Sua peneira está em andamento. Bom jogo!')
+  if (phase === 'tbd') return t('Sua próxima peneira ainda está com a data a confirmar.')
+  if (phase === 'today') return t('Sua próxima peneira é hoje') + at + '.'
+  const days = daysUntil(tryout.date)
+  return t('Sua próxima peneira é') + ' ' + (days === 1 ? t('amanhã') + at : t('em') + ' ' + days + ' ' + t('dias')) + '.'
+}
+
 function playerDashboard() {
   const profile = state.profile || defaultProfile
   const firstName = escapeHtml((state.user?.name || profile.name || 'Atleta').split(' ')[0])
   const category = getCategoryFromAge(getAgeFromProfile(profile.birth))
-  const upcoming = state.tryouts.filter((tryout) => !isPastTryout(tryout) && tryout.status !== 'cancelled').sort((x, y) => String(x.date).localeCompare(String(y.date)))
+  const upcoming = state.tryouts.filter((tryout) => !isPastTryout(tryout) && tryout.status !== 'cancelled').sort(byStart)
   const mine = upcoming.filter(isEnrolledIn)
   const forYou = upcoming.filter((tryout) => tryoutFit(tryout).ok && !isEnrolledIn(tryout))
   const next = mine[0] || forYou[0] || null
   const unread = unreadSummary().total
   const avg = averagePlayerRating(profile)
   const status = mine.length
-    ? t('Você tem') + ' ' + plural(mine.length, 'inscrição', 'inscrições') + '. ' + t('Sua próxima peneira é') + ' ' + countdownLabel(mine[0].date).toLowerCase() + '.'
+    ? t('Você tem') + ' ' + plural(mine.length, 'inscrição', 'inscrições') + '. ' + nextTryoutLine(mine[0])
     : forYou.length
       ? t('Há') + ' ' + plural(forYou.length, 'peneira aberta', 'peneiras abertas') + ' ' + t('para') + ' ' + escapeHtml(profile.pos.toLowerCase()) + ' ' + t('na') + ' ' + escapeHtml(category) + '.'
       : t('Nenhuma peneira compatível agora. Complete o perfil para aparecer para os olheiros.')
@@ -946,7 +987,7 @@ function playerDashboard() {
   const nextCard = next
     ? '<aside class="next-tryout reveal surface rounded-card p-6"><div class="flex items-center justify-between gap-3"><p class="text-sm text-ink-soft">' + (isEnrolledIn(next) ? t('Sua próxima peneira') : t('Próxima peneira para você')) + '</p>' +
       '<span class="tag ' + (isEnrolledIn(next) ? 'green' : '') + '">' + (isEnrolledIn(next) ? t('Inscrito') : t('Aberta')) + '</span></div>' +
-      '<div class="mt-4 flex items-end gap-3"><span class="num countdown-big">' + (daysUntil(next.date) <= 0 ? t('Hoje') : daysUntil(next.date)) + '</span>' + (daysUntil(next.date) > 0 ? '<span class="pb-2 text-sm text-ink-soft">' + (daysUntil(next.date) === 1 ? t('dia') : t('dias')) + '<br/>' + t('para o jogo') + '</span>' : '') + '</div>' +
+      bigCountdownTag(next) +
       '<h2 class="mt-4 text-xl font-semibold leading-tight">' + escapeHtml(next.title) + '</h2>' +
       '<div class="mt-3 flex items-center gap-3">' + scoreboard(next.date, next.time) + '<p class="text-sm text-ink-soft">' + escapeHtml(next.location) + '<br/>' + escapeHtml(next.city) + '/' + escapeHtml(next.state) + '</p></div>' +
       '<button type="button" class="btn-secondary mt-6 w-full" data-tryout-filter="' + (isEnrolledIn(next) ? 'mine' : 'for-you') + '">' + (isEnrolledIn(next) ? t('Ver detalhes') : t('Inscrever-me')) + ' ' + icon('arrow', 'size-4') + '</button></aside>'
@@ -1402,7 +1443,7 @@ function tryoutsPage() {
   const role = state.user?.role === 'staff' ? 'staff' : 'player'
   const createButton = role === 'staff' ? '<button type="button" class="btn-primary" data-action="openTryout">' + icon('plus', 'size-4') + ' ' + t('Criar peneira') + '</button>' : ''
   return shell(
-    '<div class="page-head"><div><h1 class="page-title">' + t('Peneiras') + '</h1><p class="page-subtitle">Veja oportunidades, posições, categoria, vagas e sua inscrição.</p></div>' + createButton + '</div>' +
+    '<div class="page-head"><div><h1 class="page-title">' + t('Peneiras') + '</h1><p class="page-subtitle">' + (role === 'staff' ? t('Crie peneiras, acompanhe os inscritos e gerencie os locais.') : t('Veja oportunidades, posições, categoria, vagas e sua inscrição.')) + '</p></div>' + createButton + '</div>' +
     tryoutsBody(role),
     { active: 'tryouts', role },
   )
@@ -1420,6 +1461,7 @@ function tryoutsBody(role) {
   }
   const all = state.tryouts.filter((tryout) => role === 'player' || tryout.status !== 'cancelled')
   const { bar, items: list, key } = tryoutTabs(role, all)
+  if (key === 'venues') return bar + venuesPanel()
   if (all.length && !list.length) {
     const empty = {
       'for-you': [t('Nenhuma peneira para o seu perfil agora'), t('Veja todas as peneiras ou ajuste suas posições no perfil.'), '<button type="button" class="btn-secondary mt-2" data-tryout-filter="all">' + t('Ver todas') + '</button>'],
@@ -1429,7 +1471,7 @@ function tryoutsBody(role) {
     return bar + '<div class="empty-state mt-6"><strong>' + empty[0] + '</strong><span class="text-sm">' + empty[1] + '</span>' + empty[2] + '</div>'
   }
   if (!all.length) {
-    return '<div class="empty-state mt-6"><strong>' + t('Nenhuma peneira aberta') + '</strong><span class="text-sm">' +
+    return (role === 'staff' ? bar : '') + '<div class="empty-state mt-6"><strong>' + t('Nenhuma peneira aberta') + '</strong><span class="text-sm">' +
       (role === 'staff' ? t('Crie a primeira peneira: os atletas compatíveis já poderão se inscrever.') : t('Quando a Pelé Academia abrir uma peneira, ela aparece aqui.')) + '</span>' +
       (role === 'staff' ? '<button type="button" class="btn-primary mt-2" data-action="openTryout">' + icon('plus', 'size-4') + ' ' + t('Criar peneira') + '</button>' : '') + '</div>'
   }
@@ -1437,21 +1479,8 @@ function tryoutsBody(role) {
 }
 
 // ---------- Peneiras: datas, compatibilidade e filtros ----------
-// "Hoje" no fuso da academia (o mesmo do servidor), não em UTC: às 21h de Brasília o UTC já é amanhã.
-const todayIso = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })
-const isPastTryout = (tryout) => !!tryout.date && tryout.date < todayIso()
-function daysUntil(date) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) return null
-  return Math.round((Date.parse(date) - Date.parse(todayIso())) / 864e5)
-}
-function countdownLabel(date) {
-  const n = daysUntil(date)
-  if (n === null) return ''
-  if (n < 0) return t('Encerrada')
-  if (n === 0) return t('Hoje')
-  if (n === 1) return t('Amanhã')
-  return t('Em') + ' ' + n + ' ' + t('dias')
-}
+// Data, hora e contagem de cada peneira ficam em schedule.js (testado em tests/schedule.test.mjs).
+const byStart = (a, b) => (startsAt(a) ?? 9e15) - (startsAt(b) ?? 9e15)
 const isEnrolledIn = (tryout) => Array.isArray(tryout.enrolled) && tryout.enrolled.includes(state.user?.email)
 // Por que a peneira serve (ou não) para o atleta logado.
 function tryoutFit(tryout) {
@@ -1468,13 +1497,14 @@ let tryoutFilter = null
 function tryoutTabs(role, list) {
   const upcoming = list.filter((tryout) => !isPastTryout(tryout) && tryout.status !== 'cancelled')
   const tabs = role === 'staff'
-    ? [['upcoming', t('Próximas'), upcoming], ['past', t('Encerradas'), list.filter(isPastTryout)]]
+    ? [['upcoming', t('Próximas'), upcoming], ['past', t('Encerradas'), list.filter(isPastTryout)], ['venues', t('Locais'), state.venues.filter((venue) => venue.active)]]
     : [['for-you', t('Para você'), upcoming.filter((tryout) => tryoutFit(tryout).ok)], ['mine', t('Minhas inscrições'), list.filter(isEnrolledIn)], ['all', t('Todas'), upcoming], ['past', t('Encerradas'), list.filter((tryout) => isPastTryout(tryout) || tryout.status === 'cancelled')]]
   if (!tryoutFilter || !tabs.some((tab) => tab[0] === tryoutFilter)) tryoutFilter = tabs[0][0]
   const current = tabs.find((tab) => tab[0] === tryoutFilter)
   const bar = '<div class="tab-bar" role="group" aria-label="' + t('Filtrar peneiras') + '">' + tabs.map(([key, label, items]) =>
     '<button type="button" class="tab-chip" data-tryout-filter="' + key + '" aria-pressed="' + (key === tryoutFilter) + '">' + label + '<span class="tab-count">' + items.length + '</span></button>').join('') + '</div>'
-  return { bar, items: current[2].slice().sort((a, b) => String(a.date).localeCompare(String(b.date))), key: current[0] }
+  const items = current[0] === 'venues' ? current[2] : current[2].slice().sort(byStart)
+  return { bar, items: current[0] === 'past' ? items.reverse() : items, key: current[0] }
 }
 
 function tryoutCard(tryout) {
@@ -1510,24 +1540,242 @@ function tryoutCard(tryout) {
   const past = isPastTryout(tryout)
   const fit = staff ? { ok: true, reasons: [] } : tryoutFit(tryout)
   const scarce = !full && vacancies <= Math.max(2, Math.ceil(seats * 0.2))
+  const place = tryoutPlace(tryout)
   const fitLine = staff ? '' : enrolled
-    ? '<p class="fit-line fit-ok">' + icon('check', 'size-4 shrink-0') + t('Você está inscrito. Chegue 30 minutos antes.') + '</p>'
+    ? '<p class="fit-line fit-ok">' + icon('check', 'size-4 shrink-0') + '<span>' + t('Você está inscrito. Chegue 30 minutos antes.') + (place.reference ? ' ' + t('Referência:') + ' ' + escapeHtml(place.reference) + '.' : '') + '</span></p>'
     : fit.ok
       ? '<p class="fit-line fit-ok">' + icon('check', 'size-4 shrink-0') + t('Compatível com você:') + ' ' + escapeHtml(state.profile?.pos || '') + ' · ' + escapeHtml(fit.category) + '</p>'
       : '<p class="fit-line fit-no">' + icon('info', 'size-4 shrink-0') + t('Fora do seu perfil: esta peneira') + ' ' + escapeHtml(fit.reasons.join(' e ')) + '.</p>'
   if (past) actions = '<p class="text-sm text-ink-soft">' + t('Peneira encerrada.') + '</p>'
+  const phase = tryoutPhase(tryout)
+  if (!staff && phase === 'live') actions = enrolled
+    ? '<p class="fit-line fit-ok">' + icon('check', 'size-4 shrink-0') + t('Em andamento. Bom jogo!') + '</p>'
+    : '<p class="text-sm text-ink-soft">' + t('Inscrições encerradas: a peneira já começou.') + '</p>'
+  if (!staff && phase === 'tbd' && !enrolled) actions = '<button type="button" class="btn-incompatible w-full" disabled>' + t('Data a confirmar') + '</button>'
   return '<article class="tryout-card reveal spot panel flex flex-col' + (enrolled ? ' is-enrolled' : '') + (!staff && !fit.ok && !enrolled ? ' is-off' : '') + '" data-tryout-card="' + tryout.id + '">' +
     (enrolled ? '<span class="enrolled-ribbon">' + icon('check', 'size-3.5') + t('Inscrito') + '</span>' : '') +
     '<div class="flex items-start gap-4">' + scoreboard(tryout.date, tryout.time) +
     '<div class="min-w-0 flex-1"><h2 class="text-xl font-semibold leading-tight">' + escapeHtml(tryout.title) + '</h2>' +
-    '<p class="mt-1 flex items-start gap-1.5 text-sm text-ink-soft">' + icon('pin', 'size-4 mt-0.5 shrink-0 text-brand') + '<span>' + escapeHtml(tryout.location) + ' · ' + escapeHtml(tryout.city) + '/' + escapeHtml(tryout.state) + '</span></p>' +
-    '<p class="countdown' + (daysUntil(tryout.date) !== null && daysUntil(tryout.date) <= 3 && !past ? ' is-soon' : '') + '">' + icon('calendar', 'size-3.5') + countdownLabel(tryout.date) + '</p></div></div>' +
+    '<p class="mt-1 flex items-start gap-1.5 text-sm text-ink-soft">' + icon('pin', 'size-4 mt-0.5 shrink-0 text-brand') + '<span>' + escapeHtml(tryout.location) + ' · ' + escapeHtml(tryout.city) + '/' + escapeHtml(tryout.state) +
+    (place.address ? '<br/><span class="text-xs">' + escapeHtml(place.address) + '</span> ' + mapLink([tryout.location, place.address, tryout.city, tryout.state]) : '') + '</span></p>' +
+    countdownTag(tryout) + '</div></div>' +
     '<div class="mt-4 flex flex-wrap gap-1.5">' + tag(tryout.category || t('Livre'), true) + tryout.positions.map(posTag).join('') + '</div>' +
     fitLine +
     '<div class="mt-5"><div class="flex items-baseline justify-between gap-3 text-sm"><span><strong class="num text-2xl ' + (full ? 'text-danger' : 'text-chalk') + '">' + taken + '</strong><span class="text-ink-soft"> ' + t('de') + ' ' + seats + ' ' + t('vagas preenchidas') + '</span></span>' +
     '<span class="tag ' + (full ? 'red' : scarce ? 'warn' : 'green') + '">' + (full ? t('Lotada') : scarce ? (vacancies === 1 ? t('Última vaga') : t('Últimas') + ' ' + vacancies + ' ' + t('vagas')) : plural(vacancies, 'vaga livre', 'vagas livres')) + '</span></div>' +
     '<div class="mt-2 h-2 overflow-hidden rounded-full bg-line"><div class="bar-fill h-full rounded-full ' + (full ? 'bg-danger' : scarce ? 'bg-warning' : 'bg-brand') + '" style="width:' + Math.min(100, taken / seats * 100) + '%"></div></div></div>' +
     '<div class="mt-auto grid gap-2 pt-5">' + actions + '</div></article>'
+}
+
+// ---------- Contagem regressiva ----------
+function countdownClass(c) {
+  return 'countdown' + (c.soon ? ' is-soon' : '') + (c.urgent ? ' is-urgent' : '') + (c.phase === 'live' ? ' is-live' : '') + (['ended', 'cancelled', 'tbd'].includes(c.phase) ? ' is-muted' : '')
+}
+// Cada elemento carrega a data e a hora da própria peneira; é delas que a contagem sai.
+const countdownData = (tryout, phase) => ' data-countdown data-date="' + escapeHtml(tryout.date || '') + '" data-time="' + escapeHtml(tryout.time || '') + '" data-status="' + escapeHtml(tryout.status || '') + '" data-phase="' + phase + '"'
+function countdownTag(tryout) {
+  const c = countdown(tryout)
+  return '<p class="' + countdownClass(c) + '"' + countdownData(tryout, c.phase) + '><span class="live-dot" aria-hidden="true"></span>' + icon('calendar', 'size-3.5 cd-icon') + '<span data-cd-text>' + escapeHtml(c.text) + '</span></p>'
+}
+function bigCountdownTag(tryout) {
+  const c = bigCountdown(tryout)
+  return '<div class="big-countdown mt-4 flex items-end gap-3' + (c.urgent ? ' is-urgent' : '') + '" data-big' + countdownData(tryout, c.phase) + '><span class="num countdown-big" data-cd-value>' + escapeHtml(c.value) + '</span><span class="max-w-[8rem] pb-2 text-sm leading-5 text-ink-soft" data-cd-label>' + escapeHtml(c.label) + '</span></div>'
+}
+// Um só intervalo redesenha os textos, mas cada contagem é calculada com os dados da própria peneira.
+// Quando uma peneira muda de fase (por exemplo, começou), a tela é redesenhada para o botão de inscrição acompanhar.
+function tickCountdowns() {
+  if (document.hidden) return
+  const now = Date.now()
+  let changed = false
+  document.querySelectorAll('[data-countdown]').forEach((el) => {
+    const tryout = { date: el.dataset.date, time: el.dataset.time, status: el.dataset.status }
+    if (el.hasAttribute('data-big')) {
+      const c = bigCountdown(tryout, now)
+      changed ||= c.phase !== el.dataset.phase
+      el.querySelector('[data-cd-value]').textContent = c.value
+      el.querySelector('[data-cd-label]').textContent = c.label
+      el.classList.toggle('is-urgent', !!c.urgent)
+      return
+    }
+    const c = countdown(tryout, now)
+    changed ||= c.phase !== el.dataset.phase
+    const text = el.querySelector('[data-cd-text]')
+    if (text.textContent !== c.text) text.textContent = c.text
+    el.className = countdownClass(c)
+  })
+  if (changed && !document.querySelector('[role="dialog"]')) render()
+}
+
+// ---------- Locais de peneira ----------
+const activeVenues = () => state.venues.filter((venue) => venue.active).sort((a, b) => a.name.localeCompare(b.name, 'pt'))
+const venueAddress = (venue) => [venue.address, venue.district].filter(Boolean).join(', ')
+// Link de busca do Google Maps (não precisa de chave).
+const mapLink = (parts) => '<a class="map-link" href="https://www.google.com/maps/search/?api=1&amp;query=' + encodeURIComponent(parts.filter(Boolean).join(', ')) + '" target="_blank" rel="noopener">' + t('Como chegar') + '<span class="sr-only"> (' + t('abre o mapa em outra aba') + ')</span></a>'
+function tryoutPlace(tryout) {
+  if (tryout.remote) return { address: [tryout.address, tryout.district].filter(Boolean).join(', '), reference: tryout.reference || '' }
+  const venue = state.venues.find((item) => item.id === tryout.venueId)
+  return { address: venue ? venueAddress(venue) : '', reference: venue?.reference || '' }
+}
+function venueOptions(selectedId = null) {
+  return '<option value="">' + t('Escolha o local…') + '</option>' + activeVenues().map((venue) =>
+    '<option value="' + venue.id + '"' + (venue.id === selectedId ? ' selected' : '') + '>' + escapeHtml(venue.name) + ' — ' + escapeHtml(venue.city) + '/' + escapeHtml(venue.state) + '</option>').join('')
+}
+
+// Registro de alterações. Com o Supabase quem grava é o banco (tabela audit_log); no modo local, o navegador.
+function logChange(action, entity, id, details = {}) {
+  if (remote.enabled) return
+  const log = readStorage('ap_audit', [])
+  log.push({ at: new Date().toISOString(), actor: state.user?.email || '', action, entity, id: String(id), details })
+  try { localStorage.setItem('ap_audit', JSON.stringify(log.slice(-500))) } catch {}
+}
+
+let showInactiveVenues = false
+let justSavedVenue = null
+function venuesPanel() {
+  const inactive = state.venues.filter((venue) => !venue.active).length
+  const list = state.venues.filter((venue) => showInactiveVenues || venue.active).sort((a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name, 'pt'))
+  const head = '<div class="venue-head mt-6"><p class="max-w-[62ch] text-sm text-ink-soft">' + t('Os locais ativos aparecem na hora de criar uma peneira. Desativar não apaga as peneiras já marcadas.') + '</p>' +
+    '<div class="flex flex-wrap gap-2">' + (inactive ? '<button type="button" class="tab-chip" data-action="toggle-inactive-venues" aria-pressed="' + showInactiveVenues + '">' + t('Mostrar desativados') + '<span class="tab-count">' + inactive + '</span></button>' : '') +
+    '<button type="button" class="btn-primary" data-action="new-venue">' + icon('plus', 'size-4') + ' ' + t('Cadastrar local') + '</button></div></div>'
+  const body = list.length
+    ? '<div class="mt-5 grid gap-4 md:grid-cols-2 2xl:grid-cols-3">' + list.map(venueCard).join('') + '</div>'
+    : '<div class="empty-state mt-5">' + icon('pin', 'size-6 text-brand') + '<strong>' + t('Nenhum local cadastrado') + '</strong><span class="text-sm">' + t('Cadastre o primeiro local para poder marcar peneiras.') + '</span><button type="button" class="btn-primary mt-2" data-action="new-venue">' + icon('plus', 'size-4') + ' ' + t('Cadastrar local') + '</button></div>'
+  justSavedVenue = null
+  return head + body
+}
+function venueCard(venue) {
+  const uses = state.tryouts.filter((tryout) => tryout.venueId === venue.id && tryout.status !== 'cancelled')
+  const upcoming = uses.filter((tryout) => !isPastTryout(tryout)).length
+  const address = venueAddress(venue)
+  const edited = venue.updatedAt ? ' · ' + t('Atualizado') + (venue.updatedBy ? ' ' + t('por') + ' ' + escapeHtml(venue.updatedBy) : '') + ' ' + t('em') + ' ' + new Date(venue.updatedAt).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : ''
+  return '<article class="venue-card reveal spot panel flex flex-col' + (venue.active ? '' : ' is-inactive') + (venue.id === justSavedVenue ? ' is-new' : '') + '" data-venue-card="' + venue.id + '">' +
+    '<div class="flex items-start gap-3"><span class="venue-pin" aria-hidden="true">' + icon('pin', 'size-5') + '</span><div class="min-w-0 flex-1"><h3 class="text-lg font-semibold leading-tight">' + escapeHtml(venue.name) + '</h3>' +
+    '<p class="mt-0.5 text-sm text-ink-soft">' + escapeHtml(venue.city) + '/' + escapeHtml(venue.state) + (venue.zip ? ' · CEP ' + escapeHtml(venue.zip) : '') + '</p></div>' +
+    (venue.active ? '<span class="tag green">' + t('Ativo') + '</span>' : '<span class="tag">' + t('Desativado') + '</span>') + '</div>' +
+    (address ? '<p class="mt-4 text-sm">' + escapeHtml(address) + '</p>' : '<p class="fit-line fit-no">' + icon('info', 'size-4 shrink-0') + t('Endereço a completar: edite para os atletas saberem onde ir.') + '</p>') +
+    (venue.reference ? '<p class="mt-1 text-sm text-ink-soft">' + t('Referência:') + ' ' + escapeHtml(venue.reference) + '</p>' : '') +
+    '<p class="mt-4 text-xs text-ink-soft"><span class="tabular">' + plural(uses.length, 'peneira marcada', 'peneiras marcadas') + '</span>' + (upcoming ? ' (' + upcoming + ' ' + t('por vir') + ')' : '') + edited + '</p>' +
+    '<div class="mt-auto flex flex-wrap items-center gap-2 pt-5"><button type="button" class="btn-secondary" data-edit-venue="' + venue.id + '">' + icon('edit', 'size-4') + ' ' + t('Editar') + '</button>' +
+    '<button type="button" class="btn-ghost' + (venue.active ? ' text-danger' : '') + '" data-toggle-venue="' + venue.id + '">' + (venue.active ? t('Desativar') : t('Reativar')) + '</button>' +
+    (address ? '<span class="ml-auto">' + mapLink([venue.name, address, venue.city, venue.state]) + '</span>' : '') + '</div></article>'
+}
+
+function openVenueModal(venue = null, onSaved = null) {
+  if (state.user?.role !== 'staff') return toast(t('Somente funcionários gerenciam locais.'), 'error')
+  const v = venue || { name: '', address: '', district: '', city: '', state: 'SP', zip: '', reference: '' }
+  const wrapper = document.createElement('div')
+  wrapper.className = 'fixed inset-0 z-[95] grid place-items-center bg-black/75 p-4 backdrop-blur-md'
+  wrapper.innerHTML =
+    '<div class="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-card surface surface--raised p-6 shadow-2xl sm:p-8" role="dialog" aria-modal="true" aria-labelledby="venue-title" data-lenis-prevent>' +
+    '<div class="flex items-start justify-between gap-4"><div><h2 id="venue-title" class="text-2xl font-bold">' + (venue ? t('Editar local') : t('Cadastrar local')) + '</h2><p class="mt-1 text-sm text-ink-soft">' + t('O endereço aparece para os atletas inscritos, com o link para o mapa.') + '</p></div><button type="button" class="icon-button" aria-label="' + t('Fechar') + '" data-close>' + icon('close') + '</button></div>' +
+    '<form id="venue-form" class="mt-6 grid gap-4 sm:grid-cols-6" novalidate>' +
+    '<div class="sm:col-span-6">' + input(t('Nome do local'), 'venue-name', v.name, 'text', true) + '</div>' +
+    '<div class="sm:col-span-2">' + input(t('CEP (opcional)'), 'venue-zip', v.zip, 'text') + '</div>' +
+    '<div class="sm:col-span-4">' + input(t('Endereço (rua e número)'), 'venue-address', v.address, 'text', true) + '</div>' +
+    '<div class="sm:col-span-2">' + input(t('Bairro'), 'venue-district', v.district) + '</div>' +
+    '<div class="sm:col-span-3">' + input(t('Cidade'), 'venue-city', v.city, 'text', true) + '</div>' +
+    '<label class="field-label sm:col-span-1">UF<select id="venue-state" class="field" required>' + UFS.map((uf) => '<option' + (uf === v.state ? ' selected' : '') + '>' + uf + '</option>').join('') + '</select></label>' +
+    '<label class="field-label sm:col-span-6">' + t('Complemento e referência (opcional)') + '<textarea id="venue-reference" class="field min-h-20" maxlength="300" placeholder="' + t('Ex.: portão 2, ao lado da estação') + '">' + escapeHtml(v.reference) + '</textarea></label>' +
+    '<div class="flex justify-end gap-2 sm:col-span-6"><button type="button" class="btn-secondary" data-close>' + t('Cancelar') + '</button><button class="btn-primary" type="submit">' + (venue ? t('Salvar alterações') : t('Cadastrar local')) + ' ' + icon('check', 'size-4') + '</button></div></form></div>'
+  document.body.appendChild(wrapper)
+  wrapper.querySelectorAll('[data-close]').forEach((button) => button.addEventListener('click', () => wrapper.remove()))
+  wrapper.querySelector('#venue-zip').addEventListener('input', (event) => { event.target.value = event.target.value.replace(/\D/g, '').slice(0, 8).replace(/^(\d{5})(\d)/, '$1-$2') })
+  const form = wrapper.querySelector('#venue-form')
+  const submit = form.querySelector('[type="submit"]')
+  form.addEventListener('input', (event) => { if (event.target.id) setFieldError(event.target.id, '') })
+
+  form.addEventListener('submit', (event) => {
+    event.preventDefault()
+    const get = (id) => wrapper.querySelector('#' + id).value.trim().replace(/[ \t]+/g, ' ')
+    const fields = { name: get('venue-name'), zip: get('venue-zip'), address: get('venue-address'), district: get('venue-district'), city: get('venue-city'), state: get('venue-state'), reference: get('venue-reference') }
+    const key = (item) => item.name.trim().toLowerCase() + '|' + item.city.trim().toLowerCase() + '|' + item.state
+    const duplicate = state.venues.find((item) => item.id !== venue?.id && key(item) === key(fields))
+    const errors = [
+      ['venue-name', fields.name.length < 3 ? t('Informe o nome do local (pelo menos 3 letras).') : fields.name.length > 120 ? t('Use até 120 caracteres.') : duplicate ? t('Já existe') + ' "' + duplicate.name + '" ' + t('em') + ' ' + duplicate.city + '/' + duplicate.state + '.' : ''],
+      ['venue-zip', fields.zip && !/^\d{5}-?\d{3}$/.test(fields.zip) ? t('CEP no formato 00000-000.') : ''],
+      ['venue-address', fields.address.length < 5 ? t('Informe a rua e o número.') : fields.address.length > 200 ? t('Use até 200 caracteres.') : ''],
+      ['venue-city', fields.city.length < 2 ? t('Informe a cidade.') : ''],
+      ['venue-district', fields.district.length > 80 ? t('Use até 80 caracteres.') : ''],
+    ]
+    errors.forEach(([id, message]) => setFieldError(id, message))
+    const firstError = errors.find(([, message]) => message)
+    if (firstError) return wrapper.querySelector('#' + firstError[0]).focus()
+
+    const save = async () => {
+      submit.setAttribute('aria-busy', 'true')
+      let saved
+      if (remote.enabled) {
+        const { row, error } = await saveVenue(venue?.id, fields)
+        if (error) {
+          submit.removeAttribute('aria-busy')
+          if (String(error.message || '').includes('venues_name_city_key')) setFieldError('venue-name', describeError(error))
+          return toast(describeError(error), 'error')
+        }
+        saved = mapRemoteVenue(row)
+        const index = state.venues.findIndex((item) => item.id === saved.id)
+        if (index >= 0) state.venues[index] = saved
+        else state.venues.push(saved)
+      } else {
+        saved = venue ? Object.assign(venue, fields) : { id: Date.now(), active: true, ...fields }
+        saved.updatedBy = state.user.name
+        saved.updatedAt = new Date().toISOString()
+        if (!venue) state.venues.push(saved)
+        logChange(venue ? 'update' : 'create', 'venue', saved.id, fields)
+        persist()
+      }
+      justSavedVenue = saved.id
+      wrapper.remove()
+      toast(venue ? t('Local atualizado.') : t('Local cadastrado. Ele já aparece na criação de peneiras.'))
+      if (onSaved) return onSaved(saved)
+      render()
+      // O foco vai para o local salvo (em vez de cair no começo da página).
+      document.querySelector('[data-venue-card="' + saved.id + '"] [data-edit-venue]')?.focus()
+    }
+    // Editar um local com peneiras marcadas afeta o que os inscritos veem: pede confirmação.
+    const upcomingHere = venue ? state.tryouts.filter((tryout) => tryout.venueId === venue.id && tryout.status !== 'cancelled' && !isPastTryout(tryout)).length : 0
+    const changed = venue && ['name', 'address', 'district', 'city', 'state', 'zip', 'reference'].some((field) => (venue[field] || '') !== fields[field])
+    if (upcomingHere && changed) {
+      confirmDialog({
+        eyebrow: t('Local'),
+        title: t('Alterar um local com peneiras marcadas?'),
+        message: plural(upcomingHere, 'peneira por vir usa', 'peneiras por vir usam') + ' ' + t('este local. O novo endereço aparece para os inscritos; o nome e a cidade já gravados nessas peneiras não mudam.'),
+        confirmLabel: t('Salvar alterações'),
+        onConfirm: save,
+      })
+    } else save()
+  })
+}
+
+function toggleVenue(id) {
+  const venue = state.venues.find((item) => item.id === id)
+  if (!venue || state.user?.role !== 'staff') return
+  const apply = async () => {
+    const active = !venue.active
+    if (remote.enabled) {
+      const { row, error } = await saveVenue(id, { active })
+      if (error) return toast(describeError(error), 'error')
+      Object.assign(venue, mapRemoteVenue(row))
+    } else {
+      venue.active = active
+      venue.updatedBy = state.user.name
+      venue.updatedAt = new Date().toISOString()
+      logChange(active ? 'reactivate' : 'deactivate', 'venue', id, { active })
+      persist()
+    }
+    // O card desbota (ou volta a cor) antes de a lista ser redesenhada.
+    document.querySelector('[data-venue-card="' + id + '"]')?.classList.toggle('is-inactive', !active)
+    toast(active ? t('Local reativado.') : t('Local desativado. As peneiras já marcadas continuam com ele.'))
+    setTimeout(render, 420)
+  }
+  if (!venue.active) return apply()
+  const uses = state.tryouts.filter((tryout) => tryout.venueId === id && tryout.status !== 'cancelled').length
+  confirmDialog({
+    eyebrow: t('Local'),
+    title: t('Desativar') + ' ' + venue.name + '?',
+    message: t('Ele deixa de aparecer na criação de peneiras.') + ' ' + (uses ? plural(uses, 'peneira já marcada aqui continua', 'peneiras já marcadas aqui continuam') + ' ' + t('com este endereço.') + ' ' : '') + t('Você pode reativar quando quiser.'),
+    confirmLabel: t('Desativar local'),
+    onConfirm: apply,
+  })
 }
 
 function messagesPage() {
@@ -2069,28 +2317,6 @@ function openReviewModal(athleteId) {
   })
 }
 
-function openLocationModal(onSelect) {
-  const panel = document.createElement('div')
-  panel.className = 'fixed inset-0 z-[100] grid place-items-center bg-black/70 p-4'
-  panel.innerHTML =
-    '<div class="w-full max-w-md rounded-card surface surface--raised p-6" role="dialog" aria-modal="true" aria-labelledby="location-title">' +
-    '<div class="flex items-center justify-between"><div><span class="eyebrow">' + t('Localidade') + '</span><h3 id="location-title" class="mt-1 text-xl font-bold">Confirmar local da peneira</h3></div><button type="button" class="icon-button" aria-label="Fechar" data-close>' + icon('close') + '</button></div>' +
-    '<div class="mt-5 space-y-2">' +
-    [
-      ['Centro de Treinamento Pelé', 'São Paulo/SP'],
-      ['Arena Oeste', 'Osasco/SP'],
-      ['CT Litoral', 'Santos/SP'],
-    ].map((item) => '<button type="button" class="location-option" data-location="' + escapeHtml(item[0] + ' — ' + item[1]) + '"><span class="grid size-10 place-items-center rounded-xl bg-brand/10 text-brand">' + icon('pin', 'size-4') + '</span><span class="text-left"><strong>' + escapeHtml(item[0]) + '</strong><small>' + escapeHtml(item[1]) + '</small></span></button>').join('') +
-    '</div></div>'
-
-  document.body.appendChild(panel)
-  panel.querySelector('[data-close]').addEventListener('click', () => panel.remove())
-  panel.querySelectorAll('[data-location]').forEach((button) => button.addEventListener('click', () => {
-    onSelect(button.dataset.location)
-    panel.remove()
-  }))
-}
-
 function openTryoutModal() {
   if (state.user?.role !== 'staff') {
     toast('Somente funcionários podem criar uma peneira.', 'error')
@@ -2101,15 +2327,16 @@ function openTryoutModal() {
   wrapper.id = 'tryout-modal'
   wrapper.className = 'fixed inset-0 z-[90] grid place-items-center bg-black/75 p-4 backdrop-blur-md'
   wrapper.innerHTML =
-    '<div class="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-card surface surface--raised p-6 shadow-2xl sm:p-8" role="dialog" aria-modal="true" aria-labelledby="tryout-title">' +
-    '<div class="flex items-start justify-between gap-4"><div><h2 id="tryout-title" class="mt-2 text-2xl font-bold">Criar e agendar</h2></div><button type="button" class="icon-button" aria-label="Fechar" data-close>' + icon('close') + '</button></div>' +
-    '<form id="tryout-form" class="mt-6 grid gap-4 sm:grid-cols-2">' +
+    '<div class="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-card surface surface--raised p-6 shadow-2xl sm:p-8" role="dialog" aria-modal="true" aria-labelledby="tryout-title" data-lenis-prevent>' +
+    '<div class="flex items-start justify-between gap-4"><div><h2 id="tryout-title" class="mt-2 text-2xl font-bold">' + t('Criar e agendar') + '</h2><p class="mt-1 text-sm text-ink-soft">' + t('Horário de Brasília. As inscrições fecham na hora em que a peneira começa.') + '</p></div><button type="button" class="icon-button" aria-label="Fechar" data-close>' + icon('close') + '</button></div>' +
+    '<form id="tryout-form" class="mt-6 grid gap-4 sm:grid-cols-2" novalidate>' +
     input('Nome da peneira', 'try-title', '', 'text', true) +
     input('Data', 'try-date', '', 'date', true) +
     input('Horário', 'try-time', '', 'time', true) +
     input('Quantidade de vagas', 'try-seats', '12', 'number', true) +
     '<label class="field-label">Categoria<select id="try-category" class="field" required><option>Sub-7</option><option>Sub-9</option><option>Sub-11</option><option>Sub-13</option><option>Sub-15</option><option selected>Sub-20</option></select></label>' +
-    '<div class="sm:col-span-2"><p class="field-label mb-2">Localidade</p><button type="button" id="location-button" class="field flex items-center justify-between text-left"><span id="location-value" class="text-ink-soft">Selecionar local...</span>' + icon('pin', 'size-4 text-brand') + '</button></div>' +
+    '<div class="sm:col-span-2"><div class="flex flex-wrap items-end gap-2"><label class="field-label min-w-0 flex-1">' + t('Local') + '<select id="try-venue" class="field" required>' + venueOptions() + '</select></label>' +
+    '<button type="button" class="btn-secondary" data-new-venue-inline>' + icon('plus', 'size-4') + ' ' + t('Novo local') + '</button></div><p id="try-venue-hint" class="mt-2 text-xs text-ink-soft" aria-live="polite"></p></div>' +
     '<div class="sm:col-span-2"><p class="field-label">' + t('Posições disponíveis') + '</p><div class="mt-2 grid grid-cols-2 gap-2 rounded-2xl border border-line bg-night/60 p-3 sm:grid-cols-3">' +
     POSITIONS.map((p, i) => '<label class="check-pill"><input type="checkbox" name="position" value="' + escapeHtml(p) + '" ' + (i === 6 ? 'checked' : '') + '/><span>' + escapeHtml(p) + '</span></label>').join('') +
     '</div></div>' +
@@ -2118,53 +2345,57 @@ function openTryoutModal() {
 
   document.body.appendChild(wrapper)
   wrapper.querySelectorAll('[data-close]').forEach((button) => button.addEventListener('click', () => wrapper.remove()))
-  wrapper.querySelector('#location-button').addEventListener('click', () => openLocationModal((locationValue) => {
-    wrapper.querySelector('#location-value').textContent = locationValue
-    wrapper.querySelector('#location-value').classList.remove('text-ink-soft')
+  wrapper.querySelector('#try-date').min = todayIso()
+  const select = wrapper.querySelector('#try-venue')
+  const showHint = () => {
+    const venue = state.venues.find((item) => item.id === Number(select.value))
+    wrapper.querySelector('#try-venue-hint').textContent = venue
+      ? (venueAddress(venue) || t('Endereço a completar: edite o local para os atletas saberem onde ir.')) + (venue.reference ? ' · ' + venue.reference : '')
+      : activeVenues().length ? '' : t('Nenhum local ativo. Cadastre um para marcar a peneira.')
+  }
+  select.addEventListener('change', showHint)
+  wrapper.querySelector('#tryout-form').addEventListener('input', (event) => { if (event.target.id) setFieldError(event.target.id, '') })
+  wrapper.querySelector('#tryout-form').addEventListener('change', (event) => { if (event.target.id) setFieldError(event.target.id, '') })
+  showHint()
+  wrapper.querySelector('[data-new-venue-inline]').addEventListener('click', () => openVenueModal(null, (venue) => {
+    select.innerHTML = venueOptions(venue.id)
+    setFieldError('try-venue', '')
+    showHint()
+    select.focus()
   }))
 
   wrapper.querySelector('#tryout-form').addEventListener('submit', (event) => {
     event.preventDefault()
-    const positions = [...wrapper.querySelectorAll('input[name="position"]:checked')].map((input) => input.value)
-    const title = wrapper.querySelector('#try-title').value.trim()
-    const location = wrapper.querySelector('#location-value').textContent.trim()
-    const seats = Number(wrapper.querySelector('#try-seats').value)
+    const value = (id) => wrapper.querySelector('#' + id).value.trim()
+    const title = value('try-title')
+    const date = value('try-date')
+    const time = value('try-time')
+    const seats = Number(value('try-seats'))
+    const venue = state.venues.find((item) => item.id === Number(select.value) && item.active)
+    const positions = [...wrapper.querySelectorAll('input[name="position"]:checked')].map((box) => box.value)
+    const errors = [
+      ['try-title', title.length < 3 ? t('Dê um nome à peneira (pelo menos 3 letras).') : ''],
+      ['try-date', !validTryoutDate(date) ? t('Escolha a data.') : date < todayIso() ? t('Essa data já passou.') : ''],
+      ['try-time', !validTime(time) ? t('Escolha o horário.') : date === todayIso() && !enrollmentOpen({ date, time }) ? t('Esse horário de hoje já passou.') : ''],
+      ['try-seats', !Number.isInteger(seats) || seats < 1 || seats > 500 ? t('Entre 1 e 500 vagas.') : ''],
+      ['try-venue', venue ? '' : t('Escolha o local.')],
+    ]
+    errors.forEach(([id, message]) => setFieldError(id, message))
     const error = wrapper.querySelector('#tryout-error')
-    if (!title || !location || location === 'Selecionar local...' || !positions.length || !seats || seats < 1) {
-      error.textContent = 'Preencha nome, vagas, localidade e pelo menos uma posição.'
-      error.classList.remove('hidden')
-      return
-    }
+    error.textContent = positions.length ? '' : t('Marque pelo menos uma posição.')
+    error.classList.toggle('hidden', !!positions.length)
+    const firstError = errors.find(([, message]) => message)
+    if (firstError) return wrapper.querySelector('#' + firstError[0]).focus()
+    if (!positions.length) return
 
-    const match = location.match(/^(.+?) — (.+)\/([A-Za-z]{2})$/)
-    const cityState = (location.split(' — ')[1] || 'São Paulo/SP').split('/')
+    const fields = { title, date, time, location: venue.name, city: venue.city, state: venue.state, category: value('try-category'), positions, seats, venueId: venue.id }
     if (remote.enabled) {
-      const date = wrapper.querySelector('#try-date').value
-      if (!date) {
-        error.textContent = 'Informe a data da peneira.'
-        error.classList.remove('hidden')
-        return
-      }
-      runTryoutAction(wrapper.querySelector('[type="submit"]'), () => createTryout({
-        title, date, time: wrapper.querySelector('#try-time').value, location: match ? match[1] : location.split(' — ')[0],
-        city: cityState[0] || 'São Paulo', state: cityState[1] || 'SP', category: wrapper.querySelector('#try-category').value, positions, seats,
-      }), t('Peneira criada e publicada para os atletas.')).then((ok) => { if (ok) wrapper.remove() })
+      runTryoutAction(wrapper.querySelector('[type="submit"]'), () => createTryout(fields), t('Peneira criada e publicada para os atletas.')).then((ok) => { if (ok) wrapper.remove() })
       return
     }
-    state.tryouts.unshift({
-      id: Date.now(),
-      title,
-      date: wrapper.querySelector('#try-date').value,
-      time: wrapper.querySelector('#try-time').value,
-      city: cityState[0] || 'São Paulo',
-      state: cityState[1] || 'SP',
-      location: match ? match[1] : location.split(' — ')[0],
-      category: wrapper.querySelector('#try-category').value,
-      positions,
-      seats,
-      enrolled: [],
-      createdBy: state.user.email,
-    })
+    const tryout = { id: Date.now(), ...fields, enrolled: [], createdBy: state.user.email }
+    state.tryouts.unshift(tryout)
+    logChange('create', 'tryout', tryout.id, { title, date, venueId: venue.id })
     notify(state.user.email, 'Nova peneira criada', title + ' foi publicada.')
     persist()
     wrapper.remove()
@@ -2230,7 +2461,10 @@ function openCancelTryoutModal(tryoutId) {
       return
     }
     ;(tryout.enrolled || []).forEach((email) => notify(email, 'Peneira cancelada', '"' + tryout.title + '" (' + when + ') foi cancelada. Motivo: ' + reason))
-    state.tryouts = state.tryouts.filter((item) => item.id !== tryout.id)
+    // Cancelar não apaga: a peneira fica guardada com o motivo (os inscritos a veem em "Encerradas").
+    tryout.status = 'cancelled'
+    tryout.cancelReason = reason
+    logChange('cancel', 'tryout', tryout.id, { reason })
     persist()
     wrapper.remove()
     render()
@@ -2768,6 +3002,10 @@ function bind() {
     render()
     document.querySelector('[data-tryout-filter="' + tryoutFilter + '"]')?.focus()
   }))
+  document.querySelectorAll('[data-action="new-venue"]').forEach((button) => button.addEventListener('click', () => openVenueModal()))
+  document.querySelectorAll('[data-edit-venue]').forEach((button) => button.addEventListener('click', () => openVenueModal(state.venues.find((venue) => venue.id === Number(button.dataset.editVenue)))))
+  document.querySelectorAll('[data-toggle-venue]').forEach((button) => button.addEventListener('click', () => toggleVenue(Number(button.dataset.toggleVenue))))
+  document.querySelectorAll('[data-action="toggle-inactive-venues"]').forEach((button) => button.addEventListener('click', () => { showInactiveVenues = !showInactiveVenues; render() }))
   document.querySelector('[data-hide-checklist]')?.addEventListener('click', () => {
     try { localStorage.setItem('ap_hide_checklist:' + state.user.email, '1') } catch {}
     render()
@@ -2782,7 +3020,7 @@ function bind() {
     if (!tryout || state.user?.role !== 'player') return
     const enrolled = Array.isArray(tryout.enrolled) ? tryout.enrolled : (tryout.enrolled = [])
     if (enrolled.includes(state.user.email)) return
-    if (tryout.status === 'cancelled' || isPastTryout(tryout)) return toast(t('Esta peneira já foi encerrada.'), 'error')
+    if (!enrollmentOpen(tryout)) return toast(t('As inscrições desta peneira estão fechadas.'), 'error')
     const vacancies = Number(tryout.seats) - enrolled.length
     const category = getCategoryFromAge(getAgeFromProfile(state.profile?.birth))
     const compatible = tryout.positions.includes(state.profile?.pos) || tryout.positions.includes(state.profile?.secondary)
@@ -2934,6 +3172,7 @@ function render() {
 function reloadSharedState() {
   if (!remote.enabled) {
     state.tryouts = readStorage('ap_tryouts', state.tryouts)
+    state.venues = readStorage('ap_venues', state.venues)
     state.messages = readStorage('ap_messages', state.messages)
   }
   state.notifications = readStorage('ap_notifications', state.notifications)
@@ -2970,6 +3209,7 @@ window.addEventListener('popstate', () => {
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refreshRemote(true) })
 window.addEventListener('online', () => refreshRemote(true))
 setInterval(() => { if (document.visibilityState === 'visible') refreshRemote() }, 30000)
+setInterval(tickCountdowns, 1000)
 // ESC fecha o modal aberto mais recentemente
 document.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return
