@@ -20,7 +20,8 @@ O fluxo principal roda de ponta a ponta com back-end real (Supabase: Postgres, A
 - Contas, perfis, avaliações, peneiras, inscrições e mensagens ficam no Supabase. As regras de acesso estão nas policies RLS de `supabase/migrations/`.
 - Só e-mails da tabela `staff_allowlist` viram funcionário.
 - As conversas não usam Realtime (custo). A tela busca mensagens novas a cada 8 s enquanto está aberta e visível.
-- Notificações, favoritos e votos ficam no navegador (`localStorage`).
+- Notificações e a lista de observação (atletas salvos pelo funcionário) ficam no navegador (`localStorage`).
+- Não há votos nem curtidas: a nota do atleta vem só das avaliações registradas pela equipe.
 - Sem Supabase, ou com `?local=1` na URL, o app roda em **modo local**: tudo fica no navegador, com dados de exemplo identificados como "Perfil de exemplo".
 
 Cada tela do fluxo tem estados reais: carregando (skeleton), vazio (com próxima ação), erro (mensagem e "Tentar de novo") e sucesso (toast e estado confirmado no card).
@@ -36,6 +37,7 @@ npm install
 npm run dev        # http://localhost:5173
 npm run build      # gera dist/
 npm run preview    # serve o build
+npm test           # regras do banco (Postgres em WASM) e validações de CPF/data
 ```
 
 > Desde a Sprint 4 o Tailwind é compilado pelo Vite. O modo "Live Server sem npm" foi removido porque o Tailwind via CDN derrubava a performance e gerava aviso no console.

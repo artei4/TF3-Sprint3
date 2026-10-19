@@ -26,7 +26,7 @@ export function designSystemPage({ icon, input, selectField, tag, athleteCard, p
     `<button type="button" class="${cls}" disabled>Desabilitado</button>` +
     (cls === 'btn-primary' || cls === 'btn-secondary' ? `<button type="button" class="${cls}" aria-busy="true">Salvando…</button>` : ''))
   const withAttrs = (html, attrs) => html.replace('class="field"', attrs)
-  const demoAthlete = { id: 0, foot: 'Canhoto', name: 'Atleta de exemplo', age: 16, city: 'São Paulo', state: 'SP', pos: 'Meia', secondary: 'Volante', rating: 0, votes: 0, color: 'from-amber-400 to-yellow-200' }
+  const demoAthlete = { id: 0, foot: 'Canhoto', name: 'Atleta de exemplo', age: 16, city: 'São Paulo', state: 'SP', pos: 'Meia', secondary: 'Volante', rating: 0, color: 'from-amber-400 to-yellow-200' }
 
   return '<div class="min-h-screen">' +
     '<header class="sticky top-0 z-40 border-b border-line bg-night/95 backdrop-blur"><div class="mx-auto flex min-h-[4.5rem] max-w-[1200px] items-center justify-between gap-3 px-4 sm:px-6">' +
@@ -56,9 +56,9 @@ export function designSystemPage({ icon, input, selectField, tag, athleteCard, p
       row('Sombras', '<span class="grid h-16 w-32 place-items-center rounded-[var(--radius-control)] bg-panel text-xs shadow-lift">lift</span><span class="grid h-16 w-32 place-items-center rounded-card bg-raised text-xs shadow-modal">modal</span>')) +
 
     section('ds-botoes', 'Botões', 'Estados: padrão, hover, foco (teclado), ativo (pressionado), desabilitado e carregando (aria-busy).',
-      btnStates('btn-primary', 'Primário', 'Inscrever-se') + btnStates('btn-secondary', 'Secundário', 'Criar peneira') + btnStates('btn-danger', 'Destrutivo', 'Cancelar peneira') + btnStates('vote-button', 'Voto', 'Votar') +
+      btnStates('btn-primary', 'Primário', 'Inscrever-se') + btnStates('btn-secondary', 'Secundário', 'Criar peneira') + btnStates('btn-danger', 'Destrutivo', 'Cancelar peneira') +
       row('Incompatível', '<button type="button" class="btn-incompatible" disabled>Posição incompatível</button>') +
-      row('Ghost e ícone', `<button type="button" class="btn-ghost" data-ds-demo>Ver perfil</button><button type="button" class="icon-button" aria-label="Notificações (exemplo)" data-ds-demo>${icon('bell')}</button><button type="button" class="icon-button is-focus" aria-label="Menu (exemplo)" data-ds-demo>${icon('menu')}</button>`)) +
+      row('Ghost e ícone', `<button type="button" class="btn-ghost" data-ds-demo>Ver perfil</button><button type="button" class="icon-button save-toggle" aria-pressed="false" aria-label="Salvar na lista de observação (exemplo)" data-ds-save>${icon('bookmark')}</button><button type="button" class="icon-button" aria-label="Notificações (exemplo)" data-ds-demo>${icon('bell')}</button><button type="button" class="icon-button is-focus" aria-label="Menu (exemplo)" data-ds-demo>${icon('menu')}</button>`)) +
 
     section('ds-campos', 'Campos', 'Todo campo tem label associado. Erros usam aria-invalid e mensagem ligada por aria-describedby.',
       '<div class="grid gap-5 sm:grid-cols-2">' +
@@ -112,8 +112,14 @@ export function bindDesignSystem(root, { toast, confirmDialog, scrollToElement, 
     scrollToElement(heading)
     heading?.focus({ preventScroll: true })
   }))
+  root.querySelectorAll('[data-ds-save]').forEach((button) => button.addEventListener('click', () => {
+    const saved = button.getAttribute('aria-pressed') !== 'true'
+    button.setAttribute('aria-pressed', String(saved))
+    button.classList.remove('just-saved'); void button.offsetWidth
+    if (saved) button.classList.add('just-saved')
+  }))
   root.querySelectorAll('[data-ds-demo]').forEach((button) => button.addEventListener('click', () => toast('Exemplo do design system: no app, este controle executa a ação real.')))
-  root.querySelectorAll('[data-ds-card] button').forEach((button) => button.addEventListener('click', () => toast('Card de exemplo: no banco de atletas, este botão abre o perfil, vota ou envia mensagem.')))
+  root.querySelectorAll('[data-ds-card] button').forEach((button) => button.addEventListener('click', () => toast('Card de exemplo: no banco de atletas, este botão abre o perfil, salva na lista de observação ou envia mensagem.')))
   root.querySelectorAll('[data-ds-toast]').forEach((button) => button.addEventListener('click', () => toast(button.dataset.dsToast === 'error' ? 'Não foi possível enviar. Tente novamente.' : 'Avaliação salva.', button.dataset.dsToast)))
   root.querySelector('[data-ds-modal]')?.addEventListener('click', () => confirmDialog({ title: 'Cancelar peneira?', message: 'Os atletas inscritos serão avisados. Esta ação não pode ser desfeita.', confirmLabel: 'Cancelar peneira', onConfirm: () => toast('Exemplo: nada foi cancelado.') }))
 }

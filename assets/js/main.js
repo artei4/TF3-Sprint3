@@ -7,7 +7,7 @@ import {
   normalizeEmail,
 } from './validation.js'
 import { filterAthletes } from './filters.js'
-import { toggleFavorite, registerVote, removeVote, hasVoted } from './feed.js'
+import { toggleFavorite } from './feed.js'
 import { LANGS, getLang, setLang, t } from './i18n.js'
 import { designSystemPage, bindDesignSystem } from './design-system.js'
 import { cropPhoto, illustratedAvatar } from './avatar.js'
@@ -84,12 +84,12 @@ const defaultProfile = {
 }
 
 const defaultAthletes = [
-  { demo: true, id: 1, foot: 'Destro', email: 'gabriel@academiapele.com', name: 'Gabriel Martins', age: 18, birth: '2008-03-14', gender: 'Masculino', city: 'São Paulo', state: 'SP', pos: 'Atacante', secondary: 'Ponta', rating: 8.8, votes: 128, status: 'Em observação', color: 'from-amber-400 to-yellow-200', tags: ['Finalização', 'Velocidade', 'Drible'] },
-  { demo: true, id: 2, foot: 'Canhoto', name: 'Lucas Ferreira', age: 19, birth: '2007-07-20', gender: 'Masculino', city: 'Osasco', state: 'SP', pos: 'Meia', secondary: 'Volante', rating: 8.4, votes: 94, status: 'Disponível', color: 'from-sky-400 to-cyan-200', tags: ['Passe', 'Visão de jogo', 'Resistência'] },
-  { demo: true, id: 3, foot: 'Destro', name: 'Rafael Souza', age: 17, birth: '2009-01-22', gender: 'Masculino', city: 'Guarulhos', state: 'SP', pos: 'Zagueiro', secondary: 'Lateral', rating: 8.1, votes: 76, status: 'Em avaliação', color: 'from-violet-400 to-fuchsia-200', tags: ['Marcação', 'Força', 'Cabeceio'] },
-  { demo: true, id: 4, foot: 'Destro', name: 'João Vitor', age: 18, birth: '2008-10-11', gender: 'Masculino', city: 'Campinas', state: 'SP', pos: 'Volante', secondary: 'Meia', rating: 8.6, votes: 111, status: 'Destaque', color: 'from-emerald-400 to-lime-200', tags: ['Desarme', 'Passe', 'Leitura'] },
-  { demo: true, id: 5, foot: 'Destro', name: 'Pedro Henrique', age: 20, birth: '2006-05-05', gender: 'Masculino', city: 'Santos', state: 'SP', pos: 'Goleiro', secondary: '—', rating: 8.0, votes: 62, status: 'Disponível', color: 'from-slate-300 to-slate-100', tags: ['Reflexo', 'Posicionamento', 'Saída'] },
-  { demo: true, id: 6, foot: 'Canhoto', name: 'Matheus Alves', age: 18, birth: '2008-12-02', gender: 'Masculino', city: 'Sorocaba', state: 'SP', pos: 'Ponta', secondary: 'Atacante', rating: 8.7, votes: 103, status: 'Destaque', color: 'from-orange-400 to-amber-200', tags: ['Velocidade', 'Drible', 'Cruzamento'] },
+  { demo: true, id: 1, foot: 'Destro', email: 'gabriel@academiapele.com', name: 'Gabriel Martins', age: 18, birth: '2008-03-14', gender: 'Masculino', city: 'São Paulo', state: 'SP', pos: 'Atacante', secondary: 'Ponta', rating: 8.8, status: 'Em observação', color: 'from-amber-400 to-yellow-200', tags: ['Finalização', 'Velocidade', 'Drible'] },
+  { demo: true, id: 2, foot: 'Canhoto', name: 'Lucas Ferreira', age: 19, birth: '2007-07-20', gender: 'Masculino', city: 'Osasco', state: 'SP', pos: 'Meia', secondary: 'Volante', rating: 8.4, status: 'Disponível', color: 'from-sky-400 to-cyan-200', tags: ['Passe', 'Visão de jogo', 'Resistência'] },
+  { demo: true, id: 3, foot: 'Destro', name: 'Rafael Souza', age: 17, birth: '2009-01-22', gender: 'Masculino', city: 'Guarulhos', state: 'SP', pos: 'Zagueiro', secondary: 'Lateral', rating: 8.1, status: 'Em avaliação', color: 'from-violet-400 to-fuchsia-200', tags: ['Marcação', 'Força', 'Cabeceio'] },
+  { demo: true, id: 4, foot: 'Destro', name: 'João Vitor', age: 18, birth: '2008-10-11', gender: 'Masculino', city: 'Campinas', state: 'SP', pos: 'Volante', secondary: 'Meia', rating: 8.6, status: 'Destaque', color: 'from-emerald-400 to-lime-200', tags: ['Desarme', 'Passe', 'Leitura'] },
+  { demo: true, id: 5, foot: 'Destro', name: 'Pedro Henrique', age: 20, birth: '2006-05-05', gender: 'Masculino', city: 'Santos', state: 'SP', pos: 'Goleiro', secondary: '—', rating: 8.0, status: 'Disponível', color: 'from-slate-300 to-slate-100', tags: ['Reflexo', 'Posicionamento', 'Saída'] },
+  { demo: true, id: 6, foot: 'Canhoto', name: 'Matheus Alves', age: 18, birth: '2008-12-02', gender: 'Masculino', city: 'Sorocaba', state: 'SP', pos: 'Ponta', secondary: 'Atacante', rating: 8.7, status: 'Destaque', color: 'from-orange-400 to-amber-200', tags: ['Velocidade', 'Drible', 'Cruzamento'] },
 ]
 
 const defaultTryouts = [
@@ -98,14 +98,15 @@ const defaultTryouts = [
   { id: 3, title: 'Goleiros em Destaque', date: '2026-11-21', time: '10:30', city: 'Barueri', state: 'SP', location: 'Centro de Treinamento Oeste', category: 'Sub-20', positions: ['Goleiro'], seats: 8, enrolled: [] },
 ]
 
+// Os votos foram removidos (avaliação é a única medida do atleta): apaga o que ficou salvo no navegador.
+try { localStorage.removeItem('ap_votes'); localStorage.removeItem('ap_voted') } catch {}
+
 const state = {
   athletes: defaultAthletes,
   filteredAthletes: defaultAthletes,
   user: readStorage('ap_user', null),
   accounts: readStorage('ap_accounts', []),
   favorites: readStorage('ap_favorites', []),
-  votes: readStorage('ap_votes', {}),
-  voted: readStorage('ap_voted', {}),
   messages: readStorage('ap_messages', []),
   profile: readStorage('ap_profile', null),
   tryouts: readStorage('ap_tryouts', defaultTryouts),
@@ -185,8 +186,6 @@ function persist() {
     localStorage.setItem('ap_tryouts', JSON.stringify(state.tryouts))
   }
   localStorage.setItem('ap_favorites', JSON.stringify(state.favorites))
-  localStorage.setItem('ap_votes', JSON.stringify(state.votes))
-  localStorage.setItem('ap_voted', JSON.stringify(state.voted))
   localStorage.setItem('ap_reviews', JSON.stringify(state.reviews))
   localStorage.setItem('ap_notifications', JSON.stringify(state.notifications))
 }
@@ -280,7 +279,6 @@ function syncAthletes() {
       email: account.email,
       ...athleteFieldsFromProfile(account.profile),
       rating: 0,
-      votes: 0,
       status: 'Novo cadastro',
       color: AVATAR_COLORS[index % AVATAR_COLORS.length],
       tags: [account.profile.pos, account.profile.secondary].filter((item) => item && item !== '—'),
@@ -778,6 +776,7 @@ function icon(name, cls = 'size-5') {
     logout: '<path d="M10 17l5-5-5-5M15 12H3M21 19V5a2 2 0 0 0-2-2h-4"/>',
     edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/>',
     bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/>',
+    bookmark: '<path d="M6.5 3.5h11v17L12 16.6l-5.5 3.9Z"/>',
     heart: '<path d="M20.8 8.8c0 5.5-8.8 10.7-8.8 10.7S3.2 14.3 3.2 8.8A4.8 4.8 0 0 1 12 6a4.8 4.8 0 0 1 8.8 2.8Z"/>',
     camera: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
     info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
@@ -986,7 +985,7 @@ function staffDashboard() {
     '<section class="reveal mt-8 panel"><div class="flex flex-wrap items-end justify-between gap-3"><div><h2 class="section-title !mt-0">' + t('Elenco em campo') + '</h2><p class="mt-1 max-w-[60ch] text-sm text-ink-soft">' + t('Cada ponto é um atleta do banco, na posição principal. Clique para abrir o perfil.') + '</p></div></div>' +
     '<div class="mt-5">' + pitchFormation(state.athletes) + '</div>' + squadLegend(state.athletes) + '</section>' +
     '<section class="reveal mt-8 panel"><div class="flex flex-wrap items-end justify-between gap-3"><div><h2 class="section-title">' + t('Atletas para observar') + '</h2></div><button type="button" class="btn-ghost" data-route="athletes">' + t('Abrir banco completo') + ' ' + icon('arrow', 'size-4') + '</button></div><div class="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">' +
-    state.athletes.slice(0, 6).map((a) => athleteCard(a, true)).join('') + '</div></section>',
+    [...state.athletes.filter((a) => isSaved(a.id)), ...state.athletes.filter((a) => !isSaved(a.id))].slice(0, 6).map((a) => athleteCard(a, true)).join('') + '</div></section>',
     { active: 'dashboard', role: 'staff' },
   )
 }
@@ -1102,6 +1101,11 @@ document.addEventListener('click', (event) => {
   }
   const toggle = event.target.closest('[data-action="toggle-theme"]')
   if (toggle) applyTheme(currentTheme() === 'light' ? 'dark' : 'light')
+  if (event.target.closest('[data-action="toggle-watchlist"]')) {
+    watchOnly = !watchOnly
+    document.querySelectorAll('.tab-chip[data-action="toggle-watchlist"]').forEach((chip) => chip.setAttribute('aria-pressed', String(watchOnly)))
+    applyFilters()
+  }
   const quick = event.target.closest('[data-quick-reply]')
   if (quick) {
     const field = document.querySelector('#message-input')
@@ -1235,24 +1239,31 @@ function bindPhotoInputs(root = document) {
 let regPhoto = null
 
 function athleteCard(a, staff = false) {
-  const fav = state.favorites.includes(a.id)
-  const count = a.votes + (state.votes[a.id] || 0)
   const reviewCount = (state.reviews[a.id] || []).length
-  const voted = hasVoted(state, a.id, state.user?.email || 'anon')
   const rating = ratingOf(a)
 
   return '<article class="reveal spot athlete-card pos-' + positionGroup(a.pos) + ' flex h-full flex-col rounded-card surface p-4">' +
     '<div class="flex gap-4"><div class="fut-badge" aria-label="Nota ' + formatRating(rating) + ', ' + escapeHtml(a.pos) + '"><span class="num text-[2rem] ' + rateClass(rating) + '">' + formatRating(rating) + '</span><span class="pos-abbr">' + (POSITION_ABBR[a.pos] || '—') + '</span></div>' +
     '<div class="min-w-0 flex-1"><div class="flex items-start justify-between gap-2"><div class="flex min-w-0 items-center gap-3">' + personAvatar(a, 'avatar card-avatar') + '<button type="button" class="min-w-0 text-left" data-open-athlete="' + a.id + '"><h3 class="truncate text-lg font-semibold leading-tight">' + escapeHtml(a.name) + '</h3><p class="mt-0.5 truncate text-sm text-ink-soft">' + a.age + ' anos · ' + escapeHtml(a.city) + '/' + escapeHtml(a.state) + '</p></button></div>' +
-    '<button type="button" class="icon-button sm shrink-0" data-favorite="' + a.id + '" aria-pressed="' + fav + '" aria-label="' + (fav ? 'Remover dos favoritos' : 'Favoritar') + '">' + icon('heart', 'size-4 ' + (fav ? 'fill-brand text-brand' : '')) + '</button></div>' +
+    saveToggle(a) + '</div>' +
     '<div class="mt-3 flex flex-wrap gap-1.5">' + posTag(a.pos) + posTag(a.secondary) + tag(getCategoryFromAge(a.age), true) + '</div></div></div>' +
     '<div class="scout-note mt-4"><p>' + escapeHtml(describeAthlete(a)) + '</p>' +
     (strengthsOf(a).length ? '<p class="scout-strengths">' + strengthsOf(a).map((item) => '<span>' + escapeHtml(item) + '</span>').join('') + '</p>' : '') + '</div>' +
-    '<p class="mt-3 text-xs text-ink-soft"><span class="tabular">' + plural(count, 'voto', 'votos') + '</span> · ' + (reviewCount ? plural(reviewCount, 'avaliação', 'avaliações') : t('ainda sem avaliação')) + (a.demo ? ' · ' + t('perfil de exemplo') : '') + '</p>' +
-    '<div class="mt-auto flex flex-wrap gap-2 pt-4"><button type="button" class="vote-button ' + (voted ? 'voted' : '') + '" data-vote="' + a.id + '" aria-pressed="' + voted + '">' + t(voted ? 'Retirar voto' : 'Votar') + '</button>' +
+    '<p class="mt-3 text-xs text-ink-soft">' + (reviewCount ? '<span class="tabular">' + plural(reviewCount, 'avaliação', 'avaliações') + '</span>' : t('ainda sem avaliação')) + (a.demo ? ' · ' + t('perfil de exemplo') : '') + '</p>' +
+    '<div class="mt-auto flex flex-wrap gap-2 pt-4">' +
     (staff ? '<button type="button" class="btn-secondary" data-message-athlete="' + a.id + '">' + t('Mensagem') + '</button>' : '') +
     '<button type="button" class="btn-ghost ml-auto" data-open-athlete="' + a.id + '" aria-label="Abrir perfil de ' + escapeHtml(a.name) + '">' + t('Ver perfil') + '</button></div></article>'
 }
+
+// Lista de observação: marcador pessoal de quem o funcionário quer acompanhar. Não é voto nem curtida:
+// ninguém vê quantas pessoas salvaram um atleta, e isso não muda nota nem ordem.
+const isSaved = (id) => state.favorites.includes(id)
+function saveToggle(a) {
+  const saved = isSaved(a.id)
+  return '<button type="button" class="icon-button sm save-toggle shrink-0" data-save="' + a.id + '" aria-pressed="' + saved + '" aria-label="' + saveLabel(saved, a.name) + '" title="' + saveLabel(saved) + '">' + icon('bookmark', 'size-4') + '</button>'
+}
+const saveLabel = (saved, name = '') => (saved ? t('Tirar da lista de observação') : t('Salvar na lista de observação')) + (name ? ': ' + escapeHtml(name) : '')
+let watchOnly = false
 
 function tag(text, ghost = false) {
   if (!text || text === '—') return ''
@@ -1261,6 +1272,7 @@ function tag(text, ghost = false) {
 }
 
 function athletesPage() {
+  watchOnly = false // como os outros filtros, volta a "todos" ao abrir a página
   const filters = '<div class="filters-scrim" data-filters-close></div><aside id="filters-panel" class="filters-panel panel h-max" aria-label="Filtros de atletas" data-lenis-prevent><div class="flex items-center justify-between gap-2"><h2 class="font-bold">Filtros</h2><div class="flex items-center gap-1"><button type="button" class="btn-ghost text-xs text-brand" data-action="clearFilters">Limpar</button><button type="button" class="filters-toggle icon-button sm" aria-label="Fechar filtros" data-filters-close>' + icon('close', 'size-4') + '</button></div></div>' +
     '<div class="mt-4 space-y-4"><label class="field-label">' + t('Buscar por nome') + '<input id="filter-name" class="field" placeholder="Ex.: Gabriel" /></label>' +
     '<label class="field-label">' + t('Posição principal ou secundária') + '<select id="filter-pos" class="field"><option value="">Todas</option>' + POSITIONS.map((p) => '<option>' + p + '</option>').join('') + '</select></label>' +
@@ -1271,10 +1283,10 @@ function athletesPage() {
     '</div><div class="mt-6 rounded-2xl border border-brand/15 bg-brand/7 p-4 text-xs leading-5 text-ink-soft"><strong class="text-brand">Filtro em tempo real</strong><br/>Nome, posição, perna dominante, cidade, idade e categoria alteram a lista sem recarregar.</div></aside>'
 
   return shell(
-    '<div class="page-head"><div><h1 class="page-title">' + t('Pesquisar atletas') + '</h1><p class="page-subtitle">Abra o perfil completo, mande uma mensagem, vote e registre uma avaliação.</p></div><button type="button" class="btn-primary lg:hidden" data-action="openTryout">' + icon('plus', 'size-4') + ' ' + t('Nova peneira') + '</button></div>' +
+    '<div class="page-head"><div><h1 class="page-title">' + t('Pesquisar atletas') + '</h1><p class="page-subtitle">Abra o perfil completo, mande uma mensagem, registre uma avaliação e salve quem você quer acompanhar.</p></div><button type="button" class="btn-primary lg:hidden" data-action="openTryout">' + icon('plus', 'size-4') + ' ' + t('Nova peneira') + '</button></div>' +
     '<section class="mt-6 grid gap-5 lg:grid-cols-[280px_1fr]">' +
     filters +
-    '<div><div class="mb-4 flex flex-wrap items-center justify-between gap-2"><button type="button" class="filters-toggle btn-secondary" aria-controls="filters-panel" aria-expanded="false" data-filters-open>' + icon('filter', 'size-4') + ' Filtros</button><p id="athlete-count" class="text-sm text-ink-soft" aria-live="polite">' + plural(state.athletes.length, 'atleta encontrado', 'atletas encontrados') + '</p><button type="button" class="btn-secondary" data-action="export">' + icon('arrow', 'size-4') + ' Exportar seleção</button></div><div id="athlete-grid" class="grid gap-4 md:grid-cols-2 min-[1700px]:grid-cols-3">' + state.athletes.map((a) => athleteCard(a, true)).join('') + '</div></div></section>',
+    '<div><div class="mb-4 flex flex-wrap items-center justify-between gap-2"><button type="button" class="filters-toggle btn-secondary" aria-controls="filters-panel" aria-expanded="false" data-filters-open>' + icon('filter', 'size-4') + ' Filtros</button><div class="flex flex-wrap items-center gap-3"><button type="button" class="tab-chip" data-action="toggle-watchlist" aria-pressed="' + watchOnly + '">' + icon('bookmark', 'size-4') + t('Lista de observação') + '<span class="tab-count" id="watch-count">' + state.favorites.filter((id) => state.athletes.some((a) => a.id === id)).length + '</span></button><p id="athlete-count" class="text-sm text-ink-soft" aria-live="polite">' + plural(state.athletes.length, 'atleta encontrado', 'atletas encontrados') + '</p></div><button type="button" class="btn-secondary" data-action="export">' + icon('arrow', 'size-4') + ' Exportar seleção</button></div><div id="athlete-grid" class="grid gap-4 md:grid-cols-2 min-[1700px]:grid-cols-3">' + state.athletes.map((a) => athleteCard(a, true)).join('') + '</div></div></section>',
     { active: 'athletes', role: 'staff' },
   )
 }
@@ -1830,7 +1842,6 @@ function openAthleteModal(athleteId) {
   wrapper.className = 'fixed inset-0 z-[90] grid place-items-center bg-black/75 p-4 backdrop-blur-md'
   const attrs = attributeAverages(athlete.id, athlete.pos)
   const rating = ratingOf(athlete)
-  const voted = hasVoted(state, athlete.id, state.user?.email || 'anon')
   const strengths = strengthsOf(athlete)
   wrapper.innerHTML =
     '<div class="athlete-modal pos-' + positionGroup(athlete.pos) + ' max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-card surface surface--raised shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="athlete-modal-title" data-lenis-prevent>' +
@@ -1842,8 +1853,8 @@ function openAthleteModal(athleteId) {
     '<div class="fut-badge" aria-label="Nota ' + formatRating(rating) + '"><span class="num text-[2rem] ' + rateClass(rating) + '">' + formatRating(rating) + '</span><span class="pos-abbr">' + (POSITION_ABBR[athlete.pos] || '—') + '</span></div></div></header>' +
     '<div class="p-6 sm:p-8">' +
     '<div class="scout-note"><p>' + escapeHtml(describeAthlete(athlete)) + '</p>' + (strengths.length ? '<p class="scout-strengths">' + strengths.map((item) => '<span>' + escapeHtml(item) + '</span>').join('') + '</p>' : '') + '</div>' +
-    '<dl class="profile-stats mt-5 grid grid-cols-3 gap-3"><div><dt>' + t('Votos') + '</dt><dd id="modal-votes" class="num">' + (athlete.votes + (state.votes[athlete.id] || 0)) + '</dd></div><div><dt>' + t('Avaliações') + '</dt><dd class="num">' + reviews.length + '</dd></div><div><dt>' + t('Status') + '</dt><dd class="text-base font-semibold">' + escapeHtml(athlete.status || '—') + '</dd></div></dl>' +
-    '<div class="mt-6 flex flex-wrap gap-2"><button type="button" class="btn-primary" data-message-athlete="' + athlete.id + '">' + icon('message', 'size-4') + ' ' + t('Abrir conversa') + '</button><button type="button" class="btn-secondary" data-vote="' + athlete.id + '">' + icon('star', 'size-4') + '<span>' + (voted ? t('Retirar voto') : t('Votar')) + '</span></button>' +
+    '<dl class="profile-stats mt-5 grid grid-cols-3 gap-3"><div><dt>' + t('Avaliações') + '</dt><dd class="num">' + reviews.length + '</dd></div><div><dt>' + t('Última avaliação') + '</dt><dd class="text-base font-semibold tabular">' + escapeHtml(reviews[0]?.date || '—') + '</dd></div><div><dt>' + t('Status') + '</dt><dd class="text-base font-semibold">' + escapeHtml(athlete.status || '—') + '</dd></div></dl>' +
+    '<div class="mt-6 flex flex-wrap gap-2"><button type="button" class="btn-primary" data-message-athlete="' + athlete.id + '">' + icon('message', 'size-4') + ' ' + t('Abrir conversa') + '</button><button type="button" class="btn-secondary save-toggle" data-save="' + athlete.id + '" aria-pressed="' + isSaved(athlete.id) + '">' + icon('bookmark', 'size-4') + '<span>' + (isSaved(athlete.id) ? t('Na sua lista') : t('Salvar na lista')) + '</span></button>' +
     (state.user?.role === 'staff' ? '<button type="button" class="btn-secondary" data-review-athlete="' + athlete.id + '">' + icon('edit', 'size-4') + ' ' + t('Registrar avaliação') + '</button>' : '') + '</div>' +
     '<section class="mt-8 grid gap-6 md:grid-cols-[1fr_1.1fr]"><div><h3 class="section-title !mt-0">' + t('Atributos') + '</h3>' +
     (Object.keys(attrs.values).length ? '<div class="mt-3">' + radarChart(attrs.criteria, attrs.values) + '</div>' : '<div class="empty-state mt-3"><strong>' + t('Sem avaliação ainda') + '</strong><span class="text-sm">' + t('O radar aparece depois da primeira avaliação registrada.') + '</span></div>') + '</div>' +
@@ -1858,11 +1869,9 @@ function openAthleteModal(athleteId) {
     wrapper.remove()
     startConversationForAthlete(id)
   }))
-  wrapper.querySelectorAll('[data-vote]').forEach((button) => button.addEventListener('click', () => {
-    const voted = castVote(Number(button.dataset.vote))
-    button.querySelector('span').textContent = t(voted ? 'Retirar voto' : 'Votar')
-    const counter = wrapper.querySelector('#modal-votes')
-    if (counter) counter.textContent = athlete.votes + (state.votes[athlete.id] || 0)
+  wrapper.querySelectorAll('[data-save]').forEach((button) => button.addEventListener('click', () => {
+    const saved = toggleSaved(Number(button.dataset.save))
+    button.querySelector('span').textContent = saved ? t('Na sua lista') : t('Salvar na lista')
   }))
   wrapper.querySelectorAll('[data-delete-review]').forEach((button) => button.addEventListener('click', () => {
     confirmDialog({
@@ -2302,7 +2311,7 @@ function openMobileMenu() {
 
 function exportSelection() {
   const athletes = state.filteredAthletes || state.athletes
-  const header = ['Nome', t('Idade'), t('Categoria'), t('Gênero'), t('Perna dominante'), t('Posição principal'), t('Posição secundária'), t('Cidade'), t('Estado'), 'Nota média', 'Avaliações', 'Votos']
+  const header = ['Nome', t('Idade'), t('Categoria'), t('Gênero'), t('Perna dominante'), t('Posição principal'), t('Posição secundária'), t('Cidade'), t('Estado'), 'Nota média', 'Avaliações']
   const rows = athletes.map((a) => [
     a.name,
     a.age,
@@ -2315,7 +2324,6 @@ function exportSelection() {
     a.state,
     ratingOf(a) ? ratingOf(a).toFixed(1).replace('.', ',') : 'Sem nota',
     (state.reviews[a.id] || []).length,
-    a.votes + (state.votes[a.id] || 0),
   ])
   // Aspas em todas as células; texto que começaria com = + - @ vira texto (evita fórmulas no Excel)
   const cell = (value) => {
@@ -2352,12 +2360,14 @@ function applyFilters() {
   const age = document.querySelector('#filter-age')?.value || ''
   const category = document.querySelector('#filter-category')?.value || ''
   const foot = document.querySelector('#filter-foot')?.value || ''
-  const filtered = filterAthletes(state.athletes, { name, pos, city, age, category, foot })
+  const filtered = filterAthletes(state.athletes, { name, pos, city, age, category, foot }).filter((a) => !watchOnly || isSaved(a.id))
   state.filteredAthletes = filtered
   const grid = document.querySelector('#athlete-grid')
   if (grid) {
-    grid.innerHTML = filtered.map((a) => athleteCard(a, true)).join('') ||
-      '<div class="empty-state md:col-span-2 xl:col-span-3"><strong>' + t('Nenhum atleta com esses filtros') + '</strong><span class="text-sm">' + t('Remova um filtro para ver mais atletas.') + '</span><button type="button" class="btn-secondary mt-2" data-action="clear-filters-empty">' + t('Limpar filtros') + '</button></div>'
+    const emptyWatch = watchOnly && !state.athletes.some((a) => isSaved(a.id))
+    grid.innerHTML = filtered.map((a) => athleteCard(a, true)).join('') || (emptyWatch
+      ? '<div class="empty-state md:col-span-2 xl:col-span-3">' + icon('bookmark', 'size-6 text-brand') + '<strong>' + t('Sua lista de observação está vazia') + '</strong><span class="text-sm">' + t('Toque no marcador de um card para salvar o atleta e acompanhar aqui.') + '</span><button type="button" class="btn-secondary mt-2" data-action="toggle-watchlist">' + t('Ver todos os atletas') + '</button></div>'
+      : '<div class="empty-state md:col-span-2 xl:col-span-3"><strong>' + t('Nenhum atleta com esses filtros') + '</strong><span class="text-sm">' + t('Remova um filtro para ver mais atletas.') + '</span><button type="button" class="btn-secondary mt-2" data-action="clear-filters-empty">' + t('Limpar filtros') + '</button></div>')
     grid.querySelector('[data-action="clear-filters-empty"]')?.addEventListener('click', clearFilters)
   }
   const count = document.querySelector('#athlete-count')
@@ -2435,7 +2445,6 @@ async function saveProfile() {
   }
   if (oldEmail !== p.email) {
     state.tryouts.forEach((tryout) => { tryout.enrolled = (tryout.enrolled || []).map((email) => (email === oldEmail ? p.email : email)) })
-    if (state.voted[oldEmail]) { state.voted[p.email] = state.voted[oldEmail]; delete state.voted[oldEmail] }
   }
   syncAthletes()
   persist()
@@ -2667,38 +2676,32 @@ function refreshAthleteViews() {
   else render()
 }
 
-// Vota ou retira o voto (alterna). Retorna true se o usuário ficou com o voto ativo.
-function castVote(athleteId) {
-  const voter = state.user?.email || 'anon'
-  let voted
-  if (hasVoted(state, athleteId, voter)) {
-    removeVote(state, athleteId, voter)
-    voted = false
-    toast(t('Voto retirado.'))
-  } else {
-    registerVote(state, athleteId, voter)
-    voted = true
-    toast(t('Voto registrado com sucesso.'))
-  }
+// Salva ou tira da lista de observação; atualiza todos os marcadores daquele atleta na tela, com animação.
+function toggleSaved(athleteId) {
+  toggleFavorite(state, athleteId)
   persist()
-  refreshAthleteViews()
-  return voted
+  const saved = isSaved(athleteId)
+  const name = state.athletes.find((a) => a.id === athleteId)?.name || ''
+  document.querySelectorAll('[data-save="' + athleteId + '"]').forEach((button) => {
+    button.setAttribute('aria-pressed', String(saved))
+    if (button.classList.contains('icon-button')) { button.setAttribute('aria-label', saveLabel(saved, name)); button.title = saveLabel(saved) }
+    button.classList.remove('just-saved')
+    void button.offsetWidth
+    if (saved) button.classList.add('just-saved')
+  })
+  const counter = document.querySelector('#watch-count')
+  if (counter) counter.textContent = state.favorites.filter((id) => state.athletes.some((a) => a.id === id)).length
+  // Com o filtro ligado, quem sai da lista sai da grade.
+  if (watchOnly && !saved) applyFilters()
+  return saved
 }
 
 function bindDynamicCards() {
   app.querySelectorAll('[data-open-athlete]').forEach((button) => button.addEventListener('click', () => openAthleteModal(Number(button.dataset.openAthlete))))
   app.querySelectorAll('[data-message-athlete]').forEach((button) => button.addEventListener('click', () => startConversationForAthlete(Number(button.dataset.messageAthlete))))
-  app.querySelectorAll('[data-favorite]').forEach((button) => button.addEventListener('click', (event) => {
+  app.querySelectorAll('[data-save]').forEach((button) => button.addEventListener('click', (event) => {
     event.stopPropagation()
-    const id = Number(button.dataset.favorite)
-    toggleFavorite(state, id)
-    persist()
-    refreshAthleteViews()
-    toast(t(state.favorites.includes(id) ? 'Atleta adicionado aos favoritos.' : 'Atleta removido dos favoritos.'))
-  }))
-  app.querySelectorAll('[data-vote]').forEach((button) => button.addEventListener('click', (event) => {
-    event.stopPropagation()
-    castVote(Number(button.dataset.vote))
+    toggleSaved(Number(button.dataset.save))
   }))
 }
 
@@ -2938,8 +2941,6 @@ function reloadSharedState() {
     state.accounts = readStorage('ap_accounts', state.accounts)
   }
   state.reviews = readStorage('ap_reviews', state.reviews)
-  state.votes = readStorage('ap_votes', state.votes)
-  state.voted = readStorage('ap_voted', state.voted)
   state.favorites = readStorage('ap_favorites', state.favorites)
   syncAthletes()
 }
