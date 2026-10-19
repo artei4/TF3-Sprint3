@@ -54,6 +54,10 @@ export function describeError(error) {
   if (text.includes('invite_not_pending')) return t('Este convite já foi usado ou cancelado.')
   if (text.includes('cannot_change_self')) return t('Você não pode alterar a própria conta. Peça a outro administrador.')
   if (text.includes('not_staff')) return t('Esta conta não é de funcionário.')
+  if (text.includes('guardian_required')) return t('Falta a autorização do responsável. Registre no seu perfil.')
+  if (text.includes('consent_required')) return t('A autorização do responsável é obrigatória para menores de 18 anos.')
+  if (text.includes('no_consent')) return t('Não há autorização ativa para revogar.')
+  if (text.includes('birth_locked')) return t('A data de nascimento não muda depois do cadastro. Fale com a equipe para corrigir.')
   if (text.includes('account_disabled')) return t('Esta conta de funcionário foi desativada. Fale com um administrador.')
   if (text.includes('message_rate_limit')) return t('Você enviou muitas mensagens seguidas. Aguarde um minuto.')
   if (text.includes('invalid login credentials')) return t('E-mail ou senha incorretos.')
@@ -79,11 +83,12 @@ export async function getSessionUser() {
 // O perfil é criado no banco por um gatilho (trigger) a partir destes metadados; o papel (jogador/funcionário) é definido
 // no servidor e não pode ser escolhido pelo navegador.
 // `invite` é o código do link de convite: o servidor confere e, se valer, cria a conta como funcionário.
-export async function signUp({ email, password, name, publicData = {}, privateData = {}, invite = '' }) {
+// `guardian` (menores de 18): responsável e autorização; sem isso o servidor recusa a conta do menor.
+export async function signUp({ email, password, name, publicData = {}, privateData = {}, invite = '', guardian = null }) {
   const { data, error } = await client.auth.signUp({
     email,
     password,
-    options: { data: { name, public: publicData, private: privateData, invite } },
+    options: { data: { name, public: publicData, private: privateData, invite, guardian } },
   })
   return { error, session: data?.session || null }
 }
@@ -278,4 +283,22 @@ export async function checkStaffInvite(code) {
   const { data, error } = await client.rpc('check_staff_invite', { p_code: code })
   if (error) throw error
   return data?.[0] || null
+}
+
+// ---------- Responsável legal (migration 20261023120000_responsavel.sql) ----------
+// O atleta vê o próprio; a equipe vê todos. Só as funções do servidor gravam.
+export async function fetchGuardians() {
+  const { data, error } = await client.from('guardians').select('athlete_id,name,relationship,email,phone,consent_at,consent_version,revoked_at')
+  if (error) throw error
+  return data || []
+}
+
+export async function saveGuardian({ name, relationship, email, phone, consent }) {
+  const { error } = await client.rpc('save_guardian', { p_name: name, p_relationship: relationship, p_email: email, p_phone: phone, p_consent: consent })
+  return error || null
+}
+
+export async function revokeGuardianConsent() {
+  const { error } = await client.rpc('revoke_guardian_consent')
+  return error || null
 }

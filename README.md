@@ -21,6 +21,7 @@ O fluxo principal roda de ponta a ponta com back-end real (Supabase: Postgres, A
 - Funcionário novo só entra por convite de um administrador (link de uso único, vale 7 dias, preso ao e-mail). Administrador é verificado no banco (`is_admin()`), não pela tela.
 - As conversas não usam Realtime (custo). A tela busca mensagens novas a cada 8 s enquanto está aberta e visível.
 - Notificações e a lista de observação (atletas salvos pelo funcionário) ficam no navegador (`localStorage`).
+- Atleta com menos de 18 anos precisa da autorização de um responsável legal para criar a conta e se inscrever em peneiras (verificado no banco). O perfil permite atualizar ou revogar a autorização e baixar uma cópia dos próprios dados.
 - Não há votos nem curtidas: a nota do atleta vem só das avaliações registradas pela equipe.
 - Sem Supabase, ou com `?local=1` na URL, o app roda em **modo local**: tudo fica no navegador, com dados de exemplo identificados como "Perfil de exemplo".
 
@@ -52,6 +53,7 @@ No painel do Supabase → **SQL Editor**, rode em ordem os arquivos de `supabase
 5. `20261020120000_locais.sql`
 6. `20261021120000_equipe.sql`
 7. `20261022120000_descricao_peneira.sql`
+8. `20261023120000_responsavel.sql`
 
 URL e chave publicável ficam em `assets/js/config.js`. Detalhes em `SUPABASE_SETUP.md`.
 
@@ -74,6 +76,7 @@ URL e chave publicável ficam em `assets/js/config.js`. Detalhes em `SUPABASE_SE
 | `#/tryouts` | todos | peneiras: criar (com descrição), ver detalhes ao clicar no card, inscrever-se, ver inscritos, cancelar |
 | `#/messages` | todos | conversas entre atleta e funcionário |
 | `#/team` | administrador | convidar funcionários, cancelar convites, desativar e dar acesso de administrador |
+| `#/privacidade` | público | quais dados a plataforma usa, para quê, quem vê, regras para menores e como pedir correção, cópia ou exclusão |
 | `#/convite/<código>` | público | criar a conta de funcionário pelo link do convite |
 | `#/design-system` | público | tokens e componentes em todos os estados |
 

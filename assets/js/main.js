@@ -57,6 +57,9 @@ import {
   revokeStaffInvite,
   updateStaff,
   checkStaffInvite,
+  fetchGuardians,
+  saveGuardian,
+  revokeGuardianConsent,
 } from './remote.js'
 
 const app = document.querySelector('#app')
@@ -130,6 +133,7 @@ const state = {
   tryouts: readStorage('ap_tryouts', defaultTryouts),
   venues: readStorage('ap_venues', defaultVenues),
   invites: readStorage('ap_invites', []),
+  guardians: {},
   reviews: readStorage('ap_reviews', {}),
   notifications: readStorage('ap_notifications', []),
   lastRead: readStorage('ap_lastread', {}),
@@ -627,6 +631,7 @@ async function hydrateRemote(uid) {
     // ser aplicada; a sincronização será tentada novamente na próxima atualização.
     console.warn('[Supabase] não foi possível carregar avaliações:', error)
   }
+  await refreshRemoteGuardians()
   state.tryoutsStatus = 'loading'
   const loadingSince = performance.now()
   refreshRemoteTryouts().then(() => {
@@ -756,6 +761,7 @@ async function refreshRemote(force = false) {
     syncAthletes()
     await refreshRemoteEvaluations()
     await refreshRemoteMessages()
+    await refreshRemoteGuardians()
     updateMessageBadge()
     const tryoutsBefore = JSON.stringify(state.tryouts)
     await refreshRemoteTryouts()
@@ -918,7 +924,7 @@ function shell(content, options = {}) {
     '<button type="button" class="icon-button md:hidden" data-action="menu" aria-label="' + t('Abrir menu') + '">' + icon('menu') + '</button>' +
     '</div></header>' +
     '<main id="conteudo" tabindex="-1" class="content-sheet outline-none">' + content + '</main>' +
-    '<footer class="app-footer"><p>TIER ZERO · ' + t('Plataforma de talentos em parceria com a Pelé Academia') + ' · FIAP 2026. <a class="underline underline-offset-4 hover:text-chalk" href="#/design-system">Design system</a></p></footer>' +
+    '<footer class="app-footer"><p>TIER ZERO · ' + t('Plataforma de talentos em parceria com a Pelé Academia') + ' · FIAP 2026. <a class="underline underline-offset-4 hover:text-chalk" href="#/privacidade">' + t('Privacidade') + '</a> · <a class="underline underline-offset-4 hover:text-chalk" href="#/design-system">Design system</a></p></footer>' +
     '</div>' +
     '<nav class="bottom-nav" aria-label="' + t('Navegação rápida') + '">' +
     nav.map((item) => '<button type="button" data-route="' + item[0] + '"' + (item[0] === 'messages' ? ' data-badge-host aria-label="' + item[1] + '"' : '') + (active === item[0] ? ' aria-current="page"' : '') + '>' + icon(item[2], 'size-5') + '<span>' + item[1] + '</span>' + (item[0] === 'messages' ? '<span class="count-badge" data-msg-badge aria-hidden="true" hidden></span>' : '') + '</button>').join('') +
@@ -944,13 +950,14 @@ function dashboard(role = 'player') {
 // checklist curto do perfil (3 a 7 itens, verbo de ação, progresso, pode ocultar).
 function playerChecklist(profile) {
   const myMessages = state.messages.some((m) => m.senderRole === 'player' && String(m.thread).includes(String(getCurrentAthlete()?.id ?? '')))
-  return [
+  const consent = isMinorBirth(profile.birth) ? [[guardianConsented(myGuardian()), t('Registre a autorização do responsável'), t('Sem ela você não consegue se inscrever em peneiras.'), 'profile']] : []
+  return consent.concat([
     [!!profile.photo, t('Adicione uma foto de perfil'), t('Ajuda os olheiros a lembrarem de você.'), 'profile'],
     [!!profile.secondary && profile.secondary !== '—', t('Defina uma posição secundária'), t('Abre mais peneiras compatíveis.'), 'profile'],
     [state.tryouts.some(isEnrolledIn), t('Inscreva-se numa peneira'), t('É assim que você entra no radar da Academia.'), 'tryouts:for-you'],
     [myMessages, t('Mande uma mensagem a um treinador'), t('Apresente-se e tire dúvidas.'), 'messages'],
-    [!!(profile.city && profile.zip), t('Confira seu endereço'), t('Usado para indicar peneiras perto de você.'), 'profile'],
-  ]
+    [!!(profile.city && profile.zip), t('Confira seu endereço'), t('Fica visível só para você.'), 'profile'],
+  ])
 }
 
 // Frase do painel sobre a próxima peneira do atleta.
@@ -1389,16 +1396,18 @@ function profilePage() {
     '<form id="profile-form" class="mt-5 grid gap-4 sm:grid-cols-2"><p class="form-group-title sm:col-span-2">' + t('Dados pessoais') + '</p>' +
     input(t('Nome completo'), 'profile-name', p.name, 'text', true) +
     input('CPF', 'profile-cpf', p.cpf || '', 'text', false, true) +
-    input(t('Data de nascimento'), 'profile-birth', p.birth, 'date', true) +
+    input(t('Data de nascimento'), 'profile-birth', p.birth, 'date', true, true) +
     input(t('Idade'), 'profile-age', String(age), 'number', false, false, true) +
     '<label class="field-label">Categoria<select id="profile-category" class="field" disabled><option>' + escapeHtml(category) + '</option></select></label>' +
     selectField(t('Gênero'), 'profile-gender', GENDERS, p.gender) +
+    '<p class="sm:col-span-2 -mt-1 text-xs text-ink-soft">' + t('CPF e data de nascimento não mudam depois do cadastro. Para corrigir, fale com a equipe em Conversas.') + '</p>' +
     input(t('E-mail'), 'profile-email', p.email, 'email', true, remote.enabled) + input(t('Telefone'), 'profile-phone', p.phone, 'tel', true) +
     '<p class="form-group-title sm:col-span-2">' + t('Futebol') + '</p>' + selectField(t('Posição principal'), 'profile-pos', POSITIONS, p.pos) + selectField(t('Posição secundária'), 'profile-secondary', ['—'].concat(POSITIONS), p.secondary) + selectField(t('Perna dominante'), 'profile-foot', FEET, p.foot || '') +
     '<p class="form-group-title sm:col-span-2">' + t('Endereço') + '</p>' +
     input(t('CEP'), 'profile-zip', p.zip, 'text', true) + input(t('Cidade'), 'profile-city', p.city, 'text', true) + input(t('Estado'), 'profile-state', p.state, 'text', true) + input(t('Bairro'), 'profile-district', p.district, 'text', true) +
     input(t('Endereço'), 'profile-address', p.address, 'text', true) + input(t('Número'), 'profile-number', p.number, 'text', true) +
     '<div id="profile-feedback" class="sm:col-span-2 hidden" role="alert"></div><div class="sm:col-span-2 flex justify-end"><button class="btn-primary" type="submit">' + t('Salvar alterações') + ' ' + icon('check', 'size-4') + '</button></div></form></div></section>' +
+    '<section class="mt-6 grid gap-5 ' + (isMinorBirth(p.birth) ? 'lg:grid-cols-2' : '') + '">' + guardianPanel() + privacyPanel() + '</section>' +
     '<section class="mt-6 panel"><div class="flex items-center justify-between"><div><h2 class="section-title">' + t('Comentários e notas') + '</h2><p class="mt-1 text-xs text-ink-soft">' + t('Notas e estatísticas ficam visíveis apenas para você e para a equipe da Academia.') + '</p></div><span class="tag">' + getPlayerReviewCount() + ' ' + t('registro(s)') + '</span></div><div class="mt-5 grid gap-4 md:grid-cols-2">' + renderPlayerReviews() + '</div></section>',
     { active: 'profile', role: 'player' },
   )
@@ -1563,6 +1572,7 @@ function tryoutView(tryout) {
     ? '<p class="fit-line fit-ok">' + icon('check', 'size-4 shrink-0') + t('Em andamento. Bom jogo!') + '</p>'
     : '<p class="text-sm text-ink-soft">' + t('Inscrições encerradas: a peneira já começou.') + '</p>'
   if (!staff && phase === 'tbd' && !enrolled) actions = '<button type="button" class="btn-incompatible w-full" disabled>' + t('Data a confirmar') + '</button>'
+  else if (!staff && !enrolled && !past && canEnroll && !full && needsGuardianMe()) actions = '<button type="button" class="btn-secondary w-full" data-action="open-guardian">' + icon('user', 'size-4') + ' ' + t('Falta a autorização do responsável') + '</button>'
   return { staff, enrolled, taken, seats, vacancies, full, scarce, fit, place, actions, fitLine }
 }
 
@@ -1644,6 +1654,7 @@ function openTryoutDetails(id) {
       withdraw: () => confirmWithdraw(id),
       'view-enrolled': () => openEnrolledModal(id),
       'cancel-tryout': () => openCancelTryoutModal(id),
+      'open-guardian': () => openGuardianModal(),
     }[button.dataset.action]
     if (!run) return
     wrapper.remove()
@@ -2280,6 +2291,227 @@ async function acceptInvite(code, invite, form) {
   toast(t('Conta de funcionário criada. Boas-vindas à equipe!'))
 }
 
+// =====================================================================================
+// Menores de 18 anos: responsável legal e autorização
+// Referências: LGPD art. 14 (dados de crianças e adolescentes; § 1º: consentimento "específico e em
+// destaque" de um dos pais ou do responsável, para crianças; § 6º: informação simples e clara) e
+// ECA art. 2º (criança até 12 anos incompletos). A plataforma aplica a autorização até os 18 anos.
+// Quem garante a regra é o banco (migration 20261023120000_responsavel.sql).
+// =====================================================================================
+const CONSENT_VERSION = '2026-10'
+const RELATIONSHIPS = [['mae', 'Mãe'], ['pai', 'Pai'], ['avo', 'Avó ou avô'], ['tutor', 'Tutor(a) legal'], ['outro', 'Outro responsável legal']]
+const relationshipLabel = (value) => t((RELATIONSHIPS.find(([code]) => code === value) || [, 'Responsável'])[1])
+const isMinorBirth = (birth) => validBirthDate(birth || '') && getAgeFromBirth(birth) < 18
+const guardianConsented = (guardian) => !!guardian?.consentAt
+const myGuardian = () => remote.enabled ? state.guardians[state.user?.uid] : state.profile?.guardian
+const needsGuardianMe = () => state.user?.role === 'player' && isMinorBirth(state.profile?.birth) && !guardianConsented(myGuardian())
+function guardianFor(athlete) {
+  if (remote.enabled) return state.guardians[athlete.profileId]
+  return state.accounts.find((account) => account.role === 'player' && account.athleteId === athlete.id)?.profile?.guardian
+}
+const localGuardian = (g) => ({ name: g.name, relationship: g.relationship, email: g.email, phone: g.phone, consentAt: new Date().toISOString(), consentVersion: CONSENT_VERSION, revokedAt: null })
+const mapRemoteGuardian = (row) => ({ name: row.name, relationship: row.relationship, email: row.email, phone: row.phone, consentAt: row.consent_at, consentVersion: row.consent_version, revokedAt: row.revoked_at })
+
+async function refreshRemoteGuardians() {
+  if (!remote.enabled) return
+  try {
+    state.guardians = Object.fromEntries((await fetchGuardians()).map((row) => [row.athlete_id, mapRemoteGuardian(row)]))
+  } catch (error) {
+    // Antes da migration de responsável a tabela não existe: o resto do site continua.
+    console.warn('[Supabase] não foi possível carregar responsáveis:', error)
+  }
+}
+
+function readGuardianForm(prefix) {
+  const v = (id) => (document.getElementById(prefix + id)?.value || '').trim()
+  return { name: v('name'), relationship: v('relation'), email: normalizeEmail(v('email')), phone: v('phone'), consent: !!document.getElementById(prefix + 'consent')?.checked }
+}
+
+function guardianErrors(name, relationship, email, phone, consent, prefix = '') {
+  return [
+    [prefix + 'name', String(name).trim().length < 3 ? t('Informe o nome completo do responsável.') : ''],
+    [prefix + 'relation', relationship ? '' : t('Selecione o parentesco.')],
+    [prefix + 'email', /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? '' : t('Informe um e-mail válido do responsável.')],
+    [prefix + 'phone', String(phone).length > 30 ? t('Use até 30 caracteres.') : ''],
+    [prefix + 'consent', consent ? '' : t('A autorização do responsável é obrigatória para menores de 18 anos.')],
+  ].filter(([, message]) => message)
+}
+
+// Autorização separada, desmarcada e em destaque (não fica escondida no meio de outros termos).
+function consentBox(id) {
+  return '<label class="consent-box sm:col-span-2"><input type="checkbox" id="' + id + '"/><span><strong>' + t('Autorização do responsável legal') + '</strong>' +
+    t('Sou o responsável legal pelo atleta e autorizo o cadastro na plataforma, o uso dos dados dele para participar de peneiras e o contato da equipe da Academia comigo. Posso revogar quando quiser, no perfil do atleta.') +
+    ' <a href="#/privacidade" target="_blank" rel="noopener">' + t('Ler como os dados são usados') + '<span class="sr-only"> (' + t('abre em outra aba') + ')</span></a></span></label>'
+}
+
+function guardianPanel() {
+  const profile = state.profile || {}
+  if (!isMinorBirth(profile.birth)) return ''
+  const guardian = myGuardian()
+  const head = '<div class="flex items-start gap-3"><span class="venue-pin" aria-hidden="true">' + icon('user', 'size-5') + '</span><div class="min-w-0 flex-1"><h2 class="section-title !mt-0">' + t('Responsável legal') + '</h2>'
+  if (!guardianConsented(guardian)) {
+    return '<div class="panel guardian-panel is-missing">' + head + '<p class="mt-1 text-sm text-ink-soft">' + (guardian?.revokedAt ? t('A autorização foi revogada em') + ' ' + new Date(guardian.revokedAt).toLocaleDateString('pt-BR') + '. ' : '') +
+      t('Sem a autorização de um responsável, você não consegue se inscrever em peneiras.') + '</p></div></div>' +
+      '<button type="button" class="btn-primary mt-5" data-action="open-guardian">' + t('Registrar autorização') + ' ' + icon('arrow', 'size-4') + '</button></div>'
+  }
+  return '<div class="panel guardian-panel">' + head + '<p class="mt-1 text-sm text-ink-soft">' + t('Autorizado em') + ' ' + new Date(guardian.consentAt).toLocaleDateString('pt-BR') + '.</p></div><span class="tag green">' + icon('check', 'size-3.5') + ' ' + t('Autorizado') + '</span></div>' +
+    '<dl class="guardian-data mt-4"><div><dt>' + t('Nome') + '</dt><dd>' + escapeHtml(guardian.name) + ' <span class="text-ink-soft">(' + escapeHtml(relationshipLabel(guardian.relationship)) + ')</span></dd></div>' +
+    '<div><dt>' + t('E-mail') + '</dt><dd>' + escapeHtml(guardian.email) + '</dd></div>' + (guardian.phone ? '<div><dt>' + t('Telefone') + '</dt><dd>' + escapeHtml(guardian.phone) + '</dd></div>' : '') + '</dl>' +
+    '<div class="mt-5 flex flex-wrap gap-2"><button type="button" class="btn-secondary" data-action="open-guardian">' + icon('edit', 'size-4') + ' ' + t('Atualizar dados') + '</button><button type="button" class="btn-ghost text-danger" data-action="revoke-guardian">' + t('Revogar autorização') + '</button></div></div>'
+}
+
+function privacyPanel() {
+  return '<div class="panel"><div class="flex items-start gap-3"><span class="venue-pin" aria-hidden="true">' + icon('shield', 'size-5') + '</span><div><h2 class="section-title !mt-0">' + t('Seus dados') + '</h2>' +
+    '<p class="mt-1 text-sm text-ink-soft">' + t('CPF, telefone e endereço só você vê. A equipe vê seus dados de jogo, inscrições e avaliações.') + '</p></div></div>' +
+    '<div class="mt-5 flex flex-wrap gap-2"><button type="button" class="btn-secondary" data-action="download-data">' + icon('arrow', 'size-4 rotate-90') + ' ' + t('Baixar meus dados') + '</button>' +
+    '<button type="button" class="btn-ghost" data-route="privacidade">' + t('Como usamos seus dados') + '</button>' +
+    '<button type="button" class="btn-ghost" data-route="messages">' + t('Pedir correção ou exclusão') + '</button></div></div>'
+}
+
+function openGuardianModal() {
+  if (state.user?.role !== 'player') return
+  const current = myGuardian() || {}
+  const wrapper = document.createElement('div')
+  wrapper.className = 'fixed inset-0 z-[96] grid place-items-center bg-black/75 p-4 backdrop-blur-md'
+  wrapper.innerHTML =
+    '<div class="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-card surface surface--raised p-6 shadow-2xl sm:p-8" role="dialog" aria-modal="true" aria-labelledby="guardian-title" data-lenis-prevent>' +
+    '<div class="flex items-start justify-between gap-4"><div><h2 id="guardian-title" class="text-2xl font-bold">' + t('Autorização do responsável') + '</h2><p class="mt-1 text-sm text-ink-soft">' + t('Preencha junto com seu responsável. Ao salvar, a autorização é registrada com a data de hoje.') + '</p></div><button type="button" class="icon-button" aria-label="' + t('Fechar') + '" data-close>' + icon('close') + '</button></div>' +
+    '<form id="guardian-form" class="mt-6 grid gap-4 sm:grid-cols-2" novalidate>' +
+    '<div class="sm:col-span-2">' + input(t('Nome completo do responsável'), 'g-name', current.name || '', 'text', true) + '</div>' +
+    '<label class="field-label">' + t('Parentesco') + '<select id="g-relation" class="field" required><option value="">' + t('Selecione…') + '</option>' + RELATIONSHIPS.map(([value, label]) => '<option value="' + value + '"' + (value === current.relationship ? ' selected' : '') + '>' + t(label) + '</option>').join('') + '</select></label>' +
+    input(t('Telefone do responsável (opcional)'), 'g-phone', current.phone || '', 'tel') +
+    '<div class="sm:col-span-2">' + input(t('E-mail do responsável'), 'g-email', current.email || '', 'email', true) + '</div>' +
+    consentBox('g-consent') +
+    '<div class="flex justify-end gap-2 sm:col-span-2"><button type="button" class="btn-secondary" data-close>' + t('Cancelar') + '</button><button class="btn-primary" type="submit">' + t('Salvar autorização') + ' ' + icon('check', 'size-4') + '</button></div></form></div>'
+  document.body.appendChild(wrapper)
+  wrapper.querySelectorAll('[data-close]').forEach((button) => button.addEventListener('click', () => wrapper.remove()))
+  const form = wrapper.querySelector('#guardian-form')
+  form.addEventListener('input', (event) => { if (event.target.id) setFieldError(event.target.id, '') })
+  form.addEventListener('change', (event) => { if (event.target.id) setFieldError(event.target.id, '') })
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault()
+    const g = readGuardianForm('g-')
+    const errors = guardianErrors(g.name, g.relationship, g.email, g.phone, g.consent, 'g-')
+    ;['g-name', 'g-relation', 'g-email', 'g-phone', 'g-consent'].forEach((id) => setFieldError(id, ''))
+    errors.forEach(([id, message]) => setFieldError(id, message))
+    if (errors.length) return wrapper.querySelector('#' + errors[0][0]).focus()
+    const submit = form.querySelector('[type="submit"]')
+    submit.setAttribute('aria-busy', 'true')
+    if (remote.enabled) {
+      const error = await saveGuardian(g)
+      if (error) {
+        submit.removeAttribute('aria-busy')
+        return toast(describeError(error), 'error')
+      }
+      await refreshRemoteGuardians()
+    } else {
+      state.profile.guardian = localGuardian(g)
+      const account = state.accounts.find((item) => item.email === state.user.email)
+      if (account) account.profile = state.profile
+      logChange('consent', 'guardian', state.user.email, { relationship: g.relationship, version: CONSENT_VERSION })
+      persist()
+    }
+    wrapper.remove()
+    render()
+    toast(t('Autorização registrada. Você já pode se inscrever em peneiras.'))
+  })
+}
+
+function confirmRevokeGuardian() {
+  confirmDialog({
+    eyebrow: t('Responsável legal'),
+    title: t('Revogar a autorização?'),
+    message: t('Você deixa de poder se inscrever em novas peneiras até um responsável autorizar de novo. As inscrições já feitas continuam.'),
+    confirmLabel: t('Revogar autorização'),
+    onConfirm: async () => {
+      if (remote.enabled) {
+        const error = await revokeGuardianConsent()
+        if (error) return toast(describeError(error), 'error')
+        await refreshRemoteGuardians()
+      } else {
+        Object.assign(state.profile.guardian, { consentAt: null, revokedAt: new Date().toISOString() })
+        logChange('revoke_consent', 'guardian', state.user.email)
+        persist()
+      }
+      render()
+      toast(t('Autorização revogada.'))
+    },
+  })
+}
+
+// Bloco no perfil do atleta que a equipe abre: só aparece para menores.
+function guardianStaffBox(athlete) {
+  if (state.user?.role !== 'staff' || !(athlete.age > 0 && athlete.age < 18)) return ''
+  const guardian = guardianFor(athlete)
+  if (!guardianConsented(guardian)) {
+    return '<p class="fit-line fit-no mt-5">' + icon('info', 'size-4 shrink-0') + '<span><strong>' + t('Menor de idade.') + '</strong> ' +
+      (athlete.demo ? t('Perfil de exemplo, sem responsável cadastrado.') : t('Sem autorização do responsável: o atleta não consegue se inscrever em peneiras.')) + '</span></p>'
+  }
+  return '<div class="guardian-staff mt-5"><p class="td-label !mb-1">' + icon('user', 'size-4') + t('Menor de idade · responsável legal') + '</p>' +
+    '<p class="text-sm"><strong>' + escapeHtml(guardian.name) + '</strong> (' + escapeHtml(relationshipLabel(guardian.relationship)) + ') · <a class="underline underline-offset-4" href="mailto:' + escapeHtml(guardian.email) + '">' + escapeHtml(guardian.email) + '</a>' + (guardian.phone ? ' · ' + escapeHtml(guardian.phone) : '') + '</p>' +
+    '<p class="mt-1 text-xs text-ink-soft">' + t('Autorizou em') + ' ' + new Date(guardian.consentAt).toLocaleDateString('pt-BR') + '.</p></div>'
+}
+
+// Cópia dos próprios dados (LGPD art. 18): tudo o que esta conta enxerga sobre si, num arquivo JSON.
+function downloadMyData() {
+  if (state.user?.role !== 'player') return
+  const me = getCurrentAthlete()
+  const { photo, ...profile } = state.profile || {}
+  const data = {
+    exportado_em: new Date().toISOString(),
+    origem: remote.enabled ? 'servidor' : 'navegador (modo local)',
+    conta: { nome: state.user.name, email: state.user.email },
+    perfil: { ...profile, foto: photo ? '(imagem incluída no perfil)' : null },
+    responsavel: myGuardian() || null,
+    inscricoes: state.tryouts.filter((tryout) => (tryout.enrolled || []).includes(state.user.email)).map((tryout) => ({ peneira: tryout.title, data: tryout.date, horario: tryout.time, local: tryout.location + ' · ' + tryout.city + '/' + tryout.state, status: tryout.status || 'open' })),
+    avaliacoes: (state.reviews[me?.id] || []).map(({ author, position, rating, comment, date, strengths, stats }) => ({ avaliador: author, posicao: position, nota: rating, comentario: comment, data: date, destaques: strengths, estatisticas: stats })),
+    mensagens: state.messages.filter((message) => String(message.thread).includes(String(me?.id ?? ''))).map((message) => ({ de: message.senderRole === 'player' ? 'você' : 'equipe', texto: message.text, em: message.ts ? new Date(message.ts).toISOString() : null })),
+  }
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }))
+  link.download = 'meus-dados-tier-zero.json'
+  link.click()
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000)
+  toast(t('Arquivo com seus dados baixado.'))
+}
+
+// ---------- Página de privacidade (#/privacidade) ----------
+function privacyPage() {
+  const row = (data, why, who) => '<tr><th scope="row">' + t(data) + '</th><td data-label="' + t('Para quê') + '">' + t(why) + '</td><td data-label="' + t('Quem vê') + '">' + t(who) + '</td></tr>'
+  const back = state.user ? 'profile' : 'login'
+  return '<main id="conteudo" tabindex="-1" class="outline-none min-h-screen bg-night px-4 py-10 text-chalk"><article class="privacy mx-auto max-w-3xl">' +
+    '<button type="button" class="btn-ghost -ml-3" data-route="' + back + '">' + icon('back', 'size-4') + ' ' + (state.user ? t('Voltar ao perfil') : t('Voltar ao login')) + '</button>' +
+    '<div class="mt-6">' + brandLockup(32, false) + '</div>' +
+    '<h1 class="page-title mt-6">' + t('Privacidade e dados') + '</h1>' +
+    '<p class="page-subtitle">' + t('Como a TIER ZERO usa os dados de atletas, responsáveis e funcionários, em linguagem simples.') + '</p>' +
+    '<p class="fit-line fit-no">' + icon('info', 'size-4 shrink-0') + '<span>' + t('Este texto descreve como a plataforma funciona hoje. Ele não é uma avaliação jurídica e não afirma conformidade com a LGPD (Lei 13.709/2018).') + '</span></p>' +
+    '<h2>' + t('Quais dados, para quê e quem vê') + '</h2>' +
+    '<div class="privacy-table"><table><thead><tr><th scope="col">' + t('Dado') + '</th><th scope="col">' + t('Para quê') + '</th><th scope="col">' + t('Quem vê') + '</th></tr></thead><tbody>' +
+    row('Nome, foto e gênero', 'Identificar você no perfil.', 'Você e a equipe') +
+    row('Data de nascimento', 'Calcular a idade e a categoria (Sub-7 a Sub-20) e saber se precisa de responsável.', 'Você e a equipe') +
+    row('Posições, perna dominante, cidade e UF', 'Mostrar as peneiras compatíveis e ajudar os olheiros a encontrar você.', 'Você e a equipe') +
+    row('E-mail', 'Entrar na conta e identificar sua inscrição nas peneiras.', 'Você e a equipe') +
+    row('CPF', 'Evitar duas contas para a mesma pessoa.', 'Só você') +
+    row('Telefone e endereço', 'Ficam no seu perfil. Hoje nenhuma outra função usa o endereço.', 'Só você') +
+    row('Inscrições, avaliações e conversas', 'Organizar as peneiras e o acompanhamento técnico.', 'Você e a equipe') +
+    row('Responsável legal (menores de 18)', 'Registrar a autorização e permitir que a equipe fale com a família.', 'Você e a equipe') +
+    '</tbody></table></div>' +
+    '<p class="text-sm text-ink-soft">' + t('A senha fica com o serviço de autenticação (Supabase Auth); a plataforma não tem acesso a ela. As regras de quem vê o quê ficam no banco de dados, não só na tela. No modo de demonstração (sem servidor), tudo fica salvo apenas neste navegador, inclusive a senha: não use dados ou senhas reais nele.') + '</p>' +
+    '<h2>' + t('Atletas menores de 18 anos') + '</h2><ul>' +
+    '<li>' + t('A conta só é criada com a autorização de um responsável legal (mãe, pai, avó ou avô, tutor ou outro responsável), marcada em destaque no cadastro. A plataforma guarda quando a autorização foi dada.') + '</li>' +
+    '<li>' + t('Para crianças (até 12 anos incompletos), a LGPD pede o consentimento específico e em destaque de um dos pais ou do responsável (art. 14, § 1º). A plataforma aplica a mesma regra até os 18 anos.') + '</li>' +
+    '<li>' + t('Sem autorização, ou se ela for revogada, o atleta não consegue se inscrever em peneiras.') + '</li>' +
+    '<li>' + t('A equipe vê o nome e o contato do responsável para falar com a família.') + '</li>' +
+    '<li>' + t('A plataforma registra a declaração, mas não confere documentos. A equipe pode pedir a confirmação do responsável no dia da peneira.') + '</li></ul>' +
+    '<h2>' + t('Seus direitos e como pedir') + '</h2><ul>' +
+    '<li><strong>' + t('Ver e corrigir:') + '</strong> ' + t('em Meu perfil. CPF e data de nascimento são corrigidos pela equipe: peça em Conversas.') + '</li>' +
+    '<li><strong>' + t('Receber uma cópia:') + '</strong> ' + t('em Meu perfil → Baixar meus dados (arquivo JSON).') + '</li>' +
+    '<li><strong>' + t('Revogar a autorização do responsável:') + '</strong> ' + t('em Meu perfil → Responsável legal.') + '</li>' +
+    '<li><strong>' + t('Excluir a conta ou tirar dúvidas:') + '</strong> ' + t('escreva para a equipe em Conversas. A exclusão é feita por um administrador da plataforma.') + '</li></ul>' +
+    '<p class="mt-10 text-xs text-ink-soft">' + t('Versão') + ' ' + CONSENT_VERSION + '.</p>' +
+    '</article></main>'
+}
+
 function messagesPage() {
   const staff = state.user?.role === 'staff'
   const role = staff ? 'staff' : 'player'
@@ -2358,7 +2590,8 @@ function loginPage() {
     '<div class="my-6 flex items-center gap-3"><span class="h-px flex-1 bg-line"></span><span class="text-xs text-ink-soft">' + t('ou') + '</span><span class="h-px flex-1 bg-line"></span></div>' +
     '<button type="button" class="btn-secondary w-full" data-route="register">' + t('Criar conta de jogador') + '</button><button type="button" class="mt-3 w-full text-center text-xs text-ink-soft hover:text-chalk" data-action="demo">' + t('Entrar com conta demo') + '</button>' +
     '<button type="button" class="mt-4 inline-flex w-full items-center justify-center gap-1.5 text-xs text-ink-soft hover:text-chalk" data-action="change-lang">' + icon('globe', 'size-3.5') + ' ' + LANGS.find((l) => l.code !== getLang())?.label + '</button><div class="mt-3 flex justify-center">' + themeButton() + '</div>' +
-    '<p class="mt-5 text-center text-xs leading-5 text-ink-soft">Funcionário (teste): funcionario@academiapele.com / Academia123!<br/>Jogador (teste): gabriel@academiapele.com / Demo123!</p></div></div></main>'
+    '<p class="mt-4 text-center text-xs"><a class="text-ink-soft underline underline-offset-4 hover:text-chalk" href="#/privacidade">' + t('Como usamos seus dados') + '</a></p>' +
+    '<p class="mt-3 text-center text-xs leading-5 text-ink-soft">Funcionário (teste): funcionario@academiapele.com / Academia123!<br/>Jogador (teste): gabriel@academiapele.com / Demo123!</p></div></div></main>'
 }
 
 function passwordRecoveryPage() {
@@ -2401,6 +2634,7 @@ async function saveRecoveredPassword() {
 const REG_STEPS = [
   { title: 'Você', hint: 'Nome, documento e idade', fields: ['reg-name', 'reg-cpf', 'reg-birth', 'reg-gender'] },
   { title: 'Seu jogo', hint: 'Posições e perna dominante', fields: ['reg-pos', 'reg-secondary', 'reg-foot'] },
+  { title: 'Responsável', hint: 'Autorização para menores de 18', fields: ['reg-g-name', 'reg-g-relation', 'reg-g-email', 'reg-g-phone', 'reg-g-consent'], minorOnly: true },
   { title: 'Contato e acesso', hint: 'E-mail, endereço e senha', fields: ['reg-email', 'reg-phone', 'reg-zip', 'reg-city', 'reg-state', 'reg-district', 'reg-address', 'reg-number', 'reg-password', 'reg-confirm'] },
 ]
 function registerPage() {
@@ -2408,8 +2642,8 @@ function registerPage() {
   const step = (n, body) => '<fieldset class="reg-step" data-step="' + n + '"' + (n ? ' hidden' : '') + '><legend class="sr-only">' + REG_STEPS[n].title + '</legend><h2 class="reg-step-title" tabindex="-1">' + t(REG_STEPS[n].title) + '</h2><p class="mt-1 text-sm text-ink-soft">' + t(REG_STEPS[n].hint) + '</p><div class="mt-5 grid gap-4 sm:grid-cols-2">' + body + '</div></fieldset>'
   return '<main id="conteudo" tabindex="-1" class="register-stage outline-none text-chalk">' +
     '<aside class="register-aside"><button type="button" class="self-start" data-route="login" aria-label="' + t('Voltar para o login') + '">' + brandLockup(36) + '</button>' +
-    '<div><h1 class="register-title">' + t('Criar conta de jogador') + '</h1><p class="mt-3 max-w-sm text-ink-soft">' + t('Três etapas curtas. A idade e a categoria saem da data de nascimento.') + '</p></div>' +
-    '<ol class="stepper" aria-label="' + t('Etapas do cadastro') + '">' + REG_STEPS.map((item, i) => '<li data-stepper="' + i + '"' + (i ? '' : ' aria-current="step"') + '><span class="stepper-dot">' + (i + 1) + '</span><span><strong>' + t(item.title) + '</strong><small>' + t(item.hint) + '</small></span></li>').join('') + '</ol>' +
+    '<div><h1 class="register-title">' + t('Criar conta de jogador') + '</h1><p class="mt-3 max-w-sm text-ink-soft">' + t('Três etapas curtas (quatro para menores de 18). A idade e a categoria saem da data de nascimento.') + '</p></div>' +
+    '<ol class="stepper" aria-label="' + t('Etapas do cadastro') + '">' + REG_STEPS.map((item, i) => '<li data-stepper="' + i + '"' + (i ? '' : ' aria-current="step"') + (item.minorOnly ? ' hidden' : '') + '><span class="stepper-dot">' + (i + 1) + '</span><span><strong>' + t(item.title) + '</strong><small>' + t(item.hint) + '</small></span></li>').join('') + '</ol>' +
     '<div class="register-foot">' + partnerSeal() + '<p class="text-sm text-ink-soft">' + t('Já tem conta?') + ' <button type="button" class="font-semibold text-brand underline underline-offset-4" data-route="login">' + t('Entrar') + '</button></p></div></aside>' +
     '<section class="register-card surface surface--raised"><div class="reg-progress" aria-hidden="true"><span style="width:33.3%"></span></div><p class="mt-3 text-xs font-semibold text-ink-soft" data-step-label aria-live="polite">' + t('Etapa') + ' 1 ' + t('de') + ' 3</p>' +
     '<form id="register-form" class="mt-4" novalidate>' +
@@ -2424,6 +2658,12 @@ function registerPage() {
       selectField(t('Perna dominante'), 'reg-foot', FEET, '') +
       '<div class="sm:col-span-2" data-reg-preview></div>') +
     step(2,
+      '<p class="sm:col-span-2 text-sm leading-6" data-guardian-intro></p>' +
+      input(t('Nome completo do responsável'), 'reg-g-name', '', 'text', true) +
+      '<label class="field-label">' + t('Parentesco') + '<select id="reg-g-relation" class="field" required><option value="">' + t('Selecione…') + '</option>' + RELATIONSHIPS.map(([value, label]) => '<option value="' + value + '">' + t(label) + '</option>').join('') + '</select></label>' +
+      input(t('E-mail do responsável'), 'reg-g-email', '', 'email', true) + input(t('Telefone do responsável (opcional)'), 'reg-g-phone', '', 'tel') +
+      consentBox('reg-g-consent')) +
+    step(3,
       input(t('E-mail'), 'reg-email', '', 'email', true) + input(t('Telefone'), 'reg-phone', '', 'tel', true) +
       '<p class="form-group-title sm:col-span-2">' + t('Endereço') + '</p>' +
       input(t('CEP'), 'reg-zip', '', 'text', true) + input(t('Cidade'), 'reg-city', '', 'text', true) + input(t('Estado'), 'reg-state', '', 'text', true) + input(t('Bairro'), 'reg-district', '', 'text', true) +
@@ -2446,7 +2686,7 @@ function setFieldError(id, message) {
     error = document.createElement('p')
     error.id = id + '-err'
     error.className = 'field-error'
-    field.insertAdjacentElement('afterend', error)
+    ;(field.closest('.consent-box') || field).insertAdjacentElement('afterend', error)
   }
   error.textContent = message
   field.setAttribute('aria-describedby', error.id)
@@ -2468,7 +2708,8 @@ function validateRegisterStep(n) {
     if (v('reg-secondary') === v('reg-pos') && v('reg-pos')) errors.push(['reg-secondary', t('Escolha uma posição diferente da principal.')])
     if (!v('reg-foot')) errors.push(['reg-foot', t('Selecione a perna dominante.')])
   }
-  if (n === 2) {
+  if (n === 2) guardianErrors(v('reg-g-name'), v('reg-g-relation'), v('reg-g-email'), v('reg-g-phone'), document.getElementById('reg-g-consent')?.checked, 'reg-g-').forEach((item) => errors.push(item))
+  if (n === 3) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v('reg-email'))) errors.push(['reg-email', t('Informe um e-mail válido.')])
     ;['reg-phone', 'reg-zip', 'reg-city', 'reg-state', 'reg-district', 'reg-address', 'reg-number'].forEach((id) => { if (!v(id)) errors.push([id, t('Campo obrigatório.')]) })
     if (v('reg-password').length < 6) errors.push(['reg-password', t('Use pelo menos 6 caracteres.')])
@@ -2484,20 +2725,33 @@ function initRegisterSteps() {
   const form = document.querySelector('#register-form')
   if (!form || form.dataset.steps) return
   form.dataset.steps = '1'
+  // `current` é a posição entre as etapas visíveis; a etapa do responsável só entra para menores de 18.
   let current = 0
-  const show = (n) => {
-    current = n
+  const visible = () => REG_STEPS.map((_, i) => i).filter((i) => !REG_STEPS[i].minorOnly || isMinorBirth(document.querySelector('#reg-birth')?.value))
+  const stepAt = (position) => visible()[position]
+  const show = (position) => {
+    current = position
+    const steps = visible()
+    const n = steps[position]
+    const last = position === steps.length - 1
     form.querySelectorAll('.reg-step').forEach((fieldset) => { fieldset.hidden = Number(fieldset.dataset.step) !== n })
     document.querySelectorAll('[data-stepper]').forEach((li) => {
       const i = Number(li.dataset.stepper)
-      li.toggleAttribute('data-done', i < n)
+      const at = steps.indexOf(i)
+      li.hidden = at < 0
+      li.querySelector('.stepper-dot').textContent = at + 1
+      li.toggleAttribute('data-done', at >= 0 && at < position)
       if (i === n) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current')
     })
-    form.querySelector('[data-reg-back]').hidden = n === 0
-    form.querySelector('[data-reg-next]').hidden = n === REG_STEPS.length - 1
-    form.querySelector('[type="submit"]').hidden = n !== REG_STEPS.length - 1
-    document.querySelector('.reg-progress span').style.width = ((n + 1) / REG_STEPS.length * 100) + '%'
-    document.querySelector('[data-step-label]').textContent = t('Etapa') + ' ' + (n + 1) + ' ' + t('de') + ' ' + REG_STEPS.length
+    form.querySelector('[data-reg-back]').hidden = position === 0
+    form.querySelector('[data-reg-next]').hidden = last
+    form.querySelector('[type="submit"]').hidden = !last
+    document.querySelector('.reg-progress span').style.width = ((position + 1) / steps.length * 100) + '%'
+    document.querySelector('[data-step-label]').textContent = t('Etapa') + ' ' + (position + 1) + ' ' + t('de') + ' ' + steps.length
+    if (n === 2) {
+      const name = (document.querySelector('#reg-name')?.value || '').trim().split(' ')[0]
+      document.querySelector('[data-guardian-intro]').textContent = (name || t('O atleta')) + ' ' + t('tem menos de 18 anos. Para criar a conta e participar das peneiras, um responsável legal precisa autorizar. Faça esta etapa com o responsável ao lado.')
+    }
     if (n === 1) {
       const name = (document.querySelector('#reg-name')?.value || '').trim().split(' ')[0]
       const age = getAgeFromBirth(document.querySelector('#reg-birth')?.value)
@@ -2508,16 +2762,16 @@ function initRegisterSteps() {
   // O erro some assim que a pessoa corrige o campo.
   form.addEventListener('input', (event) => { if (event.target.getAttribute('aria-invalid') === 'true') setFieldError(event.target.id, '') })
   form.addEventListener('change', (event) => { if (event.target.getAttribute('aria-invalid') === 'true') setFieldError(event.target.id, '') })
-  form.querySelector('[data-reg-next]').addEventListener('click', () => { if (validateRegisterStep(current)) show(current + 1) })
+  form.querySelector('[data-reg-next]').addEventListener('click', () => { if (validateRegisterStep(stepAt(current))) show(current + 1) })
   form.querySelector('[data-reg-back]').addEventListener('click', () => show(current - 1))
   // Enter num campo avança a etapa em vez de enviar o formulário inteiro
   form.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter' && event.target.matches('input') && current < REG_STEPS.length - 1) {
+    if (event.key === 'Enter' && event.target.matches('input:not([type="checkbox"])') && current < visible().length - 1) {
       event.preventDefault()
-      if (validateRegisterStep(current)) show(current + 1)
+      if (validateRegisterStep(stepAt(current))) show(current + 1)
     }
   })
-  form.addEventListener('submit', (event) => { if (!validateRegisterStep(current)) { event.preventDefault(); event.stopImmediatePropagation() } }, true)
+  form.addEventListener('submit', (event) => { if (!validateRegisterStep(stepAt(current))) { event.preventDefault(); event.stopImmediatePropagation() } }, true)
 }
 
 
@@ -2604,6 +2858,7 @@ function openAthleteModal(athleteId) {
     '<div class="p-6 sm:p-8">' +
     '<div class="scout-note"><p>' + escapeHtml(describeAthlete(athlete)) + '</p>' + (strengths.length ? '<p class="scout-strengths">' + strengths.map((item) => '<span>' + escapeHtml(item) + '</span>').join('') + '</p>' : '') + '</div>' +
     '<dl class="profile-stats mt-5 grid grid-cols-3 gap-3"><div><dt>' + t('Avaliações') + '</dt><dd class="num">' + reviews.length + '</dd></div><div><dt>' + t('Última avaliação') + '</dt><dd class="text-base font-semibold tabular">' + escapeHtml(reviews[0]?.date || '—') + '</dd></div><div><dt>' + t('Status') + '</dt><dd class="text-base font-semibold">' + escapeHtml(athlete.status || '—') + '</dd></div></dl>' +
+    guardianStaffBox(athlete) +
     '<div class="mt-6 flex flex-wrap gap-2"><button type="button" class="btn-primary" data-message-athlete="' + athlete.id + '">' + icon('message', 'size-4') + ' ' + t('Abrir conversa') + '</button><button type="button" class="btn-secondary save-toggle" data-save="' + athlete.id + '" aria-pressed="' + isSaved(athlete.id) + '">' + icon('bookmark', 'size-4') + '<span>' + (isSaved(athlete.id) ? t('Na sua lista') : t('Salvar na lista')) + '</span></button>' +
     (state.user?.role === 'staff' ? '<button type="button" class="btn-secondary" data-review-athlete="' + athlete.id + '">' + icon('edit', 'size-4') + ' ' + t('Registrar avaliação') + '</button>' : '') + '</div>' +
     '<section class="mt-8 grid gap-6 md:grid-cols-[1fr_1.1fr]"><div><h3 class="section-title !mt-0">' + t('Atributos') + '</h3>' +
@@ -2836,7 +3091,7 @@ function openTryoutModal() {
     input('Data', 'try-date', '', 'date', true) +
     input('Horário', 'try-time', '', 'time', true) +
     input('Quantidade de vagas', 'try-seats', '12', 'number', true) +
-    '<label class="field-label">Categoria<select id="try-category" class="field" required><option>Sub-7</option><option>Sub-9</option><option>Sub-11</option><option>Sub-13</option><option>Sub-15</option><option selected>Sub-20</option></select></label>' +
+    '<label class="field-label">Categoria<select id="try-category" class="field" required><option>Sub-7</option><option>Sub-9</option><option>Sub-11</option><option>Sub-13</option><option>Sub-15</option><option>Sub-17</option><option selected>Sub-20</option></select></label>' +
     '<div class="sm:col-span-2"><div class="flex flex-wrap items-end gap-2"><label class="field-label min-w-0 flex-1">' + t('Local') + '<select id="try-venue" class="field" required>' + venueOptions() + '</select></label>' +
     '<button type="button" class="btn-secondary" data-new-venue-inline>' + icon('plus', 'size-4') + ' ' + t('Novo local') + '</button></div><p id="try-venue-hint" class="mt-2 text-xs text-ink-soft" aria-live="polite"></p></div>' +
     '<div class="sm:col-span-2"><p class="field-label">' + t('Posições disponíveis') + '</p><div class="mt-2 grid grid-cols-2 gap-2 rounded-2xl border border-line bg-night/60 p-3 sm:grid-cols-3">' +
@@ -2916,6 +3171,7 @@ function enrollInTryout(id, button) {
   const enrolled = Array.isArray(tryout.enrolled) ? tryout.enrolled : (tryout.enrolled = [])
   if (enrolled.includes(state.user.email)) return
   if (!enrollmentOpen(tryout)) return toast(t('As inscrições desta peneira estão fechadas.'), 'error')
+  if (needsGuardianMe()) return toast(t('Falta a autorização do responsável. Registre no seu perfil.'), 'error', { label: t('Registrar'), onClick: () => openGuardianModal() })
   const vacancies = Number(tryout.seats) - enrolled.length
   const category = getCategoryFromAge(getAgeFromProfile(state.profile?.birth))
   const compatible = tryout.positions.includes(state.profile?.pos) || tryout.positions.includes(state.profile?.secondary)
@@ -3252,6 +3508,8 @@ async function registerAccount() {
   if (!zip || !city || !region || !district || !address || !number) return showFeedback('reg-feedback', 'Preencha todo o endereço, incluindo cidade e estado.', true)
   if (password.length < 6) return showFeedback('reg-feedback', 'A senha precisa ter pelo menos 6 caracteres.', true)
   if (password !== confirm) return showFeedback('reg-feedback', 'As senhas não coincidem.', true)
+  const guardian = isMinorBirth(birth) ? readGuardianForm('reg-g-') : null
+  if (guardian && guardianErrors(guardian.name, guardian.relationship, guardian.email, guardian.phone, guardian.consent).length) return showFeedback('reg-feedback', t('Preencha os dados do responsável e marque a autorização.'), true)
   if (!remote.enabled) {
     if (state.accounts.some((account) => account.email === email)) return showFeedback('reg-feedback', 'Já existe uma conta com esse e-mail.', true)
     if (state.accounts.some((account) => account.cpf && account.cpf === cpf.replace(/\D/g, ''))) return showFeedback('reg-feedback', 'Já existe uma conta com esse CPF.', true)
@@ -3285,6 +3543,7 @@ async function registerAccount() {
       name,
       publicData: { birth, gender, foot, pos, secondary, city, state: region },
       privateData: { cpf: profile.cpf, phone, zip, district, address, number },
+      guardian,
     })
     if (result.error) {
       submit?.removeAttribute('disabled')
@@ -3309,9 +3568,11 @@ async function registerAccount() {
   }
 
   const athleteId = Date.now()
+  if (guardian) profile.guardian = localGuardian(guardian)
   state.accounts.push({ email, password, role: 'player', cpf: profile.cpf, athleteId, profile })
   state.profile = profile
   state.user = { name, email, role: 'player' }
+  if (guardian) logChange('consent', 'guardian', email, { relationship: guardian.relationship, version: CONSENT_VERSION })
   syncAthletes()
   notify(email, 'Conta criada', 'Seu cadastro foi concluído com categoria ' + getCategoryFromAge(age) + '.')
   persist()
@@ -3512,6 +3773,9 @@ function bind() {
   }))
 
   document.querySelectorAll('[data-action="openTryout"]').forEach((button) => button.addEventListener('click', openTryoutModal))
+  document.querySelectorAll('[data-action="open-guardian"]').forEach((button) => button.addEventListener('click', () => openGuardianModal()))
+  document.querySelectorAll('[data-action="revoke-guardian"]').forEach((button) => button.addEventListener('click', confirmRevokeGuardian))
+  document.querySelectorAll('[data-action="download-data"]').forEach((button) => button.addEventListener('click', downloadMyData))
   document.querySelectorAll('[data-action="invite-staff"]').forEach((button) => button.addEventListener('click', () => openInviteModal()))
   document.querySelectorAll('[data-action="retry-team"]').forEach((button) => button.addEventListener('click', () => { teamStatus = null; render() }))
   document.querySelectorAll('[data-reinvite]').forEach((button) => button.addEventListener('click', () => {
@@ -3652,7 +3916,7 @@ function render() {
     return
   }
   const [routeBase, routeArg = ''] = route.split('/')
-  if (!state.user && !['login', 'register', 'reset-password', 'convite'].includes(routeBase)) {
+  if (!state.user && !['login', 'register', 'reset-password', 'convite', 'privacidade'].includes(routeBase)) {
     go('login')
     return
   }
@@ -3685,6 +3949,7 @@ function render() {
   else if (route === 'messages') view = messagesPage()
   else if (route === 'team') view = teamPage()
   else if (routeBase === 'convite') view = invitePage()
+  else if (route === 'privacidade') view = privacyPage()
   else view = dashboard(state.user.role)
 
   const isNew = route !== lastRoute

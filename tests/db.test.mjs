@@ -224,5 +224,60 @@ expect('descrição acima de 1000 caracteres é recusada', /tryouts_description_
 r = await as('p2', `update tryouts set description = 'mudei' where id = ${described} returning id`)
 expect('atleta NÃO altera a descrição', !!r.error || !r.rows?.length, r)
 
+// Menores de idade e responsável legal
+const birthYearsAgo = (years) => (Number((new Date()).toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' }).slice(0, 4)) - years) + '-01-01'
+const signUpWith = async (id, email, meta) => {
+  try { await db.query(`insert into auth.users values ($1, $2, $3)`, [id, email, JSON.stringify(meta)]); return {} } catch (e) { return { error: e.message } }
+}
+const guardian = { name: 'Ana Souza', relationship: 'mae', email: 'ana@x.com', phone: '(11) 90000-0000', consent: true }
+ids.minor = '00000000-0000-0000-0000-0000000000c1'
+ids.adult = '00000000-0000-0000-0000-0000000000c2'
+r = await signUpWith('00000000-0000-0000-0000-0000000000c0', 'sem.resp@x.com', { name: 'Menor', public: { birth: birthYearsAgo(15) } })
+expect('menor NÃO cria conta sem responsável', /guardian_required/.test(r.error || ''), r)
+r = await signUpWith('00000000-0000-0000-0000-0000000000c3', 'sem.ok@x.com', { name: 'Menor', public: { birth: birthYearsAgo(15) }, guardian: { ...guardian, consent: false } })
+expect('menor NÃO cria conta sem a autorização marcada', /guardian_required/.test(r.error || ''), r)
+r = await signUpWith(ids.minor, 'menor@x.com', { name: 'Menor', public: { birth: birthYearsAgo(15) }, guardian })
+const g = (await db.query(`select name, relationship, consent_at from guardians where athlete_id = '${ids.minor}'`)).rows[0]
+expect('menor com responsável e autorização cria a conta', !r.error && g?.name === 'Ana Souza' && !!g?.consent_at, { r, g })
+r = await signUpWith(ids.adult, 'adulto@x.com', { name: 'Adulto', public: { birth: birthYearsAgo(19) } })
+expect('maior de idade não precisa de responsável', !r.error, r)
+r = await signUpWith('00000000-0000-0000-0000-0000000000c4', 'rel@x.com', { name: 'Menor', public: { birth: birthYearsAgo(12) }, guardian: { ...guardian, relationship: 'vizinho' } })
+expect('parentesco fora da lista é recusado', /check/.test(r.error || ''), r)
+r = await db.query(`select details from audit_log where entity = 'guardian' and entity_id = '${ids.minor}'`)
+expect('registro da autorização não guarda nome nem contato', r.rows.length === 1 && !JSON.stringify(r.rows[0].details).includes('ana'), r.rows)
+
+r = await as('minor', `select enroll_tryout(${described})`)
+expect('menor autorizado se inscreve', !r.error, r)
+r = await as('minor', `select revoke_guardian_consent()`)
+expect('atleta revoga a autorização', !r.error, r)
+r = await as('minor', `select revoke_guardian_consent()`)
+expect('revogar de novo avisa', /no_consent/.test(r.error || ''), r)
+await db.exec(`delete from tryout_enrollments where athlete_id = '${ids.minor}'`)
+r = await as('minor', `select enroll_tryout(${described})`)
+expect('sem autorização, menor NÃO se inscreve', /guardian_required/.test(r.error || ''), r)
+r = await as('minor', `select save_guardian('Ana Souza', 'mae', 'ana@x.com', '', false)`)
+expect('salvar sem marcar a autorização é recusado', /consent_required/.test(r.error || ''), r)
+r = await as('minor', `select save_guardian('Ana Souza', 'mae', 'ana@x.com', '', true)`)
+r = await as('minor', `select enroll_tryout(${described})`)
+expect('autorizado de novo, volta a se inscrever', !r.error, r)
+r = await as('adult', `select enroll_tryout(${described})`)
+expect('maior de idade se inscreve sem responsável', !r.error, r)
+r = await as('staff', `select save_guardian('X Y Z', 'pai', 'x@x.com', '', true)`)
+expect('funcionário NÃO grava responsável', /not_player/.test(r.error || ''), r)
+
+r = await as('staff', `select name from guardians where athlete_id = '${ids.minor}'`)
+expect('equipe vê o responsável (para falar com a família)', r.rows?.[0]?.name === 'Ana Souza', r)
+r = await as('adult', `select name from guardians where athlete_id = '${ids.minor}'`)
+expect('outro atleta NÃO vê o responsável', r.rows?.length === 0, r)
+r = await as('minor', `insert into guardians (athlete_id, name, relationship, email, consent_at) values (auth.uid(), 'Falso', 'pai', 'f@x.com', now())`)
+expect('ninguém grava direto na tabela', /permission denied/.test(r.error || ''), r)
+r = await as('adult', `select needs_guardian('${ids.minor}')`)
+expect('needs_guardian não é chamável pela API', /permission denied/.test(r.error || ''), r)
+
+r = await as('minor', `update profiles set data = data || '{"birth":"2000-01-01"}' where id = auth.uid()`)
+expect('menor NÃO muda a data de nascimento para virar adulto', /birth_locked/.test(r.error || ''), r)
+r = await as('minor', `update profiles set data = data || '{"foot":"Canhoto"}' where id = auth.uid() returning id`)
+expect('...mas edita os outros dados do perfil', r.rows?.length === 1, r)
+
 console.log(`\n${pass} ok, ${fail} falharam`)
 process.exit(fail ? 1 : 0)

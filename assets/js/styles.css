@@ -833,6 +833,35 @@ body::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:n
 .td-foot { position:sticky; bottom:0; display:grid; gap:.5rem; padding:1rem 1.5rem 1.5rem; border-top:1px solid var(--color-line); background:var(--color-raised); }
 @media (min-width: 40rem) { .td-hero, .td-body { padding-inline:2rem; } .td-foot { padding-inline:2rem; grid-auto-flow:column; grid-auto-columns:1fr; } }
 
+/* Responsável legal: a autorização fica em destaque, separada dos outros campos. */
+.consent-box { display:flex; align-items:flex-start; gap:.85rem; padding:1rem 1.1rem; border:1px solid color-mix(in oklab, var(--color-brand) 55%, transparent); border-radius:var(--radius-control); background: color-mix(in oklab, var(--color-brand) 8%, transparent); font-size:.875rem; line-height:1.55; cursor:pointer; transition: border-color .2s, background-color .2s; }
+.consent-box:has(input:checked) { border-color:var(--color-success); background: color-mix(in oklab, var(--color-success) 10%, transparent); }
+.consent-box:has(input:focus-visible) { outline:2px solid var(--color-focus); outline-offset:2px; }
+.consent-box input { margin-top:.2rem; width:1.15rem; height:1.15rem; flex:none; accent-color:var(--color-success); }
+.consent-box strong { display:block; margin-bottom:.2rem; }
+.consent-box a { color:var(--color-brand); text-decoration:underline; text-underline-offset:3px; }
+.consent-box + .field-error { grid-column: 1 / -1; margin-top:-.5rem; }
+.guardian-panel.is-missing { border-color: color-mix(in oklab, var(--color-warning) 50%, transparent); }
+.guardian-data { display:grid; gap:.6rem; font-size:.9rem; }
+.guardian-data dt { font-size:.75rem; color:var(--color-ink-soft); }
+.guardian-staff { padding:.85rem 1rem; border-radius:var(--radius-control); border:1px solid var(--color-line); background: color-mix(in oklab, var(--color-chalk) 3%, transparent); }
+.privacy h2 { margin-top:2.25rem; font-size:1.35rem; font-weight:700; }
+.privacy ul { margin-top:.75rem; display:grid; gap:.6rem; padding-left:1.1rem; list-style:disc; line-height:1.6; max-width:68ch; }
+.privacy-table { margin:1rem 0; overflow-x:auto; border:1px solid var(--color-line); border-radius:var(--radius-control); }
+.privacy-table table { width:100%; border-collapse:collapse; font-size:.875rem; }
+.privacy-table th, .privacy-table td { padding:.7rem .85rem; text-align:left; vertical-align:top; border-bottom:1px solid var(--color-line); }
+.privacy-table thead th { font-size:.75rem; letter-spacing:.04em; text-transform:uppercase; color:var(--color-ink-soft); }
+.privacy-table tbody tr:last-child > * { border-bottom:0; }
+.privacy-table tbody th { font-weight:600; min-width:9rem; }
+/* Celular: cada linha vira um bloco (dado em cima, "para quê" e "quem vê" rotulados). */
+@media (max-width: 40rem) {
+  .privacy-table thead { position:absolute; width:1px; height:1px; overflow:hidden; clip-path: inset(50%); }
+  .privacy-table tr { display:grid; gap:.3rem; padding:.85rem; border-bottom:1px solid var(--color-line); }
+  .privacy-table tbody tr:last-child { border-bottom:0; }
+  .privacy-table th, .privacy-table td { padding:0; border:0; min-width:0; }
+  .privacy-table td::before { content: attr(data-label) ': '; color:var(--color-ink-soft); font-size:.75rem; text-transform:uppercase; letter-spacing:.04em; }
+}
+
 /* Equipe: funcionários, convites e histórico */
 .team-grid { display:grid; gap:1.25rem; }
 @media (min-width: 64rem) { .team-grid { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); align-items:start; } }

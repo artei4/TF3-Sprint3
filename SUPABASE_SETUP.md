@@ -33,12 +33,13 @@ em tempo real.
    confirmação, qualquer pessoa poderia criar a conta com um desses e-mails antes do dono e
    entrar como funcionário. (Convites não têm esse problema: o link só vale para o e-mail convidado.)
 6. Rode também, na ordem, `20261016120000_peneiras.sql`, `20261019120000_seguranca.sql`,
-   `20261020120000_locais.sql`, `20261021120000_equipe.sql` e
-   `20261022120000_descricao_peneira.sql`. A de segurança trava a última vaga das peneiras e limita o envio
+   `20261020120000_locais.sql`, `20261021120000_equipe.sql`,
+   `20261022120000_descricao_peneira.sql` e `20261023120000_responsavel.sql`. A de segurança trava a última vaga das peneiras e limita o envio
    de mensagens a 8 por minuto. A de locais cria o cadastro de locais (aba **Peneiras → Locais**),
    fecha as inscrições no horário de início e guarda quem criou/alterou locais e peneiras na
    tabela `audit_log` (consulta pelo Table Editor). A de equipe cria os convites de funcionário e o
-   papel de administrador (veja abaixo); a última adiciona o texto "Sobre a peneira". Nenhuma delas apaga dados. Se rodar de novo
+   papel de administrador (veja abaixo); a de descrição adiciona o texto "Sobre a peneira"; a de responsável exige a autorização de um
+   responsável legal para atletas com menos de 18 anos (veja abaixo). Nenhuma delas apaga dados. Se rodar de novo
    uma migration antiga, rode as mais novas depois dela.
 7. Pronto. Abra o site normalmente (sem nada extra na URL) — ele detecta o Supabase sozinho.
 
@@ -70,6 +71,14 @@ em tempo real.
   ```
 - A tabela `staff_allowlist` continua só para as duas contas de teste (`funcionario@` e
   `treinador@academiapele.com`); não precisa adicionar e-mails nela.
+- **Menores de 18 anos**: a conta só é criada com o responsável legal e a autorização marcada no
+  cadastro (tabela `guardians`, com data e versão do texto). Sem autorização (ou se ela for
+  revogada no perfil), o banco recusa a inscrição em peneiras. A equipe vê o contato do
+  responsável. É uma declaração: o banco não confere documentos. A data de nascimento não muda
+  mais pelo site depois do cadastro; para corrigir, pelo SQL Editor:
+  ```sql
+  update public.profiles set data = data || '{"birth":"2010-05-20"}' where lower(email) = 'atleta@dominio.com';
+  ```
 - **CPF, telefone e endereço** ficam numa tabela separada que só o próprio dono enxerga
   (`profile_private`); posição, cidade, perna dominante etc. ficam visíveis para a equipe.
 
