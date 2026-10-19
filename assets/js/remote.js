@@ -190,8 +190,8 @@ export async function fetchTryouts() {
 }
 
 // O servidor copia nome, cidade e UF do local (venue_id); os campos de texto vão só porque são obrigatórios.
-export async function createTryout({ title, date, time, location, city, state, category, positions, seats, venueId }) {
-  const { error } = await client.from('tryouts').insert({ title, date, time, location, city, state, category, positions, seats, venue_id: venueId })
+export async function createTryout({ title, date, time, location, city, state, category, positions, seats, venueId, description = '' }) {
+  const { error } = await client.from('tryouts').insert({ title, date, time, location, city, state, category, positions, seats, venue_id: venueId, description })
   return error || null
 }
 

@@ -51,6 +51,7 @@ No painel do Supabase → **SQL Editor**, rode em ordem os arquivos de `supabase
 4. `20261019120000_seguranca.sql`
 5. `20261020120000_locais.sql`
 6. `20261021120000_equipe.sql`
+7. `20261022120000_descricao_peneira.sql`
 
 URL e chave publicável ficam em `assets/js/config.js`. Detalhes em `SUPABASE_SETUP.md`.
 
@@ -70,7 +71,7 @@ URL e chave publicável ficam em `assets/js/config.js`. Detalhes em `SUPABASE_SE
 | `#/dashboard` | todos | visão geral (atleta: próxima peneira e atividade; funcionário: indicadores e radar) |
 | `#/athletes` | funcionário | banco de atletas com filtros em tempo real, perfil, avaliação, exportação CSV |
 | `#/profile` | atleta | perfil, endereço e posições |
-| `#/tryouts` | todos | peneiras: criar, inscrever-se, ver inscritos, cancelar |
+| `#/tryouts` | todos | peneiras: criar (com descrição), ver detalhes ao clicar no card, inscrever-se, ver inscritos, cancelar |
 | `#/messages` | todos | conversas entre atleta e funcionário |
 | `#/team` | administrador | convidar funcionários, cancelar convites, desativar e dar acesso de administrador |
 | `#/convite/<código>` | público | criar a conta de funcionário pelo link do convite |

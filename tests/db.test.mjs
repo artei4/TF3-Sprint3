@@ -213,5 +213,16 @@ r = await as('admin', `select action, details from audit_log where entity in ('s
 const actions = r.rows?.map((row) => row.action).join(',')
 expect('registro guarda convite, aceite, cancelamento e alterações', ['create', 'accept', 'revoke', 'update', 'deactivate'].every((a) => actions?.includes(a)) && r.rows.at(-1).details?.active?.para === false, actions)
 
+// Descrição da peneira
+r = await as('staff', `insert into tryouts (title, date, "time", location, city, state, positions, seats, description) values ('Com detalhes', ${today} + 4, '10:00', 'CT', 'SP', 'SP', '{Meia}', 5, 'Leve chuteira e água.') returning id`)
+const described = r.rows?.[0]?.id
+expect('funcionário cria peneira com descrição', !r.error, r)
+r = await as('p2', `select description from list_tryouts() where id = ${described}`)
+expect('atleta lê a descrição na lista', r.rows?.[0]?.description === 'Leve chuteira e água.', r)
+r = await as('staff', `insert into tryouts (title, date, "time", location, city, state, positions, seats, description) values ('Longa', ${today} + 4, '10:00', 'CT', 'SP', 'SP', '{Meia}', 5, repeat('a', 1001))`)
+expect('descrição acima de 1000 caracteres é recusada', /tryouts_description_len/.test(r.error || ''), r)
+r = await as('p2', `update tryouts set description = 'mudei' where id = ${described} returning id`)
+expect('atleta NÃO altera a descrição', !!r.error || !r.rows?.length, r)
+
 console.log(`\n${pass} ok, ${fail} falharam`)
 process.exit(fail ? 1 : 0)

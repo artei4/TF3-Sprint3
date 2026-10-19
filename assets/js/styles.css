@@ -816,6 +816,23 @@ body::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:n
 .venue-card.is-new { animation: venue-new 1.4s var(--ease-out); }
 @keyframes venue-new { 0%, 35% { box-shadow: 0 0 0 2px var(--color-brand), 0 18px 40px -18px color-mix(in oklab, var(--color-brand) 70%, transparent); } }
 
+/* Detalhes da peneira: o card inteiro abre a janela; o texto do organizador mantém as quebras de linha. */
+.tryout-card { cursor:pointer; }
+.tryout-blurb { margin-top:.85rem; font-size:.875rem; line-height:1.5; color:var(--color-ink-soft); white-space:pre-line; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
+.tryout-more { display:inline-flex; align-items:center; justify-content:center; gap:.4rem; min-height:2.75rem; border-radius:var(--radius-control); font-size:.875rem; font-weight:600; color:var(--color-brand); }
+.tryout-more:hover { color:var(--color-brand-strong); }
+.tryout-more svg { transition: transform .25s var(--ease-out); }
+.tryout-card:hover .tryout-more svg, .tryout-more:focus-visible svg { transform: translateX(3px); }
+.tryout-details { display:flex; flex-direction:column; animation: details-in .35s var(--ease-out); }
+@keyframes details-in { from { opacity:0; transform: translateY(12px) scale(.98); } }
+.td-hero { padding:1.5rem 1.5rem 1.25rem; border-bottom:1px solid var(--color-line); background: linear-gradient(180deg, color-mix(in oklab, var(--color-brand) 9%, transparent), transparent); }
+.td-body { display:grid; gap:1.5rem; padding:1.5rem; }
+.td-block > * + * { margin-top:.35rem; }
+.td-label { display:flex; align-items:center; gap:.45rem; font-size:.75rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--color-brand); margin-bottom:.5rem; }
+.td-text { white-space:pre-line; line-height:1.65; max-width:62ch; }
+.td-foot { position:sticky; bottom:0; display:grid; gap:.5rem; padding:1rem 1.5rem 1.5rem; border-top:1px solid var(--color-line); background:var(--color-raised); }
+@media (min-width: 40rem) { .td-hero, .td-body { padding-inline:2rem; } .td-foot { padding-inline:2rem; grid-auto-flow:column; grid-auto-columns:1fr; } }
+
 /* Equipe: funcionários, convites e histórico */
 .team-grid { display:grid; gap:1.25rem; }
 @media (min-width: 64rem) { .team-grid { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); align-items:start; } }

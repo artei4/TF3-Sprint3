@@ -101,8 +101,8 @@ const defaultAthletes = [
 ]
 
 const defaultTryouts = [
-  { id: 1, title: 'Peneira Sub-20 — Atacantes', date: '2026-11-07', time: '14:00', city: 'São Paulo', state: 'SP', location: 'Centro de Treinamento Pelé', venueId: 1, category: 'Sub-20', positions: ['Atacante', 'Ponta'], seats: 12, enrolled: ['gabriel@academiapele.com'] },
-  { id: 2, title: 'Avaliação Sub-20 — Meio-campo', date: '2026-11-14', time: '09:00', city: 'Osasco', state: 'SP', location: 'Arena Oeste', venueId: 2, category: 'Sub-20', positions: ['Meia', 'Volante'], seats: 18, enrolled: [] },
+  { id: 1, title: 'Peneira Sub-20 — Atacantes', date: '2026-11-07', time: '14:00', city: 'São Paulo', state: 'SP', location: 'Centro de Treinamento Pelé', venueId: 1, category: 'Sub-20', positions: ['Atacante', 'Ponta'], seats: 12, enrolled: ['gabriel@academiapele.com'], description: 'Aquecimento, finalização em dupla e um jogo coletivo de 2 tempos de 25 minutos.\n\nO que levar: chuteira de campo, caneleira, água e documento com foto.\nChegada: 30 minutos antes, na recepção.' },
+  { id: 2, title: 'Avaliação Sub-20 — Meio-campo', date: '2026-11-14', time: '09:00', city: 'Osasco', state: 'SP', location: 'Arena Oeste', venueId: 2, category: 'Sub-20', positions: ['Meia', 'Volante'], seats: 18, enrolled: [], description: 'Treino de passe e posicionamento seguido de jogo reduzido. A comissão observa tomada de decisão e leitura de jogo.' },
   { id: 3, title: 'Goleiros em Destaque', date: '2026-11-21', time: '10:30', city: 'Barueri', state: 'SP', location: 'Centro de Treinamento Oeste', venueId: 4, category: 'Sub-20', positions: ['Goleiro'], seats: 8, enrolled: [] },
 ]
 
@@ -645,7 +645,7 @@ function mapRemoteTryout(row) {
     id: Number(row.id), title: row.title, date: row.date, time: row.time, location: row.location, city: row.city, state: row.state,
     category: row.category, positions: row.positions || [], seats: row.seats, status: row.status, cancelReason: row.cancel_reason,
     createdBy: row.created_by_email, remote: true,
-    venueId: row.venue_id == null ? null : Number(row.venue_id), address: row.address || '', district: row.district || '', reference: row.reference || '',
+    venueId: row.venue_id == null ? null : Number(row.venue_id), address: row.address || '', district: row.district || '', reference: row.reference || '', description: row.description || '',
     enrolled: emails.concat(Array(Math.max(0, (row.taken || 0) - emails.length)).fill('')),
   }
 }
@@ -1522,12 +1522,8 @@ function tryoutTabs(role, list) {
   return { bar, items: current[0] === 'past' ? items.reverse() : items, key: current[0] }
 }
 
-function tryoutCard(tryout) {
-  if (tryout.status === 'cancelled') {
-    return '<article class="panel flex flex-col" data-tryout-card="' + tryout.id + '"><div class="flex flex-wrap gap-1.5"><span class="tag red">' + t('Cancelada') + '</span>' + tag(tryout.category || t('Aberta'), true) + '</div>' +
-      '<h2 class="mt-4 text-xl font-bold">' + escapeHtml(tryout.title) + '</h2><p class="mt-3 text-sm text-ink-soft">' + formatDate(tryout.date) + ' • ' + escapeHtml(tryout.time) + '</p>' +
-      '<p class="mt-4 text-sm"><strong>' + t('Motivo:') + '</strong> ' + escapeHtml(tryout.cancelReason || t('Não informado.')) + '</p></article>'
-  }
+// O que a tela precisa saber de uma peneira: usado pelo card e pela janela de detalhes.
+function tryoutView(tryout) {
   const staff = state.user?.role === 'staff'
   const email = state.user?.email || ''
   const list = Array.isArray(tryout.enrolled) ? tryout.enrolled : []
@@ -1567,19 +1563,92 @@ function tryoutCard(tryout) {
     ? '<p class="fit-line fit-ok">' + icon('check', 'size-4 shrink-0') + t('Em andamento. Bom jogo!') + '</p>'
     : '<p class="text-sm text-ink-soft">' + t('Inscrições encerradas: a peneira já começou.') + '</p>'
   if (!staff && phase === 'tbd' && !enrolled) actions = '<button type="button" class="btn-incompatible w-full" disabled>' + t('Data a confirmar') + '</button>'
-  return '<article class="tryout-card reveal spot panel flex flex-col' + (enrolled ? ' is-enrolled' : '') + (!staff && !fit.ok && !enrolled ? ' is-off' : '') + '" data-tryout-card="' + tryout.id + '">' +
-    (enrolled ? '<span class="enrolled-ribbon">' + icon('check', 'size-3.5') + t('Inscrito') + '</span>' : '') +
+  return { staff, enrolled, taken, seats, vacancies, full, scarce, fit, place, actions, fitLine }
+}
+
+function seatsMeter(v) {
+  return '<div class="flex items-baseline justify-between gap-3 text-sm"><span><strong class="num text-2xl ' + (v.full ? 'text-danger' : 'text-chalk') + '">' + v.taken + '</strong><span class="text-ink-soft"> ' + t('de') + ' ' + v.seats + ' ' + t('vagas preenchidas') + '</span></span>' +
+    '<span class="tag ' + (v.full ? 'red' : v.scarce ? 'warn' : 'green') + '">' + (v.full ? t('Lotada') : v.scarce ? (v.vacancies === 1 ? t('Última vaga') : t('Últimas') + ' ' + v.vacancies + ' ' + t('vagas')) : plural(v.vacancies, 'vaga livre', 'vagas livres')) + '</span></div>' +
+    '<div class="mt-2 h-2 overflow-hidden rounded-full bg-line"><div class="bar-fill h-full rounded-full ' + (v.full ? 'bg-danger' : v.scarce ? 'bg-warning' : 'bg-brand') + '" style="width:' + Math.min(100, v.taken / v.seats * 100) + '%"></div></div>'
+}
+
+const tryoutPlaceLine = (tryout) => escapeHtml(tryout.location) + ' · ' + escapeHtml(tryout.city) + '/' + escapeHtml(tryout.state)
+
+function tryoutCard(tryout) {
+  if (tryout.status === 'cancelled') {
+    return '<article class="panel flex flex-col" data-tryout-card="' + tryout.id + '"><div class="flex flex-wrap gap-1.5"><span class="tag red">' + t('Cancelada') + '</span>' + tag(tryout.category || t('Aberta'), true) + '</div>' +
+      '<h2 class="mt-4 text-xl font-bold">' + escapeHtml(tryout.title) + '</h2><p class="mt-3 text-sm text-ink-soft">' + formatDate(tryout.date) + ' • ' + escapeHtml(tryout.time) + '</p>' +
+      '<p class="mt-4 text-sm"><strong>' + t('Motivo:') + '</strong> ' + escapeHtml(tryout.cancelReason || t('Não informado.')) + '</p></article>'
+  }
+  const v = tryoutView(tryout)
+  return '<article class="tryout-card reveal spot panel flex flex-col' + (v.enrolled ? ' is-enrolled' : '') + (!v.staff && !v.fit.ok && !v.enrolled ? ' is-off' : '') + '" data-tryout-card="' + tryout.id + '">' +
+    (v.enrolled ? '<span class="enrolled-ribbon">' + icon('check', 'size-3.5') + t('Inscrito') + '</span>' : '') +
     '<div class="flex items-start gap-4">' + scoreboard(tryout.date, tryout.time) +
     '<div class="min-w-0 flex-1"><h2 class="text-xl font-semibold leading-tight">' + escapeHtml(tryout.title) + '</h2>' +
-    '<p class="mt-1 flex items-start gap-1.5 text-sm text-ink-soft">' + icon('pin', 'size-4 mt-0.5 shrink-0 text-brand') + '<span>' + escapeHtml(tryout.location) + ' · ' + escapeHtml(tryout.city) + '/' + escapeHtml(tryout.state) +
-    (place.address ? '<br/><span class="text-xs">' + escapeHtml(place.address) + '</span> ' + mapLink([tryout.location, place.address, tryout.city, tryout.state]) : '') + '</span></p>' +
+    '<p class="mt-1 flex items-start gap-1.5 text-sm text-ink-soft">' + icon('pin', 'size-4 mt-0.5 shrink-0 text-brand') + '<span>' + tryoutPlaceLine(tryout) +
+    (v.place.address ? '<br/><span class="text-xs">' + escapeHtml(v.place.address) + '</span> ' + mapLink([tryout.location, v.place.address, tryout.city, tryout.state]) : '') + '</span></p>' +
     countdownTag(tryout) + '</div></div>' +
     '<div class="mt-4 flex flex-wrap gap-1.5">' + tag(tryout.category || t('Livre'), true) + tryout.positions.map(posTag).join('') + '</div>' +
-    fitLine +
-    '<div class="mt-5"><div class="flex items-baseline justify-between gap-3 text-sm"><span><strong class="num text-2xl ' + (full ? 'text-danger' : 'text-chalk') + '">' + taken + '</strong><span class="text-ink-soft"> ' + t('de') + ' ' + seats + ' ' + t('vagas preenchidas') + '</span></span>' +
-    '<span class="tag ' + (full ? 'red' : scarce ? 'warn' : 'green') + '">' + (full ? t('Lotada') : scarce ? (vacancies === 1 ? t('Última vaga') : t('Últimas') + ' ' + vacancies + ' ' + t('vagas')) : plural(vacancies, 'vaga livre', 'vagas livres')) + '</span></div>' +
-    '<div class="mt-2 h-2 overflow-hidden rounded-full bg-line"><div class="bar-fill h-full rounded-full ' + (full ? 'bg-danger' : scarce ? 'bg-warning' : 'bg-brand') + '" style="width:' + Math.min(100, taken / seats * 100) + '%"></div></div></div>' +
-    '<div class="mt-auto grid gap-2 pt-5">' + actions + '</div></article>'
+    (tryout.description ? '<p class="tryout-blurb">' + escapeHtml(tryout.description) + '</p>' : '') +
+    v.fitLine +
+    '<div class="mt-5">' + seatsMeter(v) + '</div>' +
+    '<div class="mt-auto grid gap-2 pt-5">' + v.actions +
+    '<button type="button" class="tryout-more" data-tryout-details="' + tryout.id + '" aria-haspopup="dialog">' + t('Ver detalhes') + '<span class="sr-only"> ' + t('de') + ' ' + escapeHtml(tryout.title) + '</span>' + icon('arrow', 'size-4') + '</button></div></article>'
+}
+
+// ---------- Detalhes da peneira ----------
+// Referências: páginas de evento do Meetup ("Details" + quando/onde ao lado) e do Luma ("About Event"
+// com a inscrição no rodapé). Aqui num modal, para o atleta não perder a lista.
+function longTryoutDate(tryout) {
+  if (!validTryoutDate(tryout.date)) return t('Data a confirmar')
+  const text = new Date(tryout.date + 'T12:00:00-03:00').toLocaleDateString(getLang() === 'es' ? 'es' : 'pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  return text.charAt(0).toUpperCase() + text.slice(1)
+}
+
+function openTryoutDetails(id) {
+  const tryout = state.tryouts.find((item) => item.id === id)
+  if (!tryout) return
+  const v = tryoutView(tryout)
+  const organizer = state.accounts.find((account) => account.email === tryout.createdBy)?.profile?.name || ''
+  const section = (title, iconName, body) => '<section class="td-block"><h3 class="td-label">' + icon(iconName, 'size-4') + title + '</h3>' + body + '</section>'
+  const wrapper = document.createElement('div')
+  wrapper.className = 'fixed inset-0 z-[90] grid place-items-center bg-black/75 p-4 backdrop-blur-md'
+  wrapper.innerHTML =
+    '<div class="tryout-details max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-card surface surface--raised shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="td-title" data-lenis-prevent>' +
+    '<header class="td-hero"><div class="flex items-start gap-4">' + scoreboard(tryout.date, tryout.time) +
+    '<div class="min-w-0 flex-1"><p class="flex flex-wrap gap-1.5">' + tag(tryout.category || t('Livre'), true) + (v.enrolled ? '<span class="tag green">' + icon('check', 'size-3.5') + ' ' + t('Inscrito') + '</span>' : '') + '</p>' +
+    '<h2 id="td-title" class="mt-2 text-2xl font-bold leading-tight">' + escapeHtml(tryout.title) + '</h2>' + countdownTag(tryout) + '</div>' +
+    '<button type="button" class="icon-button" aria-label="' + t('Fechar') + '" data-close>' + icon('close') + '</button></div></header>' +
+    '<div class="td-body">' +
+    section(t('Sobre a peneira'), 'info', tryout.description
+      ? '<p class="td-text">' + escapeHtml(tryout.description) + '</p>'
+      : '<p class="text-sm text-ink-soft">' + t('Quem organizou ainda não escreveu mais detalhes. Data, local e vagas estão aqui embaixo.') + '</p>') +
+    '<div class="grid gap-5 sm:grid-cols-2">' +
+    section(t('Quando'), 'calendar', '<p class="font-semibold">' + escapeHtml(longTryoutDate(tryout)) + '</p><p class="text-sm text-ink-soft">' + (validTime(tryout.time) ? escapeHtml(tryout.time) + ' · ' + t('horário de Brasília') : t('Horário a confirmar')) + '</p>' +
+      '<p class="mt-1 text-xs text-ink-soft">' + t('As inscrições fecham na hora em que a peneira começa.') + '</p>') +
+    section(t('Onde'), 'pin', '<p class="font-semibold">' + escapeHtml(tryout.location) + '</p><p class="text-sm text-ink-soft">' + (v.place.address ? escapeHtml(v.place.address) + '<br/>' : '') + escapeHtml(tryout.city) + '/' + escapeHtml(tryout.state) + '</p>' +
+      (v.place.reference ? '<p class="mt-1 text-xs text-ink-soft">' + t('Referência:') + ' ' + escapeHtml(v.place.reference) + '</p>' : '') +
+      (v.place.address ? '<p class="mt-2">' + mapLink([tryout.location, v.place.address, tryout.city, tryout.state]) + '</p>' : '')) +
+    '</div>' +
+    section(t('Para quem'), 'user', '<p class="flex flex-wrap gap-1.5">' + tag(tryout.category || t('Livre'), true) + tryout.positions.map(posTag).join('') + '</p>' + v.fitLine) +
+    section(t('Vagas'), 'clipboard', seatsMeter(v)) +
+    (organizer ? '<p class="text-xs text-ink-soft">' + t('Organizada por') + ' ' + escapeHtml(organizer) + '</p>' : '') +
+    '</div>' +
+    '<footer class="td-foot">' + v.actions + '</footer></div>'
+  document.body.appendChild(wrapper)
+  wrapper.addEventListener('click', (event) => {
+    if (event.target === wrapper || event.target.closest('[data-close]')) return wrapper.remove()
+    const button = event.target.closest('[data-action]')
+    const run = button && {
+      enroll: () => enrollInTryout(id, document.querySelector('[data-tryout-card="' + id + '"] [data-action="enroll"]')),
+      withdraw: () => confirmWithdraw(id),
+      'view-enrolled': () => openEnrolledModal(id),
+      'cancel-tryout': () => openCancelTryoutModal(id),
+    }[button.dataset.action]
+    if (!run) return
+    wrapper.remove()
+    run()
+  })
 }
 
 // ---------- Contagem regressiva ----------
@@ -2773,6 +2842,8 @@ function openTryoutModal() {
     '<div class="sm:col-span-2"><p class="field-label">' + t('Posições disponíveis') + '</p><div class="mt-2 grid grid-cols-2 gap-2 rounded-2xl border border-line bg-night/60 p-3 sm:grid-cols-3">' +
     POSITIONS.map((p, i) => '<label class="check-pill"><input type="checkbox" name="position" value="' + escapeHtml(p) + '" ' + (i === 6 ? 'checked' : '') + '/><span>' + escapeHtml(p) + '</span></label>').join('') +
     '</div></div>' +
+    '<label class="field-label sm:col-span-2">' + t('Sobre a peneira (opcional)') + '<textarea id="try-description" class="field min-h-28 resize-y" maxlength="1000" aria-describedby="try-description-count" placeholder="' + t('Ex.: como vai ser a avaliação, o que levar (chuteira, caneleira, água), documentos e a que horas chegar.') + '"></textarea>' +
+    '<span id="try-description-count" class="block text-right text-xs font-normal text-ink-soft">0/1000</span></label>' +
     '<div id="tryout-error" class="sm:col-span-2 hidden rounded-2xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger" role="alert"></div>' +
     '<div class="flex justify-end gap-2 sm:col-span-2"><button type="button" class="btn-secondary" data-close>' + t('Cancelar') + '</button><button class="btn-primary" type="submit">' + t('Criar peneira') + ' ' + icon('check', 'size-4') + '</button></div></form></div>'
 
@@ -2787,6 +2858,8 @@ function openTryoutModal() {
       : activeVenues().length ? '' : t('Nenhum local ativo. Cadastre um para marcar a peneira.')
   }
   select.addEventListener('change', showHint)
+  const description = wrapper.querySelector('#try-description')
+  description.addEventListener('input', () => { wrapper.querySelector('#try-description-count').textContent = description.value.length + '/1000' })
   wrapper.querySelector('#tryout-form').addEventListener('input', (event) => { if (event.target.id) setFieldError(event.target.id, '') })
   wrapper.querySelector('#tryout-form').addEventListener('change', (event) => { if (event.target.id) setFieldError(event.target.id, '') })
   showHint()
@@ -2821,7 +2894,7 @@ function openTryoutModal() {
     if (firstError) return wrapper.querySelector('#' + firstError[0]).focus()
     if (!positions.length) return
 
-    const fields = { title, date, time, location: venue.name, city: venue.city, state: venue.state, category: value('try-category'), positions, seats, venueId: venue.id }
+    const fields = { title, date, time, location: venue.name, city: venue.city, state: venue.state, category: value('try-category'), positions, seats, venueId: venue.id, description: value('try-description').replace(/\n{3,}/g, '\n\n') }
     if (remote.enabled) {
       runTryoutAction(wrapper.querySelector('[type="submit"]'), () => createTryout(fields), t('Peneira criada e publicada para os atletas.')).then((ok) => { if (ok) wrapper.remove() })
       return
@@ -2835,6 +2908,32 @@ function openTryoutModal() {
     render()
     toast(t('Peneira criada e publicada.'))
   })
+}
+
+function enrollInTryout(id, button) {
+  const tryout = state.tryouts.find((item) => item.id === id)
+  if (!tryout || state.user?.role !== 'player') return
+  const enrolled = Array.isArray(tryout.enrolled) ? tryout.enrolled : (tryout.enrolled = [])
+  if (enrolled.includes(state.user.email)) return
+  if (!enrollmentOpen(tryout)) return toast(t('As inscrições desta peneira estão fechadas.'), 'error')
+  const vacancies = Number(tryout.seats) - enrolled.length
+  const category = getCategoryFromAge(getAgeFromProfile(state.profile?.birth))
+  const compatible = tryout.positions.includes(state.profile?.pos) || tryout.positions.includes(state.profile?.secondary)
+  if (tryout.category && tryout.category !== category) return toast(t('Sua categoria não corresponde à desta peneira.'), 'error')
+  if (!compatible) return toast(t('Sua posição não está entre as posições aceitas.'), 'error')
+  if (vacancies <= 0) return toast(t('Não há mais vagas nesta peneira.'), 'error')
+  if (tryout.remote && remote.enabled) {
+    runTryoutAction(button, () => enrollTryout(tryout.id), t('Inscrição confirmada.')).then((ok) => {
+      if (ok) notify(state.user.email, t('Inscrição confirmada'), 'Você se inscreveu em ' + tryout.title + '.')
+    })
+    return
+  }
+  enrolled.push(state.user.email)
+  notifyTryoutStaff(tryout, 'Nova inscrição', state.user.name + ' se inscreveu em "' + tryout.title + '" (' + enrolled.length + '/' + tryout.seats + ').')
+  notify(state.user.email, t('Inscrição confirmada'), 'Você se inscreveu em ' + tryout.title + '.')
+  persist()
+  render()
+  toast(t('Inscrição confirmada.'))
 }
 
 function confirmWithdraw(tryoutId) {
@@ -3457,30 +3556,12 @@ function bind() {
     render()
     refreshRemoteTryouts().then(render)
   }))
-  document.querySelectorAll('[data-action="enroll"]').forEach((button) => button.addEventListener('click', () => {
-    const tryout = state.tryouts.find((item) => item.id === Number(button.dataset.id))
-    if (!tryout || state.user?.role !== 'player') return
-    const enrolled = Array.isArray(tryout.enrolled) ? tryout.enrolled : (tryout.enrolled = [])
-    if (enrolled.includes(state.user.email)) return
-    if (!enrollmentOpen(tryout)) return toast(t('As inscrições desta peneira estão fechadas.'), 'error')
-    const vacancies = Number(tryout.seats) - enrolled.length
-    const category = getCategoryFromAge(getAgeFromProfile(state.profile?.birth))
-    const compatible = tryout.positions.includes(state.profile?.pos) || tryout.positions.includes(state.profile?.secondary)
-    if (tryout.category && tryout.category !== category) return toast(t('Sua categoria não corresponde à desta peneira.'), 'error')
-    if (!compatible) return toast(t('Sua posição não está entre as posições aceitas.'), 'error')
-    if (vacancies <= 0) return toast(t('Não há mais vagas nesta peneira.'), 'error')
-    if (tryout.remote && remote.enabled) {
-      runTryoutAction(button, () => enrollTryout(tryout.id), t('Inscrição confirmada.')).then((ok) => {
-        if (ok) notify(state.user.email, t('Inscrição confirmada'), 'Você se inscreveu em ' + tryout.title + '.')
-      })
-      return
-    }
-    enrolled.push(state.user.email)
-    notifyTryoutStaff(tryout, 'Nova inscrição', state.user.name + ' se inscreveu em "' + tryout.title + '" (' + enrolled.length + '/' + tryout.seats + ').')
-    notify(state.user.email, t('Inscrição confirmada'), 'Você se inscreveu em ' + tryout.title + '.')
-    persist()
-    render()
-    toast(t('Inscrição confirmada.'))
+  document.querySelectorAll('[data-action="enroll"]').forEach((button) => button.addEventListener('click', () => enrollInTryout(Number(button.dataset.id), button)))
+  document.querySelectorAll('[data-tryout-details]').forEach((button) => button.addEventListener('click', () => openTryoutDetails(Number(button.dataset.tryoutDetails))))
+  // Clicar em qualquer parte do card (fora de botões e links) também abre os detalhes.
+  document.querySelectorAll('.tryout-card[data-tryout-card]').forEach((card) => card.addEventListener('click', (event) => {
+    if (event.target.closest('a, button, input, label, select, textarea') || String(getSelection())) return
+    openTryoutDetails(Number(card.dataset.tryoutCard))
   }))
 
   const filterIds = ['filter-name', 'filter-pos', 'filter-foot', 'filter-city', 'filter-age', 'filter-category']

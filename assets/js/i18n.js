@@ -453,4 +453,17 @@ const ES = {
   "Os convites valem por 7 dias. Peça um link novo a quem convidou você.": "Las invitaciones valen 7 días. Pide un enlace nuevo a quien te invitó.",
   "Link de convite inválido": "Enlace de invitación no válido",
   "Confira se você abriu o endereço inteiro, do jeito que recebeu.": "Verifica que abriste la dirección completa, tal como la recibiste.",
+  // Detalhes da peneira
+  "Sobre a peneira": "Sobre la prueba",
+  "Quem organizou ainda não escreveu mais detalhes. Data, local e vagas estão aqui embaixo.": "Quien organizó todavía no escribió más detalles. Fecha, lugar y cupos están aquí abajo.",
+  "Quando": "Cuándo",
+  "horário de Brasília": "hora de Brasilia",
+  "Horário a confirmar": "Horario a confirmar",
+  "As inscrições fecham na hora em que a peneira começa.": "Las inscripciones cierran a la hora en que empieza la prueba.",
+  "Onde": "Dónde",
+  "Para quem": "Para quién",
+  "Vagas": "Cupos",
+  "Organizada por": "Organizada por",
+  "Sobre a peneira (opcional)": "Sobre la prueba (opcional)",
+  "Ex.: como vai ser a avaliação, o que levar (chuteira, caneleira, água), documentos e a que horas chegar.": "Ej.: cómo será la evaluación, qué llevar (botines, canilleras, agua), documentos y a qué hora llegar.",
 }
