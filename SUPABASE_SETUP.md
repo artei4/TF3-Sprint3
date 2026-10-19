@@ -29,14 +29,15 @@ em tempo real.
    segurança e o tempo real ligados. Pode rodar de novo no futuro sem quebrar nada.
 5. No menu **Authentication → Providers**, confirme que **Email** está habilitado (vem assim
    por padrão). Em **Authentication → Sign In / Providers → Email**, deixe **"Confirm email" ligado**.
-   Motivo: quem vira funcionário é decidido pelo e-mail (tabela `staff_allowlist`). Sem a
-   confirmação, qualquer pessoa poderia criar a conta com um e-mail da lista antes do dono e
-   entrar como funcionário.
-6. Rode também, na ordem, `20261016120000_peneiras.sql`, `20261019120000_seguranca.sql` e
-   `20261020120000_locais.sql`. A de segurança trava a última vaga das peneiras e limita o envio
+   Motivo: as duas contas de teste viram funcionário pelo e-mail (tabela `staff_allowlist`). Sem a
+   confirmação, qualquer pessoa poderia criar a conta com um desses e-mails antes do dono e
+   entrar como funcionário. (Convites não têm esse problema: o link só vale para o e-mail convidado.)
+6. Rode também, na ordem, `20261016120000_peneiras.sql`, `20261019120000_seguranca.sql`,
+   `20261020120000_locais.sql` e `20261021120000_equipe.sql`. A de segurança trava a última vaga das peneiras e limita o envio
    de mensagens a 8 por minuto. A de locais cria o cadastro de locais (aba **Peneiras → Locais**),
    fecha as inscrições no horário de início e guarda quem criou/alterou locais e peneiras na
-   tabela `audit_log` (consulta pelo Table Editor). Nenhuma delas apaga dados. Se rodar de novo
+   tabela `audit_log` (consulta pelo Table Editor). A de equipe cria os convites de funcionário e o
+   papel de administrador (veja abaixo). Nenhuma delas apaga dados. Se rodar de novo
    uma migration antiga, rode as mais novas depois dela.
 7. Pronto. Abra o site normalmente (sem nada extra na URL) — ele detecta o Supabase sozinho.
 
@@ -53,14 +54,21 @@ em tempo real.
 - **Cadastro/login** passam a ser de verdade (senha com Supabase Auth), então **as senhas de
   teste antigas não existem mais no banco** — quem quiser usar as contas demo precisa
   primeiro criar uma conta com aquele e-mail (ou eu posso pré-cadastrar para você).
-- **Quem vira funcionário** é decidido pela tabela `staff_allowlist` (dentro da migração), não
-  mais por e-mail digitado no cadastro. Hoje ela tem `funcionario@academiapele.com` e
-  `treinador@academiapele.com`. Para adicionar outro e-mail de funcionário, rode no SQL
-  Editor:
+- **Quem vira funcionário** é decidido no servidor, nunca pelo navegador. Funcionário novo entra
+  **por convite**: um administrador abre **Meu perfil → Gerenciar equipe → Convidar funcionário**,
+  informa o e-mail e recebe um link (vale 7 dias, só para aquele e-mail, uma vez). O banco guarda
+  só o hash do código. A pessoa abre o link, cria a senha e já entra como funcionário.
+- **Administrador**: a migration de equipe torna `funcionario@academiapele.com` administrador.
+  Administradores convidam, cancelam convites, desativam/reativam funcionários e dão ou tiram o
+  acesso de administrador (ninguém altera a própria conta, então sempre sobra um administrador).
+  Funcionário desativado perde todas as permissões no banco e não consegue mais entrar.
+  Tudo fica em `audit_log` e aparece no **Histórico** da tela de equipe. Para promover outra
+  pessoa direto pelo SQL Editor:
   ```sql
-  insert into public.staff_allowlist (email) values ('novo.funcionario@academiapele.com');
+  update public.profiles set is_admin = true where lower(email) = 'nome@dominio.com' and role = 'staff';
   ```
-  (precisa ser feito **antes** da pessoa criar a conta).
+- A tabela `staff_allowlist` continua só para as duas contas de teste (`funcionario@` e
+  `treinador@academiapele.com`); não precisa adicionar e-mails nela.
 - **CPF, telefone e endereço** ficam numa tabela separada que só o próprio dono enxerga
   (`profile_private`); posição, cidade, perna dominante etc. ficam visíveis para a equipe.
 

@@ -52,6 +52,11 @@ import {
   sendMessage,
   fetchVenues,
   saveVenue,
+  fetchTeam,
+  createStaffInvite,
+  revokeStaffInvite,
+  updateStaff,
+  checkStaffInvite,
 } from './remote.js'
 
 const app = document.querySelector('#app')
@@ -64,7 +69,7 @@ const AVATAR_COLORS = [
 ]
 const LEGACY_EMAIL_DOMAIN = 'academiapelé.com'
 const DEMO_STAFF = [
-  { email: 'funcionario@academiapele.com', name: 'Marina Lopes', position: 'Olheira', phone: '(11) 99999-0000' },
+  { email: 'funcionario@academiapele.com', name: 'Marina Lopes', position: 'Olheira', phone: '(11) 99999-0000', admin: true },
   { email: 'treinador@academiapele.com', name: 'Bruno Martins', position: 'Treinador', phone: '(11) 99999-1111' },
 ]
 
@@ -124,6 +129,7 @@ const state = {
   profile: readStorage('ap_profile', null),
   tryouts: readStorage('ap_tryouts', defaultTryouts),
   venues: readStorage('ap_venues', defaultVenues),
+  invites: readStorage('ap_invites', []),
   reviews: readStorage('ap_reviews', {}),
   notifications: readStorage('ap_notifications', []),
   lastRead: readStorage('ap_lastread', {}),
@@ -199,6 +205,7 @@ function persist() {
     localStorage.setItem('ap_messages', JSON.stringify(state.messages))
     localStorage.setItem('ap_tryouts', JSON.stringify(state.tryouts))
     localStorage.setItem('ap_venues', JSON.stringify(state.venues))
+    localStorage.setItem('ap_invites', JSON.stringify(state.invites))
   }
   localStorage.setItem('ap_favorites', JSON.stringify(state.favorites))
   localStorage.setItem('ap_reviews', JSON.stringify(state.reviews))
@@ -250,6 +257,7 @@ function seedDemoAccounts() {
     }
     const account = state.accounts.find((entry) => entry.email === demo.email)
     if (account?.profile) account.profile.demo = true // contas salvas antes desta versão
+    if (account && account.admin === undefined) account.admin = !!demo.admin
   })
   if (!state.accounts.some((account) => account.email === 'gabriel@academiapele.com')) {
     const profile = { ...defaultProfile, email: 'gabriel@academiapele.com', cpf: '11144477735' }
@@ -582,6 +590,8 @@ function remoteAccount(row) {
     role: row.role,
     athleteId: Number(row.athlete_num),
     uid: row.id,
+    admin: !!row.is_admin,
+    active: row.active !== false,
     profile: { ...(row.data || {}), name: row.name, email: row.email, demo: DEMO_STAFF.some((demo) => demo.email === row.email) },
   }
 }
@@ -589,6 +599,7 @@ function remoteAccount(row) {
 async function hydrateRemote(uid) {
   const own = await fetchOwnProfile(uid)
   if (!own.profile) throw new Error('perfil não encontrado')
+  if (own.profile.active === false) throw new Error('account_disabled')
   const directory = await listDirectory(own.profile.role)
   const ownAccount = remoteAccount(own.profile)
   ownAccount.profile = { ...ownAccount.profile, ...own.private }
@@ -813,6 +824,10 @@ function icon(name, cls = 'size-5') {
     clipboard: '<rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4.5V3h6v1.5M9 10h6M9 14h6M9 18h3"/>',
     sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
     moon: '<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/>',
+    users: '<path d="M16 21a6 6 0 0 0-12 0"/><circle cx="10" cy="8" r="4"/><path d="M22 21a5 5 0 0 0-4-4.9M16 3.1a4 4 0 0 1 0 7.8"/>',
+    copy: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/>',
+    mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+    shield: '<path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/>',
     send: '<path d="M4 12 20 4l-4 16-4-7-8-1Z"/><path d="m12 13 8-9"/>',
   }
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="' + cls + '" aria-hidden="true">' + (paths[name] || '') + '</svg>'
@@ -1339,7 +1354,7 @@ function profilePage() {
     const profile = account?.profile || { name: state.user.name, email: state.user.email, phone: '', position: t('Funcionário'), city: 'São Paulo', state: 'SP' }
     return shell(
       '<div class="page-head"><div><h1 class="page-title">' + escapeHtml(profile.name) + '</h1><p class="page-subtitle">' + t('Dados do funcionário que está conectado.') + '</p></div><button type="button" class="btn-secondary" data-action="logout">' + icon('logout', 'size-4') + ' ' + t('Sair') + '</button></div>' +
-      '<section class="mt-6 grid gap-5 md:grid-cols-2"><aside class="panel"><div class="flex items-center gap-4">' + photoUploader({ name: profile.name, photo: profile.photo, demo: profile.demo, id: profile.email, group: 'staff' }) + '<div><p class="text-xs text-ink-soft">' + t('Funcionário') + '</p><h2 class="mt-1 text-2xl font-bold">' + escapeHtml(profile.position || t('Profissional')) + '</h2><p class="text-sm text-ink-soft">' + escapeHtml(profile.city) + '/' + escapeHtml(profile.state) + '</p></div></div></aside><div class="panel"><h2 class="section-title">' + t('Credenciais de teste') + '</h2><p class="mt-4 text-sm leading-6 text-ink-soft">'+ t('E-mail de teste') + ': funcionario@academiapele.com<br/>' + t('Senha de teste') + ': Academia123!</p><button type="button" class="btn-primary mt-5" data-route="athletes">'+ t('Ir para o banco de atletas') + ' ' + icon('arrow', 'size-4') + '</button></div></section>',
+      '<section class="mt-6 grid gap-5 md:grid-cols-2"><aside class="panel"><div class="flex items-center gap-4">' + photoUploader({ name: profile.name, photo: profile.photo, demo: profile.demo, id: profile.email, group: 'staff' }) + '<div><p class="text-xs text-ink-soft">' + t('Funcionário') + '</p><h2 class="mt-1 text-2xl font-bold">' + escapeHtml(profile.position || t('Profissional')) + '</h2>' + (profile.city ? '<p class="text-sm text-ink-soft">' + escapeHtml(profile.city) + '/' + escapeHtml(profile.state || '') + '</p>' : '') + (isAdmin() ? '<p class="mt-2">' + adminTag() + '</p>' : '') + '</div></div></aside><div class="panel"><h2 class="section-title">' + t('Credenciais de teste') + '</h2><p class="mt-4 text-sm leading-6 text-ink-soft">'+ t('E-mail de teste') + ': funcionario@academiapele.com<br/>' + t('Senha de teste') + ': Academia123!</p><button type="button" class="btn-primary mt-5" data-route="athletes">'+ t('Ir para o banco de atletas') + ' ' + icon('arrow', 'size-4') + '</button></div>' + teamProfilePanel() + '</section>',
       { active: 'dashboard', role: 'staff' },
     )
   }
@@ -1776,6 +1791,424 @@ function toggleVenue(id) {
     confirmLabel: t('Desativar local'),
     onConfirm: apply,
   })
+}
+
+// =====================================================================================
+// Equipe: funcionários entram por convite; administradores controlam os acessos.
+// Referências: convites de organização do GitHub (vencem em 7 dias; lista de pendentes com
+// "cancelar" e "reenviar"), token do GitHub mostrado uma vez só e o "copiar link de convite" do Slack.
+// No Supabase quem decide é o banco (migration 20261021120000_equipe.sql); aqui é só a tela.
+// =====================================================================================
+const INVITE_DAYS = 7
+const myAccount = () => state.accounts.find((account) => account.email === state.user?.email)
+const isAdmin = () => state.user?.role === 'staff' && !!myAccount()?.admin
+const adminTag = () => '<span class="tag admin-tag">' + icon('shield', 'size-3.5') + t('Administrador') + '</span>'
+const inviteStatus = (invite, now = Date.now()) => invite.usedAt ? 'used' : invite.revokedAt ? 'revoked' : Date.parse(invite.expiresAt) <= now ? 'expired' : 'valid'
+const inviteLink = (code) => location.origin + location.pathname + location.search + '#/convite/' + code
+const newInviteCode = () => (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, '')
+const fmtWhen = (iso) => new Date(iso).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', ' ' + t('às'))
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+// O código só existe no link; o que fica guardado é o hash (igual ao servidor).
+async function sha256Hex(text) {
+  const bytes = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text.trim())))
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
+let teamCache = null
+let teamStatus = null
+let justInvited = null
+async function loadTeam() {
+  const data = await fetchTeam()
+  const nameOf = (id) => data.staff.find((profile) => profile.id === id)?.name || ''
+  teamCache = {
+    staff: data.staff.map((row) => ({ id: row.id, email: row.email, name: row.name, position: row.data?.position || '', admin: row.is_admin, active: row.active, photo: row.data?.photo, demo: DEMO_STAFF.some((demo) => demo.email === row.email) })),
+    invites: data.invites.map((row) => ({ id: Number(row.id), email: row.email, admin: row.is_admin, createdBy: nameOf(row.created_by), createdAt: row.created_at, expiresAt: row.expires_at, usedAt: row.used_at, usedBy: nameOf(row.used_by), revokedAt: row.revoked_at })),
+    log: data.log.map((row) => ({ at: row.created_at, actor: nameOf(row.actor_id), action: row.action, entity: row.entity, details: row.details || {} })),
+  }
+}
+
+function teamData() {
+  if (remote.enabled) return teamCache
+  const nameOf = (email) => state.accounts.find((account) => account.email === email)?.profile?.name || email || ''
+  return {
+    staff: state.accounts.filter((account) => account.role === 'staff').map((account) => ({ id: account.email, email: account.email, name: account.profile?.name || account.email, position: account.profile?.position || '', admin: !!account.admin, active: account.active !== false, photo: account.profile?.photo, demo: account.profile?.demo })),
+    invites: state.invites.slice().reverse().map((invite) => ({ ...invite, createdBy: nameOf(invite.createdBy), usedBy: nameOf(invite.usedBy) })),
+    log: readStorage('ap_audit', []).filter((entry) => ['staff', 'staff_invite'].includes(entry.entity)).reverse().slice(0, 20)
+      .map((entry) => ({ at: entry.at, actor: nameOf(entry.actor), action: entry.action, entity: entry.entity, details: entry.details || {} })),
+  }
+}
+
+// ---------- ações (modo local espelha as regras do servidor) ----------
+async function inviteStaff(email, admin) {
+  if (remote.enabled) {
+    const { invite, error } = await createStaffInvite(email, admin)
+    return error ? { error: describeError(error) } : { id: Number(invite.id), code: invite.code, expiresAt: invite.expires_at }
+  }
+  if (!isAdmin()) return { error: t('Só administradores podem fazer isso.') }
+  if (state.accounts.some((account) => account.email === email)) return { error: t('Este e-mail já tem uma conta na plataforma.') }
+  const now = new Date()
+  state.invites.filter((invite) => invite.email === email && !invite.usedAt && !invite.revokedAt).forEach((invite) => { invite.revokedAt = now.toISOString(); invite.revokedBy = state.user.email })
+  const code = newInviteCode()
+  const invite = { id: Date.now(), email, codeHash: await sha256Hex(code), admin, createdBy: state.user.email, createdAt: now.toISOString(), expiresAt: new Date(now.getTime() + INVITE_DAYS * 864e5).toISOString() }
+  state.invites.push(invite)
+  logChange('create', 'staff_invite', invite.id, { email, is_admin: admin })
+  persist()
+  return { id: invite.id, code, expiresAt: invite.expiresAt }
+}
+
+async function revokeInvite(id) {
+  if (remote.enabled) {
+    const error = await revokeStaffInvite(id)
+    return error ? describeError(error) : null
+  }
+  const invite = state.invites.find((item) => item.id === id)
+  if (!isAdmin()) return t('Só administradores podem fazer isso.')
+  if (!invite || invite.usedAt || invite.revokedAt) return t('Este convite já foi usado ou cancelado.')
+  invite.revokedAt = new Date().toISOString()
+  invite.revokedBy = state.user.email
+  logChange('revoke', 'staff_invite', id, { email: invite.email })
+  persist()
+  return null
+}
+
+async function saveMember(member, active, admin) {
+  if (remote.enabled) {
+    const error = await updateStaff(member.id, active, admin)
+    return error ? describeError(error) : null
+  }
+  const account = state.accounts.find((item) => item.email === member.email && item.role === 'staff')
+  if (!isAdmin()) return t('Só administradores podem fazer isso.')
+  if (!account) return t('Esta conta não é de funcionário.')
+  if (account.email === state.user.email) return t('Você não pode alterar a própria conta. Peça a outro administrador.')
+  const wasActive = account.active !== false
+  const details = { email: account.email }
+  if (wasActive !== active) details.active = { de: wasActive, para: active }
+  if (!!account.admin !== admin) details.is_admin = { de: !!account.admin, para: admin }
+  account.active = active
+  account.admin = admin
+  logChange(wasActive && !active ? 'deactivate' : !wasActive && active ? 'reactivate' : 'update', 'staff', account.email, details)
+  persist()
+  return null
+}
+
+async function refreshTeam() {
+  if (remote.enabled) {
+    try { await loadTeam() } catch (error) { toast(describeError(error), 'error') }
+  }
+  render()
+}
+
+// ---------- telas ----------
+function teamProfilePanel() {
+  return '<div class="panel md:col-span-2 flex flex-wrap items-center gap-4"><span class="venue-pin" aria-hidden="true">' + icon('users', 'size-5') + '</span><div class="min-w-0 flex-1"><h2 class="section-title !mt-0">' + t('Equipe') + '</h2>' +
+    (isAdmin()
+      ? '<p class="mt-1 text-sm text-ink-soft">' + t('Você é administrador: convide funcionários e decida quem gerencia a equipe.') + '</p></div><button type="button" class="btn-primary" data-route="team">' + t('Gerenciar equipe') + ' ' + icon('arrow', 'size-4') + '</button>'
+      : '<p class="mt-1 text-sm text-ink-soft">' + t('Novos funcionários entram por convite de um administrador da equipe.') + '</p></div>') + '</div>'
+}
+
+function teamPage() {
+  const head = '<div class="page-head"><div><h1 class="page-title">' + t('Equipe') + '</h1><p class="page-subtitle">' + t('Convide funcionários e decida quem é administrador. Contas de funcionário só são criadas por convite.') + '</p></div>' +
+    '<button type="button" class="btn-primary" data-action="invite-staff">' + icon('plus', 'size-4') + ' ' + t('Convidar funcionário') + '</button></div>'
+  const data = teamData()
+  if (!data) {
+    if (teamStatus === 'error') return shell(head + '<div class="empty-state mt-6"><strong>' + t('Não foi possível carregar a equipe') + '</strong><button type="button" class="btn-secondary mt-2" data-action="retry-team">' + t('Tentar de novo') + '</button></div>', { active: 'team', role: 'staff' })
+    if (teamStatus !== 'loading') {
+      teamStatus = 'loading'
+      loadTeam().then(() => { teamStatus = null }, (error) => { console.warn('[Supabase] equipe:', error); teamStatus = 'error' }).then(() => { if (currentRoute() === 'team') render() })
+    }
+    return shell(head + '<div class="mt-10">' + ballLoader(t('Carregando a equipe…')) + '</div>', { active: 'team', role: 'staff' })
+  }
+  const members = data.staff.slice().sort((a, b) => Number(b.active) - Number(a.active) || Number(b.admin) - Number(a.admin) || a.name.localeCompare(b.name, 'pt'))
+  const pending = data.invites.filter((invite) => inviteStatus(invite) === 'valid')
+  const others = data.invites.filter((invite) => inviteStatus(invite) !== 'valid').slice(0, 6)
+  const html = shell(head +
+    '<section class="team-grid mt-6">' +
+    '<div class="panel"><h2 class="section-title !mt-0">' + t('Funcionários') + ' <span class="tab-count">' + members.filter((member) => member.active).length + '</span></h2>' +
+    '<ul class="team-list mt-3">' + members.map(memberRow).join('') + '</ul></div>' +
+    '<div class="grid gap-5">' +
+    '<div class="panel"><h2 class="section-title !mt-0">' + t('Convites') + (pending.length ? ' <span class="tab-count">' + pending.length + '</span>' : '') + '</h2>' +
+    (data.invites.length
+      ? '<ul class="team-list mt-3">' + pending.concat(others).map(inviteRow).join('') + '</ul>'
+      : '<div class="empty-state mt-4">' + icon('mail', 'size-6 text-brand') + '<strong>' + t('Nenhum convite ainda') + '</strong><span class="text-sm">' + t('O link vale por 7 dias e só funciona para o e-mail convidado.') + '</span></div>') + '</div>' +
+    '<div class="panel"><h2 class="section-title !mt-0">' + t('Histórico') + '</h2>' +
+    (data.log.length
+      ? '<ol class="audit-list mt-3">' + data.log.map(auditLine).join('') + '</ol>'
+      : '<p class="mt-3 text-sm text-ink-soft">' + t('Convites e mudanças de acesso aparecem aqui, com quem fez e quando.') + '</p>') + '</div>' +
+    '</div></section>', { active: 'team', role: 'staff' })
+  justInvited = null
+  return html
+}
+
+function memberRow(member) {
+  const me = member.email === state.user?.email
+  const name = escapeHtml(member.name)
+  return '<li class="team-row' + (member.active ? '' : ' is-inactive') + '" data-member-row="' + escapeHtml(member.email) + '">' +
+    personAvatar({ name: member.name, photo: member.photo, demo: member.demo, id: member.email, group: 'staff' }) +
+    '<div class="min-w-0 flex-1"><p class="truncate font-semibold">' + name + (me ? ' <span class="text-xs font-normal text-ink-soft">(' + t('você') + ')</span>' : '') + '</p>' +
+    '<p class="truncate text-xs text-ink-soft">' + (member.position ? escapeHtml(member.position) + ' · ' : '') + escapeHtml(member.email) + '</p>' +
+    (member.admin || !member.active ? '<p class="mt-1.5 flex flex-wrap gap-1.5">' + (member.admin ? adminTag() : '') + (member.active ? '' : '<span class="tag">' + t('Desativado') + '</span>') + '</p>' : '') + '</div>' +
+    (me ? '' : '<div class="team-actions">' +
+      (member.active ? '<button type="button" class="btn-ghost" data-member-admin="' + escapeHtml(member.email) + '">' + (member.admin ? t('Remover administrador') : t('Tornar administrador')) + '</button>' : '') +
+      '<button type="button" class="btn-ghost' + (member.active ? ' text-danger' : '') + '" data-member-active="' + escapeHtml(member.email) + '">' + (member.active ? t('Desativar') : t('Reativar')) + '</button></div>') +
+    '</li>'
+}
+
+function inviteRow(invite) {
+  const status = inviteStatus(invite)
+  const daysLeft = Math.floor((Date.parse(invite.expiresAt) - Date.now()) / 864e5)
+  const line = {
+    valid: (invite.createdBy ? t('Convidado por') + ' ' + escapeHtml(invite.createdBy) + ' · ' : '') + (daysLeft >= 1 ? t('vence em') + ' ' + plural(daysLeft, t('dia'), t('dias')) : t('vence hoje')) + ' (' + fmtWhen(invite.expiresAt) + ')',
+    used: t('Aceito') + (invite.usedBy ? ' ' + t('por') + ' ' + escapeHtml(invite.usedBy) : '') + ' ' + t('em') + ' ' + fmtWhen(invite.usedAt),
+    revoked: t('Cancelado em') + ' ' + fmtWhen(invite.revokedAt),
+    expired: t('Venceu em') + ' ' + fmtWhen(invite.expiresAt),
+  }[status]
+  const chip = { valid: '<span class="tag warn">' + t('Pendente') + '</span>', used: '<span class="tag green">' + t('Aceito') + '</span>', revoked: '<span class="tag ghost">' + t('Cancelado') + '</span>', expired: '<span class="tag ghost">' + t('Vencido') + '</span>' }[status]
+  return '<li class="team-row' + (status === 'valid' ? '' : ' is-muted') + (invite.id === justInvited ? ' is-new' : '') + '" data-invite-row="' + invite.id + '">' +
+    '<span class="invite-icon" aria-hidden="true">' + icon('mail', 'size-4') + '</span>' +
+    '<div class="min-w-0 flex-1"><p class="flex flex-wrap items-center gap-1.5"><span class="truncate font-semibold">' + escapeHtml(invite.email) + '</span>' + chip + (invite.admin ? adminTag() : '') + '</p>' +
+    '<p class="mt-0.5 text-xs text-ink-soft">' + line + '</p></div>' +
+    (status === 'valid' || status === 'expired' ? '<div class="team-actions">' +
+      '<button type="button" class="btn-ghost" data-reinvite="' + invite.id + '">' + t('Gerar novo link') + '</button>' +
+      (status === 'valid' ? '<button type="button" class="btn-ghost text-danger" data-revoke-invite="' + invite.id + '">' + t('Cancelar') + '</button>' : '') + '</div>' : '') +
+    '</li>'
+}
+
+function auditLine(entry) {
+  const who = escapeHtml(entry.details.email || '')
+  let text
+  if (entry.entity === 'staff_invite') {
+    text = { create: t('convidou') + ' ' + who + (entry.details.is_admin ? ' ' + t('como administrador') : ''), revoke: t('cancelou o convite de') + ' ' + who, accept: t('aceitou o convite e entrou na equipe') }[entry.action] || escapeHtml(entry.action)
+  } else if (entry.action === 'deactivate') text = t('desativou') + ' ' + who
+  else if (entry.action === 'reactivate') text = t('reativou') + ' ' + who
+  else if (entry.details.is_admin) text = (entry.details.is_admin.para ? t('deu acesso de administrador a') : t('removeu o acesso de administrador de')) + ' ' + who
+  else text = t('alterou') + ' ' + who
+  return '<li><time class="tabular text-xs text-ink-soft" datetime="' + escapeHtml(entry.at) + '">' + fmtWhen(entry.at) + '</time><span><strong>' + escapeHtml(entry.actor || t('Alguém')) + '</strong> ' + text + '</span></li>'
+}
+
+function openInviteModal(presetEmail = '', presetAdmin = false) {
+  if (!isAdmin()) return toast(t('Só administradores podem fazer isso.'), 'error')
+  const wrapper = document.createElement('div')
+  wrapper.className = 'fixed inset-0 z-[95] grid place-items-center bg-black/75 p-4 backdrop-blur-md'
+  wrapper.innerHTML =
+    '<div class="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-card surface surface--raised p-6 shadow-2xl sm:p-8" role="dialog" aria-modal="true" aria-labelledby="invite-title" data-lenis-prevent>' +
+    '<div class="flex items-start justify-between gap-4"><div><h2 id="invite-title" class="text-2xl font-bold">' + t('Convidar funcionário') + '</h2><p class="mt-1 text-sm text-ink-soft">' + t('Você recebe um link para enviar. Ele só funciona para este e-mail e vence em 7 dias.') + '</p></div><button type="button" class="icon-button" aria-label="' + t('Fechar') + '" data-close>' + icon('close') + '</button></div>' +
+    '<form id="invite-form" class="mt-6 grid gap-4" novalidate>' + input(t('E-mail do funcionário'), 'invite-email', presetEmail, 'email', true) +
+    (presetEmail ? '<p class="fit-line fit-no !mt-0">' + icon('info', 'size-4 shrink-0') + t('Um link novo substitui o anterior, que deixa de funcionar.') + '</p>' : '') +
+    '<label class="check-row"><input type="checkbox" id="invite-admin"' + (presetAdmin ? ' checked' : '') + '/><span><strong>' + t('Acesso de administrador') + '</strong><small>' + t('Também pode convidar, desativar funcionários e dar acesso de administrador.') + '</small></span></label>' +
+    '<div class="flex justify-end gap-2"><button type="button" class="btn-secondary" data-close>' + t('Cancelar') + '</button><button class="btn-primary" type="submit">' + t('Gerar convite') + ' ' + icon('arrow', 'size-4') + '</button></div></form></div>'
+  document.body.appendChild(wrapper)
+  const dialog = wrapper.querySelector('[role="dialog"]')
+  const close = () => wrapper.remove()
+  wrapper.addEventListener('click', (event) => { if (event.target.closest('[data-close]')) close() })
+  const form = wrapper.querySelector('#invite-form')
+  form.addEventListener('input', () => setFieldError('invite-email', ''))
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault()
+    const email = normalizeEmail(form.querySelector('#invite-email').value)
+    const admin = form.querySelector('#invite-admin').checked
+    const known = (teamData()?.staff || []).map((member) => member.email).concat(state.accounts.map((account) => account.email))
+    const problem = !EMAIL_RE.test(email) ? t('Informe um e-mail válido.') : known.includes(email) ? t('Este e-mail já tem uma conta na plataforma.') : ''
+    if (problem) {
+      setFieldError('invite-email', problem)
+      return form.querySelector('#invite-email').focus()
+    }
+    const submit = form.querySelector('[type="submit"]')
+    submit.setAttribute('aria-busy', 'true')
+    const result = await inviteStaff(email, admin)
+    if (result.error) {
+      submit.removeAttribute('aria-busy')
+      setFieldError('invite-email', result.error)
+      return form.querySelector('#invite-email').focus()
+    }
+    const link = inviteLink(result.code)
+    const until = fmtWhen(result.expiresAt)
+    const mail = 'mailto:' + encodeURIComponent(email) + '?subject=' + encodeURIComponent(t('Convite para a equipe TIER ZERO · Pelé Academia')) +
+      '&body=' + encodeURIComponent(t('Olá! Você foi convidado para a equipe de funcionários da plataforma. Crie sua conta por este link:') + '\n\n' + link + '\n\n' + t('O link vale até') + ' ' + until + ' ' + t('e só funciona para este e-mail.'))
+    // Mesmo modal, segundo passo: o link aparece uma vez só (o servidor guarda apenas o hash).
+    dialog.innerHTML =
+      '<div class="invite-done"><span class="invite-done-icon" aria-hidden="true">' + icon('check', 'size-6') + '</span>' +
+      '<h2 id="invite-title" class="mt-4 text-2xl font-bold">' + t('Convite criado') + '</h2>' +
+      '<p class="mt-2 text-sm text-ink-soft">' + t('Envie este link para') + ' <strong class="text-chalk">' + escapeHtml(email) + '</strong>' + (admin ? ' (' + t('administrador') + ')' : '') + '. ' + t('Ele vale até') + ' ' + until + '.</p>' +
+      '<div class="invite-link mt-5"><input id="invite-link" class="field" readonly value="' + escapeHtml(link) + '" aria-label="' + t('Link do convite') + '"/><button type="button" class="btn-primary" data-copy-invite>' + icon('copy', 'size-4') + ' <span>' + t('Copiar link') + '</span></button></div>' +
+      '<p class="fit-line fit-no">' + icon('info', 'size-4 shrink-0') + t('Por segurança, o link aparece só agora. Se perder, gere um novo: o anterior deixa de funcionar.') + '</p>' +
+      '<div class="mt-6 flex flex-wrap justify-end gap-2"><a class="btn-secondary" href="' + escapeHtml(mail) + '">' + icon('mail', 'size-4') + ' ' + t('Enviar por e-mail') + '</a><button type="button" class="btn-primary" data-close>' + t('Concluir') + '</button></div></div>'
+    const copy = dialog.querySelector('[data-copy-invite]')
+    copy.focus()
+    copy.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(link)
+        copy.querySelector('span').textContent = t('Copiado')
+        copy.classList.remove('is-copied')
+        void copy.offsetWidth
+        copy.classList.add('is-copied')
+      } catch {
+        dialog.querySelector('#invite-link').select()
+        toast(t('Não deu para copiar sozinho: o link está selecionado, use Ctrl+C.'), 'error')
+      }
+    })
+    justInvited = result.id
+    // A lista atrás do modal é atualizada quando ele fechar (botão, Esc ou clique fora).
+    const watch = new MutationObserver(() => {
+      if (wrapper.isConnected) return
+      watch.disconnect()
+      if (currentRoute() === 'team') refreshTeam()
+    })
+    watch.observe(document.body, { childList: true })
+  })
+}
+
+function confirmRevokeInvite(id) {
+  const invite = teamData()?.invites.find((item) => item.id === id)
+  if (!invite) return
+  confirmDialog({
+    eyebrow: t('Convite'),
+    title: t('Cancelar o convite de') + ' ' + invite.email + '?',
+    message: t('O link deixa de funcionar na hora. Você pode convidar de novo depois.'),
+    confirmLabel: t('Cancelar convite'),
+    onConfirm: async () => {
+      const error = await revokeInvite(id)
+      if (error) return toast(error, 'error')
+      document.querySelector('[data-invite-row="' + id + '"]')?.classList.add('is-muted')
+      toast(t('Convite cancelado.'))
+      setTimeout(refreshTeam, 420)
+    },
+  })
+}
+
+function confirmMemberChange(button) {
+  const email = button.dataset.memberAdmin || button.dataset.memberActive
+  const member = teamData()?.staff.find((item) => item.email === email)
+  if (!member) return
+  const toggleAdmin = 'memberAdmin' in button.dataset
+  const active = toggleAdmin ? member.active : !member.active
+  // Desativar também tira o acesso de administrador: quem volta, volta como funcionário comum.
+  const admin = toggleAdmin ? !member.admin : active && member.admin
+  const apply = async () => {
+    const error = await saveMember(member, active, admin)
+    if (error) return toast(error, 'error')
+    if (!toggleAdmin) document.querySelector('[data-member-row="' + CSS.escape(email) + '"]')?.classList.toggle('is-inactive', !active)
+    toast(toggleAdmin ? (admin ? member.name + ' ' + t('agora é administrador.') : member.name + ' ' + t('não é mais administrador.')) : (active ? member.name + ' ' + t('foi reativado.') : member.name + ' ' + t('foi desativado.')))
+    setTimeout(refreshTeam, toggleAdmin ? 0 : 420)
+  }
+  if (!toggleAdmin && active) return apply()
+  confirmDialog({
+    eyebrow: t('Equipe'),
+    title: toggleAdmin ? (admin ? t('Dar acesso de administrador a') + ' ' + member.name + '?' : t('Remover o acesso de administrador de') + ' ' + member.name + '?') : t('Desativar') + ' ' + member.name + '?',
+    message: toggleAdmin
+      ? (admin ? member.name + ' ' + t('poderá convidar, desativar funcionários e mudar acessos, inclusive o seu.') : member.name + ' ' + t('continua como funcionário, mas não gerencia mais a equipe.'))
+      : member.name + ' ' + t('não consegue mais entrar como funcionário. As avaliações e peneiras que criou continuam. Você pode reativar depois.') + (member.admin ? ' ' + t('O acesso de administrador é removido.') : ''),
+    confirmLabel: toggleAdmin ? (admin ? t('Dar acesso') : t('Remover acesso')) : t('Desativar conta'),
+    onConfirm: apply,
+  })
+}
+
+// ---------- aceitar convite (#/convite/<código>) ----------
+function invitePage() {
+  return '<main id="conteudo" tabindex="-1" class="outline-none grid min-h-screen place-items-center bg-night px-4 py-8 text-chalk"><div class="w-full max-w-lg rounded-card surface surface--raised p-6 sm:p-10">' +
+    '<div class="mb-6">' + brandLockup(32, false) + '</div><div data-invite-root aria-live="polite">' + ballLoader(t('Conferindo o convite…')) + '</div></div></main>'
+}
+
+const INVITE_PROBLEMS = {
+  used: ['Este convite já foi usado', 'Se a conta é sua, entre com o e-mail e a senha na aba Funcionário.'],
+  revoked: ['Este convite foi cancelado', 'Peça um link novo a quem convidou você.'],
+  expired: ['Este convite venceu', 'Os convites valem por 7 dias. Peça um link novo a quem convidou você.'],
+  missing: ['Link de convite inválido', 'Confira se você abriu o endereço inteiro, do jeito que recebeu.'],
+}
+function inviteProblem(status) {
+  const [title, text] = INVITE_PROBLEMS[status] || INVITE_PROBLEMS.missing
+  return '<div class="empty-state">' + icon('info', 'size-6 text-brand') + '<strong>' + t(title) + '</strong><span class="text-sm">' + t(text) + '</span><button type="button" class="btn-secondary mt-2" data-invite-login>' + t('Ir para o login') + '</button></div>'
+}
+
+async function findInvite(code) {
+  if (remote.enabled) {
+    const row = await checkStaffInvite(code)
+    return row && { email: row.email, status: row.status, expiresAt: row.expires_at, admin: row.is_admin, invitedBy: row.invited_by }
+  }
+  const hash = await sha256Hex(code)
+  const invite = state.invites.find((item) => item.codeHash === hash)
+  return invite && { local: invite, email: invite.email, status: inviteStatus(invite), expiresAt: invite.expiresAt, admin: invite.admin, invitedBy: state.accounts.find((account) => account.email === invite.createdBy)?.profile?.name || '' }
+}
+
+async function loadInvitePage(code) {
+  const root = document.querySelector('[data-invite-root]')
+  let invite = null
+  try { invite = /^[0-9a-f]{64}$/.test(code) ? await findInvite(code) : null } catch (error) { console.warn('[convite]', error) }
+  if (!root.isConnected) return
+  root.addEventListener('click', (event) => { if (event.target.closest('[data-invite-login]')) go('login') })
+  if (!invite || invite.status !== 'valid') {
+    root.innerHTML = inviteProblem(invite?.status)
+    return
+  }
+  root.innerHTML = '<span class="eyebrow">' + t('Convite para a equipe') + '</span><h1 class="mt-2 text-3xl font-bold">' + t('Crie sua conta de funcionário') + '</h1>' +
+    '<p class="mt-3 text-sm leading-6 text-ink-soft">' + (invite.invitedBy ? escapeHtml(invite.invitedBy) + ' ' + t('convidou você') : t('Você foi convidado')) + ' ' + t('para entrar como funcionário') + (invite.admin ? ' (' + t('administrador') + ')' : '') + '. ' + t('O convite vale até') + ' ' + fmtWhen(invite.expiresAt) + '.</p>' +
+    '<form id="invite-accept-form" class="mt-6 grid gap-4" novalidate>' +
+    input(t('Nome completo'), 'inv-name', '', 'text', true) + input(t('Cargo'), 'inv-position', '', 'text', true) +
+    input(t('E-mail'), 'inv-email', invite.email, 'email', true, false, true) +
+    input(t('Senha'), 'inv-password', '', 'password', true) + input(t('Confirmar senha'), 'inv-confirm', '', 'password', true) +
+    '<p id="inv-feedback" class="hidden rounded-2xl border px-4 py-3 text-sm" role="alert"></p>' +
+    '<button class="btn-primary w-full" type="submit">' + t('Criar conta de funcionário') + ' ' + icon('check', 'size-4') + '</button></form>'
+  root.querySelector('#inv-position').placeholder = t('Ex.: Treinador, Olheira, Preparador físico')
+  root.querySelector('#inv-name').focus()
+  const form = root.querySelector('#invite-accept-form')
+  form.addEventListener('input', (event) => { if (event.target.id) setFieldError(event.target.id, '') })
+  form.addEventListener('submit', (event) => {
+    event.preventDefault()
+    safely(acceptInvite(code, invite, form))
+  })
+}
+
+async function acceptInvite(code, invite, form) {
+  const value = (id) => form.querySelector('#' + id).value.trim()
+  const name = value('inv-name')
+  const position = value('inv-position')
+  const password = form.querySelector('#inv-password').value
+  const errors = [
+    ['inv-name', name.length < 3 ? t('Informe o nome completo.') : ''],
+    ['inv-position', position.length < 2 || position.length > 60 ? t('Informe o cargo (até 60 caracteres).') : ''],
+    ['inv-password', password.length < 6 ? t('Use pelo menos 6 caracteres.') : ''],
+    ['inv-confirm', form.querySelector('#inv-confirm').value !== password ? t('As senhas não coincidem.') : ''],
+  ]
+  errors.forEach(([id, message]) => setFieldError(id, message))
+  const first = errors.find(([, message]) => message)
+  if (first) return form.querySelector('#' + first[0]).focus()
+  const submit = form.querySelector('[type="submit"]')
+  submit.setAttribute('aria-busy', 'true')
+
+  if (remote.enabled) {
+    const result = await remoteSignUp({ email: invite.email, password, name, publicData: { position }, invite: code })
+    if (result.error) {
+      submit.removeAttribute('aria-busy')
+      // O servidor recusa o convite sem dizer o motivo na criação da conta: confere de novo para explicar.
+      const again = await findInvite(code).catch(() => null)
+      return showFeedback('inv-feedback', again && again.status !== 'valid' ? t(INVITE_PROBLEMS[again.status][0]) + '. ' + t(INVITE_PROBLEMS[again.status][1]) : describeError(result.error), true)
+    }
+    if (!result.session) {
+      form.closest('[data-invite-root]').innerHTML = '<div class="empty-state">' + icon('mail', 'size-6 text-brand') + '<strong>' + t('Conta criada! Falta confirmar o e-mail') + '</strong><span class="text-sm">' + t('Abra o link que enviamos para') + ' ' + escapeHtml(invite.email) + ' ' + t('e depois entre na aba Funcionário.') + '</span><button type="button" class="btn-secondary mt-2" data-invite-login>' + t('Ir para o login') + '</button></div>'
+      return
+    }
+    await hydrateRemote(result.session.user.id)
+  } else {
+    const current = await findInvite(code)
+    if (!current || current.status !== 'valid') {
+      submit.removeAttribute('aria-busy')
+      return showFeedback('inv-feedback', t(INVITE_PROBLEMS[current?.status || 'missing'][0]) + '.', true)
+    }
+    if (state.accounts.some((account) => account.email === invite.email)) {
+      submit.removeAttribute('aria-busy')
+      return showFeedback('inv-feedback', t('Este e-mail já tem uma conta na plataforma.'), true)
+    }
+    state.accounts.push({ email: invite.email, password, role: 'staff', admin: !!current.admin, active: true, profile: { name, email: invite.email, position } })
+    current.local.usedAt = new Date().toISOString()
+    current.local.usedBy = invite.email
+    state.user = { name, email: invite.email, role: 'staff' }
+    state.profile = null
+    logChange('accept', 'staff_invite', current.local.id, { email: invite.email, is_admin: !!current.admin })
+    notify(current.local.createdBy, 'Convite aceito', name + ' entrou na equipe.')
+  }
+  persist()
+  go('dashboard')
+  toast(t('Conta de funcionário criada. Boas-vindas à equipe!'))
 }
 
 function messagesPage() {
@@ -2843,6 +3276,7 @@ async function loginAccount() {
     return showFeedback(errorId, 'Esta conta é de ' + (anyRole.role === 'staff' ? 'funcionário' : 'jogador') + '. Selecione a aba correta acima.', true)
   }
   const account = state.accounts.find((entry) => entry.email === email && entry.role === role)
+  if (account && account.password === password && account.active === false) return showFeedback(errorId, t('Esta conta de funcionário foi desativada. Fale com um administrador.'), true)
   if (!account || account.password !== password) {
     return showFeedback(errorId, role === 'staff'
       ? 'Funcionário não encontrado ou senha incorreta. Use a conta demo exibida abaixo.'
@@ -2979,6 +3413,14 @@ function bind() {
   }))
 
   document.querySelectorAll('[data-action="openTryout"]').forEach((button) => button.addEventListener('click', openTryoutModal))
+  document.querySelectorAll('[data-action="invite-staff"]').forEach((button) => button.addEventListener('click', () => openInviteModal()))
+  document.querySelectorAll('[data-action="retry-team"]').forEach((button) => button.addEventListener('click', () => { teamStatus = null; render() }))
+  document.querySelectorAll('[data-reinvite]').forEach((button) => button.addEventListener('click', () => {
+    const invite = teamData()?.invites.find((item) => item.id === Number(button.dataset.reinvite))
+    if (invite) openInviteModal(invite.email, invite.admin)
+  }))
+  document.querySelectorAll('[data-revoke-invite]').forEach((button) => button.addEventListener('click', () => confirmRevokeInvite(Number(button.dataset.revokeInvite))))
+  document.querySelectorAll('[data-member-admin], [data-member-active]').forEach((button) => button.addEventListener('click', () => confirmMemberChange(button)))
   document.querySelectorAll('[data-action="withdraw"]').forEach((button) => button.addEventListener('click', () => confirmWithdraw(Number(button.dataset.id))))
   document.querySelectorAll('[data-action="cancel-tryout"]').forEach((button) => button.addEventListener('click', () => openCancelTryoutModal(Number(button.dataset.id))))
   document.querySelectorAll('[data-action="view-enrolled"]').forEach((button) => button.addEventListener('click', () => openEnrolledModal(Number(button.dataset.id))))
@@ -3128,8 +3570,18 @@ function render() {
     }, isNew)
     return
   }
-  if (!state.user && !['login', 'register', 'reset-password'].includes(route)) {
+  const [routeBase, routeArg = ''] = route.split('/')
+  if (!state.user && !['login', 'register', 'reset-password', 'convite'].includes(routeBase)) {
     go('login')
+    return
+  }
+  if (state.user && routeBase === 'convite') {
+    go('dashboard')
+    setTimeout(() => toast(t('Você já está conectado. Saia da conta para aceitar o convite.'), 'error'), 300)
+    return
+  }
+  if (route === 'team' && !isAdmin()) {
+    go('dashboard')
     return
   }
   if (state.user && ['login', 'register'].includes(route) && !passwordRecovery) {
@@ -3150,6 +3602,8 @@ function render() {
   else if (route === 'profile') view = profilePage()
   else if (route === 'tryouts') view = tryoutsPage()
   else if (route === 'messages') view = messagesPage()
+  else if (route === 'team') view = teamPage()
+  else if (routeBase === 'convite') view = invitePage()
   else view = dashboard(state.user.role)
 
   const isNew = route !== lastRoute
@@ -3157,6 +3611,7 @@ function render() {
   paintScreen(() => {
     app.innerHTML = view
     bind()
+    if (routeBase === 'convite') loadInvitePage(routeArg)
     if (pushChatEntry) history.pushState({ apChat: true }, '')
     document.body.classList.toggle('chat-open', route === 'messages' && mobileChatOpen)
     updateMessageBadge()
@@ -3173,6 +3628,7 @@ function reloadSharedState() {
   if (!remote.enabled) {
     state.tryouts = readStorage('ap_tryouts', state.tryouts)
     state.venues = readStorage('ap_venues', state.venues)
+    state.invites = readStorage('ap_invites', state.invites)
     state.messages = readStorage('ap_messages', state.messages)
   }
   state.notifications = readStorage('ap_notifications', state.notifications)
@@ -3315,11 +3771,16 @@ async function boot() {
       if (session) await hydrateRemote(session.uid)
     } catch (error) {
       console.warn('[Supabase] não foi possível restaurar a sessão:', error)
-      disableRemote()
-      state.user = null
-      state.profile = null
-      state.accounts = readStorage('ap_accounts', state.accounts)
-      state.messages = readStorage('ap_messages', state.messages)
+      if (String(error?.message).includes('account_disabled')) {
+        await clearRemoteSession()
+        setTimeout(() => toast(describeError(error), 'error'), 600)
+      } else {
+        disableRemote()
+        state.user = null
+        state.profile = null
+        state.accounts = readStorage('ap_accounts', state.accounts)
+        state.messages = readStorage('ap_messages', state.messages)
+      }
     }
   } else {
     ensureReadBaseline('local')

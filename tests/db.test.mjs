@@ -121,5 +121,97 @@ const started = (await db.query(`insert into tryouts (created_by, title, date, "
 r = await as('p2', `select enroll_tryout(${started})`)
 expect('inscrição depois do horário de início recebe tryout_past', /tryout_past/.test(r.error || ''), r)
 
+// Equipe: convites e administradores
+ids.admin = '00000000-0000-0000-0000-0000000000ad'
+await db.exec(`insert into auth.users values ('${ids.admin}', 'funcionario@academiapele.com', '{"name":"Marina"}')`)
+const signUp = async (id, email, invite) => {
+  try { await db.query(`insert into auth.users values ($1, $2, $3)`, [id, email, JSON.stringify({ name: 'Nova', invite })]); return {} } catch (e) { return { error: e.message } }
+}
+const asAnon = async (sql) => {
+  await db.exec(`reset role; select set_config('request.jwt.claim.sub', '', false); set role anon;`)
+  try { return { rows: (await db.query(sql)).rows } } catch (e) { return { error: e.message } } finally { await db.exec('reset role') }
+}
+r = await as('admin', `select is_admin() a`)
+expect('conta da coordenação é administradora', r.rows?.[0]?.a === true, r)
+r = await as('staff', `select create_staff_invite('nova@x.com')`)
+expect('funcionário comum NÃO convida', /not_admin/.test(r.error || ''), r)
+r = await as('p1', `select create_staff_invite('nova@x.com')`)
+expect('atleta NÃO convida', /not_admin/.test(r.error || ''), r)
+r = await as('admin', `select * from create_staff_invite('a@x.com')`)
+expect('convite para e-mail que já tem conta é recusado', /invite_email_taken/.test(r.error || ''), r)
+r = await as('admin', `select * from create_staff_invite('sem-arroba')`)
+expect('e-mail inválido é recusado', /invalid_email/.test(r.error || ''), r)
+r = await as('admin', `select * from create_staff_invite('  Nova@X.com ')`)
+const code = r.rows?.[0]?.code
+expect('administrador gera convite (código de 64 caracteres, vale 7 dias)', /^[0-9a-f]{64}$/.test(code || '') && Math.round((new Date(r.rows[0].expires_at) - Date.now()) / 864e5) === 7, r)
+r = await asAnon(`select email, status from check_staff_invite('${code}')`)
+expect('link do convite funciona sem login e mostra o e-mail', r.rows?.[0]?.email === 'nova@x.com' && r.rows?.[0]?.status === 'valid', r)
+r = await asAnon(`select * from check_staff_invite('${'0'.repeat(64)}')`)
+expect('código errado não devolve nada', r.rows?.length === 0, r)
+r = await as('staff', `select id from staff_invites`)
+expect('funcionário comum NÃO lê convites', r.rows?.length === 0, r)
+r = await as('admin', `select code_hash from staff_invites`)
+expect('nem o administrador lê o hash do código', /permission denied/.test(r.error || ''), r)
+r = await as('admin', `insert into staff_invites (email, code_hash) values ('x@x.com', 'abc')`)
+expect('ninguém cria convite direto na tabela', /permission denied/.test(r.error || ''), r)
+
+ids.nova = '00000000-0000-0000-0000-0000000000b1'
+r = await signUp('00000000-0000-0000-0000-0000000000b0', 'outra@x.com', code)
+expect('convite NÃO serve para outro e-mail', /invite_invalid/.test(r.error || ''), r)
+r = await signUp(ids.nova, 'nova@x.com', code)
+const nova = (await db.query(`select role, is_admin from profiles where id = '${ids.nova}'`)).rows[0]
+expect('conta criada com o convite vira funcionário (sem admin)', !r.error && nova?.role === 'staff' && nova?.is_admin === false, { r, nova })
+r = await signUp('00000000-0000-0000-0000-0000000000b2', 'nova2@x.com', code)
+expect('convite já usado NÃO cria outra conta', /invite_invalid/.test(r.error || ''), r)
+r = await asAnon(`select status from check_staff_invite('${code}')`)
+expect('convite usado aparece como "used"', r.rows?.[0]?.status === 'used', r)
+r = await signUp('00000000-0000-0000-0000-0000000000b3', 'qualquer@x.com', 'inventado')
+expect('código inventado NÃO cria conta', /invite_invalid/.test(r.error || ''), r)
+ids.semConvite = '00000000-0000-0000-0000-0000000000b4'
+await signUp(ids.semConvite, 'sozinho@x.com', '')
+r = await db.query(`select role from profiles where id = '${ids.semConvite}'`)
+expect('cadastro sem convite continua sendo de atleta', r.rows?.[0]?.role === 'player', r.rows)
+
+r = await as('admin', `select * from create_staff_invite('vence@x.com', true)`)
+const expiring = r.rows?.[0]
+await db.exec(`update staff_invites set expires_at = now() - interval '1 minute' where id = ${expiring.id}`)
+r = await signUp('00000000-0000-0000-0000-0000000000b5', 'vence@x.com', expiring.code)
+expect('convite vencido NÃO cria conta', /invite_invalid/.test(r.error || ''), r)
+r = await as('admin', `select * from create_staff_invite('dupla@x.com')`)
+const first = r.rows?.[0]
+r = await as('admin', `select * from create_staff_invite('dupla@x.com')`)
+r = await asAnon(`select status from check_staff_invite('${first.code}')`)
+expect('convite novo para o mesmo e-mail cancela o anterior', r.rows?.[0]?.status === 'revoked', r)
+r = await as('admin', `select revoke_staff_invite(${first.id})`)
+expect('cancelar convite já cancelado avisa', /invite_not_pending/.test(r.error || ''), r)
+r = await as('staff', `select revoke_staff_invite(${first.id + 1})`)
+expect('funcionário comum NÃO cancela convite', /not_admin/.test(r.error || ''), r)
+r = await as('admin', `select revoke_staff_invite(${first.id + 1})`)
+expect('administrador cancela convite pendente', !r.error, r)
+
+r = await as('nova', `update profiles set is_admin = true, active = true where id = auth.uid()`)
+expect('funcionário NÃO se promove a administrador', /permission denied/.test(r.error || ''), r)
+r = await as('staff', `select update_staff('${ids.nova}', true, true)`)
+expect('funcionário comum NÃO promove outro', /not_admin/.test(r.error || ''), r)
+r = await as('admin', `select update_staff('${ids.admin}', false, false)`)
+expect('administrador NÃO altera a própria conta', /cannot_change_self/.test(r.error || ''), r)
+r = await as('admin', `select update_staff('${ids.p1}', true, true)`)
+expect('atleta NÃO vira administrador por essa função', /not_staff/.test(r.error || ''), r)
+r = await as('admin', `select update_staff('${ids.staff}', true, true)`)
+r = await as('staff', `select is_admin() a`)
+expect('administrador promove outro funcionário', r.rows?.[0]?.a === true, r)
+r = await as('admin', `select update_staff('${ids.nova}', false, false)`)
+r = await as('nova', `${venue} values ('Campo Desativado', 'Rua D, 4', '', 'Osasco', 'SP', '', '')`)
+expect('funcionário desativado perde as permissões', /row-level security/.test(r.error || ''), r)
+r = await as('p1', `select id from profiles where id = '${ids.nova}'`)
+expect('atleta não vê funcionário desativado', r.rows?.length === 0, r)
+r = await as('p2', `insert into messages (athlete_id, staff_id, sender_id, body) values ('${ids.p2}', '${ids.nova}', '${ids.p2}', 'oi')`)
+expect('atleta não escreve para funcionário desativado', /row-level security/.test(r.error || ''), r)
+r = await as('p2', `insert into messages (athlete_id, staff_id, sender_id, body) values ('${ids.p2}', '${ids.staff}', '${ids.p2}', 'oi')`)
+expect('...mas continua escrevendo para funcionário ativo', !r.error, r)
+r = await as('admin', `select action, details from audit_log where entity in ('staff_invite', 'staff') order by id`)
+const actions = r.rows?.map((row) => row.action).join(',')
+expect('registro guarda convite, aceite, cancelamento e alterações', ['create', 'accept', 'revoke', 'update', 'deactivate'].every((a) => actions?.includes(a)) && r.rows.at(-1).details?.active?.para === false, actions)
+
 console.log(`\n${pass} ok, ${fail} falharam`)
 process.exit(fail ? 1 : 0)

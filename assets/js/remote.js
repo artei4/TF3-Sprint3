@@ -48,6 +48,13 @@ export function describeError(error) {
   if (text.includes('venues_name_city_key')) return t('Já existe um local com esse nome nesta cidade.')
   if (text.includes('venue_inactive')) return t('Este local foi desativado. Escolha outro.')
   if (text.includes('not_player')) return t('Só atletas podem se inscrever em peneiras.')
+  if (text.includes('not_admin')) return t('Só administradores podem fazer isso.')
+  if (text.includes('invite_email_taken')) return t('Este e-mail já tem uma conta na plataforma.')
+  if (text.includes('invalid_email')) return t('Informe um e-mail válido.')
+  if (text.includes('invite_not_pending')) return t('Este convite já foi usado ou cancelado.')
+  if (text.includes('cannot_change_self')) return t('Você não pode alterar a própria conta. Peça a outro administrador.')
+  if (text.includes('not_staff')) return t('Esta conta não é de funcionário.')
+  if (text.includes('account_disabled')) return t('Esta conta de funcionário foi desativada. Fale com um administrador.')
   if (text.includes('message_rate_limit')) return t('Você enviou muitas mensagens seguidas. Aguarde um minuto.')
   if (text.includes('invalid login credentials')) return t('E-mail ou senha incorretos.')
   if (text.includes('already registered') || code === 'user_already_exists') return t('Já existe uma conta com esse e-mail.')
@@ -71,11 +78,12 @@ export async function getSessionUser() {
 // `publicData` fica visível para a equipe (posição, cidade...). `privateData` só o próprio usuário enxerga (CPF, endereço).
 // O perfil é criado no banco por um gatilho (trigger) a partir destes metadados; o papel (jogador/funcionário) é definido
 // no servidor e não pode ser escolhido pelo navegador.
-export async function signUp({ email, password, name, publicData = {}, privateData = {} }) {
+// `invite` é o código do link de convite: o servidor confere e, se valer, cria a conta como funcionário.
+export async function signUp({ email, password, name, publicData = {}, privateData = {}, invite = '' }) {
   const { data, error } = await client.auth.signUp({
     email,
     password,
-    options: { data: { name, public: publicData, private: privateData } },
+    options: { data: { name, public: publicData, private: privateData, invite } },
   })
   return { error, session: data?.session || null }
 }
@@ -110,7 +118,8 @@ export function onSignedOut(callback) {
 const PROFILE_COLUMNS = 'id,email,role,athlete_num,name,data'
 
 export async function fetchOwnProfile(uid) {
-  const own = await client.from('profiles').select(PROFILE_COLUMNS).eq('id', uid).maybeSingle()
+  // '*' traz is_admin/active quando a migration de equipe já rodou, sem quebrar o login antes dela.
+  const own = await client.from('profiles').select('*').eq('id', uid).maybeSingle()
   if (own.error) throw own.error
   const priv = await client.from('profile_private').select('data').eq('id', uid).maybeSingle()
   if (priv.error) throw priv.error
@@ -234,4 +243,39 @@ export async function sendMessage({ athleteId, staffId, senderId, body }) {
     .select(MESSAGE_COLUMNS)
     .single()
   return { row: data || null, error }
+}
+
+// ---------- Equipe (migration 20261021120000_equipe.sql) ----------
+// Convites, administradores e histórico. O banco confere se quem pede é administrador.
+export async function fetchTeam() {
+  const [staff, invites, log] = await Promise.all([
+    client.from('profiles').select(PROFILE_COLUMNS + ',is_admin,active').eq('role', 'staff').order('name'),
+    client.from('staff_invites').select('id,email,is_admin,created_by,created_at,expires_at,used_by,used_at,revoked_at').order('created_at', { ascending: false }).limit(50),
+    client.from('audit_log').select('id,actor_id,action,entity,entity_id,details,created_at').in('entity', ['staff', 'staff_invite']).order('created_at', { ascending: false }).limit(20),
+  ])
+  const error = staff.error || invites.error || log.error
+  if (error) throw error
+  return { staff: staff.data || [], invites: invites.data || [], log: log.data || [] }
+}
+
+export async function createStaffInvite(email, admin) {
+  const { data, error } = await client.rpc('create_staff_invite', { p_email: email, p_admin: admin })
+  return { invite: data?.[0] || null, error }
+}
+
+export async function revokeStaffInvite(id) {
+  const { error } = await client.rpc('revoke_staff_invite', { p_id: id })
+  return error || null
+}
+
+export async function updateStaff(id, active, admin) {
+  const { error } = await client.rpc('update_staff', { p_profile: id, p_active: active, p_admin: admin })
+  return error || null
+}
+
+// Funciona sem login (é a primeira tela de quem recebeu o link).
+export async function checkStaffInvite(code) {
+  const { data, error } = await client.rpc('check_staff_invite', { p_code: code })
+  if (error) throw error
+  return data?.[0] || null
 }

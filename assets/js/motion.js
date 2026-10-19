@@ -45,7 +45,8 @@ export function scrollToElement(element) {
 // View Transitions nativas (Chrome/Edge/Safari 18): a tela antiga sai e a nova entra; o header fica.
 export function paintScreen(update, isNewRoute) {
   if (!isNewRoute || reduced() || !document.startViewTransition) return update()
-  document.startViewTransition(update)
+  // Duas trocas seguidas: a primeira é pulada (não é erro).
+  document.startViewTransition(update).ready.catch(() => {})
 }
 
 // ---------- Entrada da página ----------

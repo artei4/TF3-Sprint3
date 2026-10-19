@@ -18,7 +18,7 @@ O fluxo principal roda de ponta a ponta com back-end real (Supabase: Postgres, A
 
 **Bastidores:**
 - Contas, perfis, avaliações, peneiras, inscrições e mensagens ficam no Supabase. As regras de acesso estão nas policies RLS de `supabase/migrations/`.
-- Só e-mails da tabela `staff_allowlist` viram funcionário.
+- Funcionário novo só entra por convite de um administrador (link de uso único, vale 7 dias, preso ao e-mail). Administrador é verificado no banco (`is_admin()`), não pela tela.
 - As conversas não usam Realtime (custo). A tela busca mensagens novas a cada 8 s enquanto está aberta e visível.
 - Notificações e a lista de observação (atletas salvos pelo funcionário) ficam no navegador (`localStorage`).
 - Não há votos nem curtidas: a nota do atleta vem só das avaliações registradas pela equipe.
@@ -48,6 +48,9 @@ No painel do Supabase → **SQL Editor**, rode em ordem os arquivos de `supabase
 1. `20260921120000_contas_e_conversas.sql`
 2. `20260930120000_disable_message_realtime.sql`
 3. `20261016120000_peneiras.sql`
+4. `20261019120000_seguranca.sql`
+5. `20261020120000_locais.sql`
+6. `20261021120000_equipe.sql`
 
 URL e chave publicável ficam em `assets/js/config.js`. Detalhes em `SUPABASE_SETUP.md`.
 
@@ -55,6 +58,7 @@ URL e chave publicável ficam em `assets/js/config.js`. Detalhes em `SUPABASE_SE
 
 | Tipo | E-mail | Senha |
 |---|---|---|
+| Funcionário (administrador) | `funcionario@academiapele.com` | `Academia123!` |
 | Funcionário | `treinador@academiapele.com` | `Academia123!` |
 | Jogador | `gabriel@academiapele.com` | `Demo123!` |
 
@@ -68,6 +72,8 @@ URL e chave publicável ficam em `assets/js/config.js`. Detalhes em `SUPABASE_SE
 | `#/profile` | atleta | perfil, endereço e posições |
 | `#/tryouts` | todos | peneiras: criar, inscrever-se, ver inscritos, cancelar |
 | `#/messages` | todos | conversas entre atleta e funcionário |
+| `#/team` | administrador | convidar funcionários, cancelar convites, desativar e dar acesso de administrador |
+| `#/convite/<código>` | público | criar a conta de funcionário pelo link do convite |
 | `#/design-system` | público | tokens e componentes em todos os estados |
 
 ## Design system
