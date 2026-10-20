@@ -957,4 +957,12 @@ const ES = {
   "Informe a cidade e o estado.": "Indica la ciudad y el estado.",
   "Telefone e endereço (opcional)": "Teléfono y dirección (opcional)",
   "Ficam no seu perfil. O endereço é opcional e nenhuma função o usa.": "Quedan en tu perfil. La dirección es opcional y ninguna función la usa.",
+  // Painéis sem enfeite (corte de AI slop)
+  "Peneiras da Pelé Academia para atletas de 7 a 20 anos, da Sub-7 à Sub-20.": "Pruebas de Pelé Academia para atletas de 7 a 20 años, de Sub-7 a Sub-20.",
+  "Próxima peneira:": "Próxima prueba:",
+  "Nenhuma peneira marcada. Crie uma para os atletas compatíveis se inscreverem.": "Ninguna prueba programada. Crea una para que los atletas compatibles se inscriban.",
+  "Peneiras nos próximos 7 dias": "Pruebas en los próximos 7 días",
+  "Atletas sem avaliação": "Atletas sin evaluación",
+  "Na sua lista de observação": "En tu lista de observación",
+  "Mensagens não lidas": "Mensajes no leídos",
 }

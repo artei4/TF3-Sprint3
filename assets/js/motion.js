@@ -108,15 +108,3 @@ export function enterPage(root, isNewRoute) {
   root.querySelectorAll('main .num').forEach((element) => { if (!element.closest('.reveal')) revealObserver.observe(element) })
 }
 
-// ---------- Spotlight dos cards ----------
-// Um único listener: o brilho dourado segue o cursor dentro de qualquer .spot.
-export function initSpotlight() {
-  document.addEventListener('pointermove', (event) => {
-    if (event.pointerType !== 'mouse') return
-    const card = event.target.closest?.('.spot')
-    if (!card) return
-    const rect = card.getBoundingClientRect()
-    card.style.setProperty('--mx', (event.clientX - rect.left) + 'px')
-    card.style.setProperty('--my', (event.clientY - rect.top) + 'px')
-  }, { passive: true })
-}

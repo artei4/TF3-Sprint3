@@ -17,7 +17,7 @@
   --color-brand-strong: #E6C56E;
   --color-night: #0D1612;
   --color-panel: #15211B;
-  --color-ink-soft: #A7B5AA;
+  --color-ink-soft: #A2B9A8;
   --color-success: #78D2A3;
   --color-danger: #EF8B8B;
   --font-sans: "Instrument Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -77,11 +77,7 @@
   html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   body {
     margin: 0; color: var(--color-chalk); overflow-x: hidden;
-    /* Marcação do campo (meio-campo e círculo central) em cal bem tênue + luz de refletor no topo. */
-    background:
-      radial-gradient(60rem 28rem at 85% -10%, color-mix(in oklab, var(--color-brand) 9%, transparent), transparent 70%),
-      var(--color-night);
-    background-attachment: fixed;
+    background: var(--color-night);
   }
   button, input, select, textarea { font: inherit; }
   button { cursor: pointer; }
@@ -107,7 +103,7 @@
 .page-subtitle { margin-top:.75rem; max-width:65ch; color:var(--color-ink-soft); line-height:1.65; }
 .section-title { margin-top:.25rem; font-family:var(--font-display); font-size:clamp(1.25rem, 1.1rem + .6vw, 1.6rem); font-weight:600; letter-spacing:-.025em; }
 /* Numeral de camisa: notas, contagens e vagas. */
-.num { font-family:var(--font-display); font-weight:600; font-variant-numeric:tabular-nums; letter-spacing:-.04em; line-height:1; }
+.num { font-family:var(--font-display); font-weight:600; font-variant-numeric:tabular-nums; letter-spacing:-.02em; line-height:1; }
 
 /* ===== Superfícies ===== */
 .panel { border:1px solid var(--color-line); background:var(--color-panel); border-radius:var(--radius-card); padding:1.25rem; }
@@ -271,11 +267,9 @@
 .will-reveal.is-in { opacity:1; transform:none; filter:none; transition: opacity 600ms var(--ease-out), transform 700ms var(--ease-out), filter 600ms var(--ease-out); transition-delay: calc(var(--i, 0) * 70ms); }
 
 /* Spotlight dourado que segue o cursor + leve elevação. */
-.spot { position:relative; isolation:isolate; transition: transform 400ms var(--ease-out), border-color var(--dur-hover), box-shadow 400ms var(--ease-out); }
-.spot::before { content:""; position:absolute; inset:0; z-index:-1; border-radius:inherit; pointer-events:none; opacity:0; transition: opacity 300ms; background: radial-gradient(22rem circle at var(--mx, 50%) var(--my, 0%), color-mix(in oklab, var(--color-brand) 13%, transparent), transparent 60%); }
+.spot { position:relative; transition: border-color var(--dur-hover); }
 @media (hover:hover) and (pointer:fine) {
-  .spot:hover { transform:translateY(-3px); border-color: color-mix(in oklab, var(--color-brand) 40%, var(--color-line)); box-shadow: var(--shadow-lift); }
-  .spot:hover::before { opacity:1; }
+  .spot:hover { border-color: color-mix(in oklab, var(--color-brand) 40%, var(--color-line)); }
 }
 
 /* Barra de vagas preenche ao entrar. */
@@ -296,14 +290,7 @@
 .nav-indicator { position:absolute; left:.85rem; right:.85rem; bottom:.15rem; height:2px; border-radius:2px; background:var(--color-brand); }
 .nav-link.active::after, .nav-link[aria-current="page"]::after { content:none; }
 
-/* Número de camisa vazado: o elemento gráfico do hero (10 = Pelé). */
-.jersey { position:absolute; right:-.14em; bottom:-.22em; z-index:0; pointer-events:none; user-select:none; font-family:var(--font-display); font-weight:700; font-size:clamp(11rem, 8rem + 16vw, 24rem); line-height:.8; letter-spacing:-.06em; color:transparent; -webkit-text-stroke:1.5px color-mix(in oklab, var(--color-brand) 22%, transparent); }
-@supports (animation-timeline: scroll()) {
-  .jersey { animation: jersey-drift linear both; animation-timeline: scroll(root); animation-range: 0 60vh; }
-  @keyframes jersey-drift { to { transform: translateY(-14%) rotate(-3deg); opacity:.35; } }
-}
 .hero { position:relative; overflow:hidden; isolation:isolate; }
-.hero > :not(.jersey) { position:relative; z-index:1; }
 
 /* Navegação inferior no celular (zona do polegar). */
 .bottom-nav { position:fixed; inset:auto .75rem calc(.75rem + env(safe-area-inset-bottom)) .75rem; z-index:50; display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:.25rem; padding:.35rem; border:1px solid var(--color-line); border-radius:1.25rem; background: color-mix(in oklab, var(--color-raised) 88%, transparent); backdrop-filter: blur(14px); box-shadow: var(--shadow-modal); }
@@ -339,7 +326,7 @@
 .rate-4 { color: var(--color-rate-4); }
 .rate-5 { color: var(--color-rate-5); }
 .pos-tag { color: var(--pos); border-color: color-mix(in oklab, var(--pos) 40%, transparent); background: color-mix(in oklab, var(--pos) 8%, transparent); }
-.athlete-card { background: radial-gradient(18rem 9rem at 0% 0%, color-mix(in oklab, var(--pos) 11%, transparent), transparent 70%), var(--color-panel); }
+.athlete-card { background: var(--color-panel); min-width:0; } /* item de grade: sem isso a coluna cresce até o conteúdo e vaza no celular */
 .fut-badge { display:grid; align-content:center; justify-items:center; gap:.3rem; flex:none; width:4.5rem; height:5rem; border-radius:var(--radius-control); border:1px solid color-mix(in oklab, var(--pos) 35%, transparent); background: linear-gradient(160deg, color-mix(in oklab, var(--pos) 16%, transparent), transparent 75%); }
 .pos-abbr { font-family:var(--font-display); font-size:.8rem; font-weight:700; letter-spacing:.08em; color:var(--pos); }
 .card-stats dt { font-size:.75rem; color:var(--color-ink-soft); }
@@ -372,10 +359,9 @@
 .pitch-lines .dot { fill: color-mix(in oklab, var(--color-chalk) 40%, transparent); }
 .pitch-dot { position:absolute; display:grid; place-items:center; width:clamp(1.9rem, 1.4rem + 1.6vw, 2.6rem); aspect-ratio:1; border-radius:50%; translate:-50% -50%; font-family:var(--font-display); font-size:clamp(.6rem, .5rem + .35vw, .8rem); font-weight:700; color:var(--color-night); background:var(--pos); box-shadow: 0 0 0 3px color-mix(in oklab, var(--pos) 25%, transparent), 0 6px 14px -6px rgb(0 0 0 / .7); animation: dot-in 600ms var(--ease-spring) both; animation-delay: calc(var(--i, 0) * 60ms + 200ms); transition: scale 200ms var(--ease-out), box-shadow 200ms; }
 button.pitch-dot { cursor:pointer; min-width:2.75rem; min-height:2.75rem; background-clip:content-box; padding:.3rem; }
-.pitch-dot.is-me { box-shadow: 0 0 0 4px color-mix(in oklab, var(--pos) 35%, transparent), 0 0 0 10px color-mix(in oklab, var(--pos) 12%, transparent); animation: dot-in 600ms var(--ease-spring) both, dot-pulse 2.4s ease-in-out 800ms infinite; }
+.pitch-dot.is-me { box-shadow: 0 0 0 4px color-mix(in oklab, var(--pos) 35%, transparent), 0 0 0 10px color-mix(in oklab, var(--pos) 12%, transparent); animation: dot-in 600ms var(--ease-spring) both; }
 @media (hover:hover) and (pointer:fine) { button.pitch-dot:hover { scale:1.15; z-index:2; } }
 @keyframes dot-in { from { opacity:0; scale:.2; } }
-@keyframes dot-pulse { 50% { box-shadow: 0 0 0 4px color-mix(in oklab, var(--pos) 35%, transparent), 0 0 0 16px transparent; } }
 
 /* =====================================================================================
    Tema claro — "Gramado de dia". Mesmos nomes de token; valores ajustados para AA sobre fundo claro.
@@ -426,12 +412,12 @@ button.pitch-dot { cursor:pointer; min-width:2.75rem; min-height:2.75rem; backgr
   background:
     linear-gradient(var(--surface-fill), var(--surface-fill)) padding-box,
     linear-gradient(160deg, var(--edge-1), var(--edge-2) 38%, var(--edge-2) 68%, var(--edge-3)) border-box;
-  box-shadow: inset 0 1px 0 var(--edge-inner), var(--surface-shadow);
+  box-shadow: inset 0 1px 0 var(--edge-inner);
 }
-.surface--raised { --surface-fill: var(--color-raised); }
+/* Sombra só no que flutua (modais e cartão de login); no fluxo da página a borda já define o card. */
+.surface--raised { --surface-fill: var(--color-raised); box-shadow: inset 0 1px 0 var(--edge-inner), var(--surface-shadow); }
 .athlete-card {
   background:
-    radial-gradient(18rem 9rem at 0% 0%, color-mix(in oklab, var(--pos) 11%, transparent), transparent 70%) padding-box,
     linear-gradient(var(--color-panel), var(--color-panel)) padding-box,
     linear-gradient(160deg, color-mix(in oklab, var(--pos) 45%, var(--edge-2)), var(--edge-2) 40%, var(--edge-2) 70%, var(--edge-3)) border-box;
   border: 1px solid transparent;
@@ -453,7 +439,6 @@ button.pitch-dot { cursor:pointer; min-width:2.75rem; min-height:2.75rem; backgr
 @keyframes theme-in { from { opacity:0; } }
 
 /* ===== Conversas ===== */
-.chat-messages { background: radial-gradient(40rem 20rem at 100% 0%, color-mix(in oklab, var(--color-brand) 6%, transparent), transparent 70%); }
 .chat-day { position:sticky; top:.25rem; z-index:1; display:flex; justify-content:center; margin:1rem 0 .5rem; }
 .chat-day span { padding:.2rem .7rem; border-radius:999px; font-size:.75rem; font-weight:600; color:var(--color-ink-soft); background: color-mix(in oklab, var(--color-raised) 92%, transparent); border:1px solid var(--color-line); backdrop-filter: blur(8px); }
 .bubble-row { display:flex; margin-top:.15rem; }
@@ -486,7 +471,7 @@ button.pitch-dot { cursor:pointer; min-width:2.75rem; min-height:2.75rem; backgr
 
 /* ===== Perfil ===== */
 .profile-avatar { box-shadow: 0 0 0 3px var(--color-panel), 0 0 0 5px var(--pos, var(--color-brand)); background: color-mix(in oklab, var(--pos, var(--color-brand)) 80%, #fff); }
-.profile-stats > div { padding:.85rem 1rem; border-radius:var(--radius-control); background: color-mix(in oklab, var(--color-night) 55%, transparent); border:1px solid var(--color-line); }
+.profile-stats > div { padding:.15rem 0 .15rem 1rem; border-left:1px solid var(--color-line); }
 .profile-stats dt { font-size:.8rem; color:var(--color-ink-soft); }
 .profile-stats dd { margin-top:.35rem; font-size:2rem; }
 .form-group-title { margin-top:.5rem; padding-top:.75rem; border-top:1px solid var(--color-line); font-family:var(--font-display); font-weight:600; font-size:1rem; }
@@ -508,7 +493,7 @@ button.pitch-dot { cursor:pointer; min-width:2.75rem; min-height:2.75rem; backgr
 .toast-action:hover { background:var(--color-cta-strong); }
 
 /* ===== Abertura ===== */
-#splash { --color-night:#0D1612; --color-chalk:#EEF1E8; --color-ink-soft:#A7B5AA; }
+#splash { --color-night:#0D1612; --color-chalk:#EEF1E8; --color-ink-soft:#A2B9A8; }
 #splash { position:fixed; inset:0; z-index:300; display:grid; place-content:center; justify-items:center; gap:1.25rem; background: radial-gradient(40rem 24rem at 50% 40%, color-mix(in oklab, #D8B05C 10%, transparent), transparent 70%), var(--color-night); cursor:pointer; }
 #splash .ball-loader { padding:0; }
 .splash-progress { width:min(16rem, 60vw); height:2px; border-radius:2px; background: color-mix(in oklab, var(--color-chalk) 14%, transparent); overflow:hidden; }
@@ -523,7 +508,7 @@ button.pitch-dot { cursor:pointer; min-width:2.75rem; min-height:2.75rem; backgr
 @keyframes loader-appear { from { opacity:0; } }
 
 /* ===== Login em tela cheia com prancheta tática ===== */
-.login-stage { position:relative; min-height:100vh; min-height:100dvh; overflow:hidden; isolation:isolate; background: radial-gradient(70rem 40rem at 30% 20%, color-mix(in oklab, #D8B05C 8%, transparent), transparent 70%), #0B1510; }
+.login-stage { position:relative; min-height:100vh; min-height:100dvh; overflow:hidden; isolation:isolate; background: #0B1510; }
 .tactic-board { position:absolute; inset:0; z-index:-2; width:100%; height:100%; }
 .login-stage::after { content:""; position:absolute; inset:0; z-index:-1; pointer-events:none; background: linear-gradient(90deg, rgb(8 16 12 / .85) 0%, rgb(8 16 12 / .35) 45%, rgb(8 16 12 / .55) 70%, rgb(8 16 12 / .9) 100%); }
 .tb-lines > * { fill:none; stroke: rgb(238 241 232 / .16); stroke-width:2; stroke-dasharray:1; stroke-dashoffset:1; animation: tb-draw 2.4s var(--ease-out) forwards; }
@@ -567,7 +552,6 @@ button.pitch-dot { cursor:pointer; min-width:2.75rem; min-height:2.75rem; backgr
    ===================================================================================== */
 :root { --color-sheet: #101A15; --dot: rgb(238 241 232 / .075); }
 :root[data-theme="light"] { --color-sheet: #F8FAF6; --dot: rgb(18 33 26 / .09); }
-body::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:none; background-image: radial-gradient(var(--dot) 1px, transparent 1.3px); background-size: 22px 22px; -webkit-mask-image: radial-gradient(120% 90% at 80% 0%, #000 25%, transparent 75%); mask-image: radial-gradient(120% 90% at 80% 0%, #000 25%, transparent 75%); }
 
 .brand-lockup { display:inline-flex; align-items:center; gap:.65rem; }
 .logo-mark { flex:none; overflow:visible; }
@@ -581,7 +565,7 @@ body::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:n
 @keyframes tb-fade { from { opacity:0; } to { opacity:1; } }
 .brand-text { display:grid; line-height:1.05; text-align:left; }
 .brand-word { font-family:var(--font-display); font-weight:700; font-size:1.05rem; letter-spacing:.04em; white-space:nowrap; }
-.brand-sub { font-size:.72rem; color:var(--color-ink-soft); }
+.brand-sub { font-size:.75rem; color:var(--color-ink-soft); }
 .partner-seal { display:inline-flex; align-items:center; gap:.55rem; font-size:.8rem; color:var(--color-ink-soft); }
 .partner-seal img { width:1.75rem; height:1.75rem; border-radius:.45rem; object-fit:contain; background:#000; }
 
@@ -635,9 +619,6 @@ body::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:n
 .login-brand { position:absolute; z-index:2; top:1.25rem; left:1.25rem; color:#EEF1E8; }
 .login-brand .brand-sub { color: rgb(238 241 232 / .7); }
 .login-title { font-family:var(--font-display); font-weight:600; font-size: clamp(2.6rem, 1.6rem + 4.2vw, 5.25rem); line-height:.98; letter-spacing:-.045em; text-wrap:balance; max-width:12ch; margin-top:1rem; color:#EEF1E8; text-shadow: 0 2px 30px rgb(0 0 0 / .45); }
-.live-pill { display:inline-flex; align-items:center; gap:.5rem; padding:.35rem .8rem; border-radius:999px; font-size:.82rem; font-weight:600; color:#EEF1E8; background: rgb(216 176 92 / .14); border:1px solid rgb(216 176 92 / .4); }
-.live-dot { width:.5rem; height:.5rem; border-radius:50%; background:#57D49A; box-shadow: 0 0 0 0 rgb(87 212 154 / .6); animation: live 2s ease-out infinite; }
-@keyframes live { 70% { box-shadow: 0 0 0 8px rgb(87 212 154 / 0); } 100% { box-shadow: 0 0 0 0 rgb(87 212 154 / 0); } }
 .login-intro .partner-seal { color: rgb(238 241 232 / .75); }
 @media (max-width:63.99rem) {
   .login-brand { top:1rem; left:1rem; }
@@ -658,15 +639,13 @@ body::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:n
 /* Botão principal: dourado de cima (claro) para baixo (escuro), brilho interno e borda de luz. */
 .btn-primary {
   background: linear-gradient(180deg, #EBCB7E 0%, #D8B05C 48%, #C4963C 100%);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / .45), inset 0 -1px 0 rgb(80 55 10 / .35), 0 10px 22px -12px rgb(196 150 60 / .9);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .45), inset 0 -1px 0 rgb(80 55 10 / .35), 0 6px 14px -10px rgb(0 0 0 / .6);
   border: 1px solid #B98A33;
   position: relative; overflow: hidden; isolation:isolate;
 }
-.btn-primary::after { content:""; position:absolute; inset:0; z-index:-1; background: linear-gradient(115deg, transparent 30%, rgb(255 255 255 / .35) 48%, transparent 66%); transform: translateX(-120%); transition: transform 700ms var(--ease-out); }
 .btn-primary:disabled { background: linear-gradient(180deg, #D8B05C, #C4963C); }
 @media (hover:hover) and (pointer:fine) {
   .btn-primary:hover:not(:disabled) { background: linear-gradient(180deg, #F0D48C 0%, #DFB966 50%, #C99D42 100%); }
-  .btn-primary:hover:not(:disabled)::after { transform: translateX(120%); }
   .btn-secondary:hover:not(:disabled) { background: linear-gradient(180deg, color-mix(in oklab, var(--color-brand) 14%, var(--color-panel)), var(--color-panel)) padding-box, linear-gradient(160deg, var(--color-brand), var(--edge-2)) border-box; }
 }
 .btn-primary.is-hover { background: linear-gradient(180deg, #F0D48C 0%, #DFB966 50%, #C99D42 100%); }
@@ -681,8 +660,8 @@ body::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:n
 .btn-danger { background: linear-gradient(180deg, color-mix(in oklab, var(--color-danger) 14%, transparent), color-mix(in oklab, var(--color-danger) 4%, transparent)); }
 
 /* Nota do card: resumo do atleta num bloco tingido pela cor da posição; destaques como chips. */
-.scout-note { position:relative; padding:.8rem .9rem; border-radius:var(--radius-control); font-size:.9rem; line-height:1.5; background: linear-gradient(135deg, color-mix(in oklab, var(--pos, var(--color-brand)) 13%, transparent) 0%, color-mix(in oklab, var(--pos, var(--color-brand)) 3%, transparent) 70%); border:1px solid color-mix(in oklab, var(--pos, var(--color-brand)) 22%, transparent); }
-.scout-note::before { content:"“"; position:absolute; top:-.55rem; left:.6rem; font-family:var(--font-display); font-size:2.2rem; line-height:1; color: var(--pos, var(--color-brand)); }
+.scout-note { position:relative; padding-left:1.1rem; font-size:.9rem; line-height:1.5; }
+.scout-note::before { content:"“"; position:absolute; top:-.3rem; left:0; font-family:var(--font-display); font-size:2.2rem; line-height:1; color: var(--pos, var(--color-brand)); }
 .scout-strengths { display:flex; flex-wrap:wrap; gap:.35rem; margin-top:.55rem; }
 .scout-strengths span { padding:.15rem .55rem; border-radius:999px; font-size:.75rem; font-weight:600; color:var(--color-chalk); background: color-mix(in oklab, var(--color-chalk) 7%, transparent); }
 .scout-strengths span:first-letter { text-transform:uppercase; }
@@ -803,7 +782,7 @@ body::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:n
 .save-toggle[aria-pressed="true"] { color:var(--color-brand); border-color:color-mix(in oklab, var(--color-brand) 45%, transparent); }
 .save-toggle[aria-pressed="true"] svg { fill:currentColor; }
 .save-toggle svg { transition: fill var(--dur-hover); }
-.save-toggle.just-saved svg { animation: save-pop .5s cubic-bezier(.34,1.56,.64,1); }
+.save-toggle.just-saved svg { animation: save-pop .4s var(--ease-out); }
 .save-toggle.just-saved::after { content:""; position:absolute; inset:-3px; border-radius:inherit; border:2px solid var(--color-brand); pointer-events:none; animation: save-ring .55s ease-out forwards; }
 @keyframes save-pop { 30% { transform: translateY(-3px) scale(1.3); } 60% { transform: translateY(0) scale(.92); } }
 @keyframes save-ring { from { opacity:.8; transform:scale(.85); } to { opacity:0; transform:scale(1.45); } }

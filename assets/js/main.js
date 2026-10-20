@@ -12,7 +12,7 @@ import { LANGS, getLang, setLang, t } from './i18n.js'
 import { designSystemPage, bindDesignSystem } from './design-system.js'
 import { cropPhoto, illustratedAvatar } from './avatar.js'
 import { todayIso, isPastTryout, daysUntil, startsAt, validTime, validTryoutDate, tryoutPhase, enrollmentOpen, countdown, bigCountdown } from './schedule.js'
-import { initSmoothScroll, initSpotlight, paintScreen, enterPage, scrollToTop, scrollToElement } from './motion.js'
+import { initSmoothScroll, paintScreen, enterPage, scrollToTop, scrollToElement } from './motion.js'
 import {
   FEET,
   STRENGTHS,
@@ -1000,7 +1000,7 @@ function playerDashboard() {
   const checklistPanel = hidden ? '' : '<div class="reveal panel"><div class="flex items-start justify-between gap-3"><div><h2 class="section-title !mt-0">' + t('Seu perfil para os olheiros') + '</h2><p class="mt-1 text-sm text-ink-soft">' + done + ' ' + t('de') + ' ' + checklist.length + ' ' + t('passos concluídos') + '</p></div><button type="button" class="btn-ghost text-sm" data-hide-checklist>' + t('Ocultar') + '</button></div>' +
     '<div class="reg-progress mt-4" aria-hidden="true"><span style="width:' + Math.round(done / checklist.length * 100) + '%"></span></div>' +
     (done === checklist.length
-      ? '<div class="alert alert-success mt-5">' + icon('check', 'size-5 shrink-0') + '<span><strong>' + t('Perfil completo.') + '</strong> ' + t('Agora é com você em campo.') + '</span></div>'
+      ? '<div class="alert alert-success mt-5">' + icon('check', 'size-5 shrink-0') + '<span><strong>' + t('Perfil completo.') + '</strong></span></div>'
       : '<ul class="checklist mt-4">' + checklist.map(([ok, title, hint, target]) => {
         const attrs = target.startsWith('tryouts:') ? 'data-tryout-filter="' + target.split(':')[1] + '"' : 'data-route="' + target + '"'
         return '<li class="' + (ok ? 'is-done' : '') + '"><span class="check-mark" aria-hidden="true">' + (ok ? icon('check', 'size-3.5') : '') + '</span><span class="min-w-0 flex-1"><strong>' + title + '</strong><small>' + hint + '</small></span>' +
@@ -1018,7 +1018,7 @@ function playerDashboard() {
 
   return shell(
     '<section class="grid gap-5 xl:grid-cols-[1.5fr_.9fr]">' +
-    '<div class="hero rounded-card surface p-6 sm:p-8"><span class="jersey" aria-hidden="true">' + (category.replace(/\D/g, '') || '10') + '</span>' +
+    '<div class="hero rounded-card surface p-6 sm:p-8">' +
     '<p class="text-sm text-ink-soft">' + escapeHtml(t(profile.pos)) + ' · ' + escapeHtml(category) + ' · ' + escapeHtml(profile.city || '') + '</p>' +
     '<h1 class="page-title mt-2 max-w-2xl">' + t('Olá,') + ' ' + firstName + '.</h1><p class="mt-3 max-w-xl text-lg leading-7">' + status + '</p>' +
     '<div class="mt-6 flex flex-wrap gap-2">' + cta + '<button type="button" class="btn-secondary" data-route="profile">' + icon('user', 'size-4') + ' ' + t('Meu perfil') + '</button></div>' +
@@ -1039,13 +1039,28 @@ function playerDashboard() {
 }
 
 
+// Painel da equipe: o que vem pela frente e o que está pendente, com números reais (sem "06", "00").
 function staffDashboard() {
+  const firstName = escapeHtml((state.user?.name || '').split(' ')[0])
+  const upcoming = state.tryouts.filter((tryout) => !isPastTryout(tryout) && tryout.status !== 'cancelled').sort(byStart)
+  const next = upcoming[0]
+  const week = upcoming.filter((tryout) => (daysUntil(tryout.date) ?? 99) <= 7).length
+  const unreviewed = state.athletes.filter((a) => !(state.reviews[a.id] || []).length).length
+  const watching = state.favorites.filter((id) => state.athletes.some((a) => a.id === id)).length
+  const status = next
+    ? t('Próxima peneira:') + ' <strong>' + escapeHtml(next.title) + '</strong>, ' + formatDate(next.date) + (validTime(next.time) ? ' ' + t('às') + ' ' + escapeHtml(next.time) : '') + ', ' + (next.enrolled || []).length + ' ' + t('de') + ' ' + escapeHtml(next.seats) + ' ' + t('vagas preenchidas') + '.'
+    : t('Nenhuma peneira marcada. Crie uma para os atletas compatíveis se inscreverem.')
   return shell(
-    '<section class="grid gap-6 xl:grid-cols-[1.55fr_.8fr]">' +
-    '<div class="hero rounded-card surface p-6 sm:p-8"><span class="jersey" aria-hidden="true">10</span><h1 class="page-title max-w-3xl">' + t('Encontre atletas, avalie perfis e crie oportunidades.') + '</h1><p class="mt-4 max-w-2xl text-ink-soft">' + t('Pesquise o banco, abra o perfil completo do atleta, envie mensagens, registre avaliações e agende peneiras.') + '</p><div class="mt-8 flex flex-wrap gap-3"><button type="button" class="btn-primary" data-route="athletes">' + t('Pesquisar atletas') + ' ' + icon('search', 'size-4') + '</button><button type="button" class="btn-secondary" data-action="openTryout">' + icon('plus', 'size-4') + ' ' + t('Criar peneira') + '</button></div></div>' +
-    '<aside class="panel"><span class="eyebrow">' + t('Hoje') + '</span><div class="mt-3 grid grid-cols-2 gap-3">' +
-    staffStat(String(state.athletes.length).padStart(2, '0'), t('Atletas ativos')) + staffStat(String(Object.values(state.reviews).filter((list) => Array.isArray(list) && list.length).length).padStart(2, '0'), t('Perfis avaliados')) + staffStat(String(state.tryouts.length).padStart(2, '0'), t('Peneiras')) + staffStat(String(state.messages.filter((m) => String(m.thread).endsWith('::' + state.user?.email)).length).padStart(2, '0'), t('Mensagens')) +
-    '</div></aside></section>' +
+    '<section class="hero rounded-card surface p-6 sm:p-8"><h1 class="page-title">' + t('Olá,') + ' ' + firstName + '.</h1><p class="mt-3 max-w-3xl text-lg leading-7">' + status + '</p>' +
+    '<div class="mt-6 flex flex-wrap gap-2">' + (next
+      ? '<button type="button" class="btn-primary" data-route="tryouts">' + icon('calendar', 'size-4') + ' ' + t('Ver peneiras') + '</button>'
+      : '<button type="button" class="btn-primary" data-action="openTryout">' + icon('plus', 'size-4') + ' ' + t('Criar peneira') + '</button>') +
+    '<button type="button" class="btn-secondary" data-route="athletes">' + icon('search', 'size-4') + ' ' + t('Pesquisar atletas') + '</button></div>' +
+    '<dl class="profile-stats mt-8 grid grid-cols-2 gap-3 md:grid-cols-4">' +
+    '<div><dt>' + t('Peneiras nos próximos 7 dias') + '</dt><dd class="num">' + week + '</dd></div>' +
+    '<div><dt>' + t('Atletas sem avaliação') + '</dt><dd class="num">' + unreviewed + '</dd></div>' +
+    '<div><dt>' + t('Na sua lista de observação') + '</dt><dd class="num">' + watching + '</dd></div>' +
+    '<div><dt>' + t('Mensagens não lidas') + '</dt><dd class="num">' + unreadSummary().total + '</dd></div></dl></section>' +
     '<section class="reveal mt-8 panel"><div class="flex flex-wrap items-end justify-between gap-3"><div><h2 class="section-title !mt-0">' + t('Elenco em campo') + '</h2><p class="mt-1 max-w-[60ch] text-sm text-ink-soft">' + t('Cada ponto é um atleta do banco, na posição principal. Clique para abrir o perfil.') + '</p></div></div>' +
     '<div class="mt-5">' + pitchFormation(state.athletes) + '</div>' + squadLegend(state.athletes) + '</section>' +
     '<section class="reveal mt-8 panel"><div class="flex flex-wrap items-end justify-between gap-3"><div><h2 class="section-title">' + t('Atletas para observar') + '</h2></div><button type="button" class="btn-ghost" data-route="athletes">' + t('Abrir banco completo') + ' ' + icon('arrow', 'size-4') + '</button></div><div class="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">' +
@@ -1376,7 +1391,7 @@ function profilePage() {
   const enrolledCount = state.tryouts.filter((t) => Array.isArray(t.enrolled) && t.enrolled.includes(state.user.email)).length
   const avg = averagePlayerRating(p)
   return shell(
-    '<section class="hero surface rounded-card p-6 sm:p-8 pos-' + positionGroup(p.pos) + '"><span class="jersey" aria-hidden="true">' + (category.replace(/\D/g, '') || '10') + '</span>' +
+    '<section class="hero surface rounded-card p-6 sm:p-8 pos-' + positionGroup(p.pos) + '">' +
     '<div class="flex flex-wrap items-center gap-5">' + photoUploader({ name: p.name, photo: p.photo }) + '<div class="min-w-0 flex-1"><h1 class="page-title !mt-0">' + escapeHtml(p.name) + '</h1>' +
     '<p class="mt-2 text-ink-soft">' + escapeHtml(describeAthlete(p)) + ' ' + age + ' ' + t('anos') + ', ' + escapeHtml(category) + ', ' + escapeHtml(p.city || '') + '.</p>' +
     '<div class="mt-3 flex flex-wrap gap-1.5">' + posTag(p.pos) + posTag(p.secondary) + tag(category, true) + '</div></div>' +
@@ -2592,8 +2607,8 @@ const TACTIC_BOARD = '<svg class="tactic-board" viewBox="0 0 1600 900" preserveA
 function loginPage() {
   return '<main id="conteudo" tabindex="-1" class="login-stage outline-none text-chalk">' + TACTIC_BOARD +
     '<header class="login-brand">' + brandLockup(40) + '</header>' +
-    '<div class="login-layout"><section class="login-intro"><p class="live-pill"><span class="live-dot" aria-hidden="true"></span>' + t('Peneiras abertas · Sub-7 a Sub-20') + '</p>' +
-    '<h1 class="login-title">' + t('Seu próximo jogo começa aqui.') + '</h1><p class="mt-4 max-w-md text-lg">' + t('Atletas de base, treinadores e olheiros no mesmo campo.') + '</p>' +
+    '<div class="login-layout"><section class="login-intro">' +
+    '<h1 class="login-title">' + t('Seu próximo jogo começa aqui.') + '</h1><p class="mt-4 max-w-md text-lg">' + t('Peneiras da Pelé Academia para atletas de 7 a 20 anos, da Sub-7 à Sub-20.') + '</p>' +
     '<div class="mt-8">' + partnerSeal() + '</div></section>' +
     '<div class="login-card surface surface--raised"><h2 class="text-3xl font-bold">' + t('Entrar') + '</h2><p class="mt-2 text-sm text-ink-soft">' + t('Escolha o tipo de conta antes de entrar.') + '</p>' +
     '<div class="segmented mt-6" role="group" aria-label="' + t('Tipo de conta') + '" data-active="0"><span class="seg-pill" aria-hidden="true"></span><button type="button" class="role-tab active" data-role="player" aria-pressed="true">' + icon('user', 'size-4 seg-icon') + t('Jogador') + '</button><button type="button" class="role-tab" data-role="staff" aria-pressed="false">' + icon('clipboard', 'size-4 seg-icon') + t('Funcionário') + '</button></div>' +
@@ -4188,7 +4203,6 @@ document.querySelector('.skip-link')?.addEventListener('click', (event) => {
 })
 
 initSmoothScroll()
-initSpotlight()
 
 // Abertura: na primeira visita da sessão fica no mínimo 1,5 s (a interface já monta por baixo);
 // depois disso, ou com "reduzir movimento", sai assim que o app estiver pronto. Clique ou Esc pulam.
