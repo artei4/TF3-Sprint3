@@ -1244,6 +1244,40 @@ function attributeAverages(athleteId, pos) {
   return { criteria, values, count: reviews.length }
 }
 
+// ---------- Carta do atleta (inspirada nas cartas do EA FC) ----------
+// Faixas do EA (OVR): Bronze até 64, Prata de 65 a 74, Ouro a partir de 75. Aqui a nota vai de 0 a 10, então ×10.
+// Nada inventado: OVR = média das avaliações (ou a nota de exemplo dos perfis de exemplo); atributos = média por característica.
+// Sem ranking: a carta aparece só para o próprio atleta e para a equipe.
+const CARD_ABBR = { finalizacao: 'FIN', passe: 'PAS', tecnica: 'TÉC', visao: 'VIS', marcacao: 'MAR', posicionamento: 'POS', fisico: 'FÍS', defesas: 'DEF', saidas: 'SAÍ' }
+const TIER_LABEL = { gold: 'Ouro', silver: 'Prata', bronze: 'Bronze', base: 'Carta base' }
+const cardTier = (ovr) => !ovr ? 'base' : ovr >= 75 ? 'gold' : ovr >= 65 ? 'silver' : 'bronze'
+// Quanto a última avaliação mexeu na nota (avaliações da mais nova para a mais antiga).
+function cardDelta(reviews) {
+  const scores = reviews.map((review) => Number(review.rating)).filter(Number.isFinite)
+  if (scores.length < 2) return 0
+  const avg = (list) => list.reduce((sum, value) => sum + value, 0) / list.length
+  return Math.round(avg(scores) * 10) - Math.round(avg(scores.slice(1)) * 10)
+}
+function playerCard(a, { reveal = false } = {}) {
+  const reviews = state.reviews[a.id] || []
+  const ovr = Math.round(ratingOf(a) * 10) || 0
+  const tier = cardTier(ovr)
+  const { criteria, values } = attributeAverages(a.id, a.pos)
+  const value = (c) => values[c.key] ? Math.round(values[c.key] * 10) : null
+  const delta = cardDelta(reviews)
+  const label = t('Carta de') + ' ' + a.name + ': ' + (ovr ? t('nota') + ' ' + ovr + ', ' + t(TIER_LABEL[tier]) : t('sem nota')) + ', ' + t(a.pos) + '. ' +
+    criteria.map((c) => t(c.label) + ' ' + (value(c) ?? t('sem nota'))).join(', ') + '.'
+  const foot = reviews.length
+    ? plural(reviews.length, 'avaliação', 'avaliações') + (delta ? ' · <span class="' + (delta > 0 ? 'fc-up' : 'fc-down') + '">' + (delta > 0 ? '▲ +' + delta : '▼ ' + delta) + '</span> ' + t('desde a última') : '')
+    : a.demo ? t('Nota de exemplo') : t('Sem avaliação ainda')
+  return '<figure class="fc-card tier-' + tier + '"' + (reveal ? ' data-card-reveal' : '') + ' role="img" aria-label="' + escapeHtml(label) + '"><div class="fc-inner" aria-hidden="true">' +
+    '<div class="fc-top"><div class="fc-head"><span class="fc-ovr num">' + (ovr || '—') + '</span><span class="fc-pos">' + t(POSITION_ABBR[a.pos] || '—') + '</span><span class="fc-cat">' + escapeHtml(getCategoryFromAge(a.age ?? getAgeFromProfile(a.birth))) + '</span></div>' +
+    personAvatar(a, 'fc-photo') + '</div>' +
+    '<p class="fc-name">' + escapeHtml(a.name) + '</p>' +
+    '<dl class="fc-stats">' + criteria.map((c) => '<div><dt>' + t(CARD_ABBR[c.key]) + '</dt><dd class="num">' + (value(c) ?? '—') + '</dd></div>').join('') + '</dl>' +
+    '<p class="fc-foot"><span class="fc-tier">' + t(TIER_LABEL[tier]) + '</span> · ' + foot + '</p></div></figure>'
+}
+
 // ---------- Avatares e fotos de perfil ----------
 // Foto enviada > avatar ilustrado (perfis de exemplo) > iniciais.
 function personAvatar(person, cls = 'avatar') {
@@ -1322,7 +1356,7 @@ function athleteCard(a, staff = false) {
   const rating = ratingOf(a)
 
   return '<article class="reveal spot athlete-card pos-' + positionGroup(a.pos) + ' flex h-full flex-col rounded-card surface p-4">' +
-    '<div class="flex gap-4"><div class="fut-badge" aria-label="' + t('Nota') + ' ' + formatRating(rating) + ', ' + escapeHtml(t(a.pos)) + '"><span class="num text-[2rem] ' + rateClass(rating) + '">' + formatRating(rating) + '</span><span class="pos-abbr">' + t(POSITION_ABBR[a.pos] || '—') + '</span></div>' +
+    '<div class="flex gap-4"><div class="fut-badge tier-' + cardTier(Math.round(rating * 10)) + '" aria-label="' + t('Nota') + ' ' + formatRating(rating) + ', ' + escapeHtml(t(a.pos)) + '"><span class="num text-[2rem] ' + rateClass(rating) + '">' + formatRating(rating) + '</span><span class="pos-abbr">' + t(POSITION_ABBR[a.pos] || '—') + '</span></div>' +
     '<div class="min-w-0 flex-1"><div class="flex items-start justify-between gap-2"><div class="flex min-w-0 items-center gap-3">' + personAvatar(a, 'avatar card-avatar') + '<button type="button" class="min-w-0 text-left" data-open-athlete="' + a.id + '"><h3 class="truncate text-lg font-semibold leading-tight">' + escapeHtml(a.name) + '</h3><p class="mt-0.5 truncate text-sm text-ink-soft">' + a.age + ' ' + t('anos') + ' · ' + escapeHtml(a.city) + '/' + escapeHtml(a.state) + '</p></button></div>' +
     saveToggle(a) + '</div>' +
     '<div class="mt-3 flex flex-wrap gap-1.5">' + posTag(a.pos) + posTag(a.secondary) + tag(getCategoryFromAge(a.age), true) + '</div></div></div>' +
@@ -1390,9 +1424,13 @@ function profilePage() {
   const myStrengths = me ? strengthsOf(me) : []
   const enrolledCount = state.tryouts.filter((t) => Array.isArray(t.enrolled) && t.enrolled.includes(state.user.email)).length
   const avg = averagePlayerRating(p)
+  let seen = 0
+  try { seen = Number(localStorage.getItem('ap_card_seen:' + state.user.email)) || 0 } catch {}
+  const cardOwner = me || { ...p, id: 'me' }
+  const reveal = (state.reviews[cardOwner.id] || []).length > seen
   return shell(
-    '<section class="hero surface rounded-card p-6 sm:p-8 pos-' + positionGroup(p.pos) + '">' +
-    '<div class="flex flex-wrap items-center gap-5">' + photoUploader({ name: p.name, photo: p.photo }) + '<div class="min-w-0 flex-1"><h1 class="page-title !mt-0">' + escapeHtml(p.name) + '</h1>' +
+    '<section class="hero surface rounded-card p-6 sm:p-8 pos-' + positionGroup(p.pos) + '"><div class="profile-hero-grid"><div class="min-w-0">' +
+    '<div class="flex flex-wrap items-center gap-5">' + photoUploader({ name: p.name, photo: p.photo }) + '<div class="min-w-0 flex-[1_1_15rem]"><h1 class="page-title !mt-0">' + escapeHtml(p.name) + '</h1>' +
     '<p class="mt-2 text-ink-soft">' + escapeHtml(describeAthlete(p)) + ' ' + age + ' ' + t('anos') + ', ' + escapeHtml(category) + ', ' + escapeHtml(p.city || '') + '.</p>' +
     '<div class="mt-3 flex flex-wrap gap-1.5">' + posTag(p.pos) + posTag(p.secondary) + tag(category, true) + '</div></div>' +
     '<button type="button" class="btn-secondary self-start" data-action="logout">' + icon('logout', 'size-4') + ' ' + t('Sair') + '</button></div>' +
@@ -1400,7 +1438,7 @@ function profilePage() {
     '<div><dt>' + t('Nota média') + '</dt><dd class="num ' + rateClass(avg) + '">' + escapeHtml(String(avg)) + '</dd></div>' +
     '<div><dt>' + t('Peneiras inscritas') + '</dt><dd class="num">' + enrolledCount + '</dd></div>' +
     '<div><dt>' + t('Avaliações recebidas') + '</dt><dd class="num">' + getPlayerReviewCount() + '</dd></div>' +
-    '<div><dt>' + t('Notificações') + '</dt><dd class="num">' + myNotifications().length + '</dd></div></dl></section>' +
+    '<div><dt>' + t('Notificações') + '</dt><dd class="num">' + myNotifications().length + '</dd></div></dl></div>' + playerCard(cardOwner, { reveal }) + '</div></section>' +
     '<section class="mt-6 grid gap-5 xl:grid-cols-[.8fr_1.2fr]">' +
     '<aside class="reveal panel h-max"><h2 class="section-title !mt-0">' + t('Atributos') + '</h2><p class="mt-1 text-sm text-ink-soft">' + t('Média das notas dos olheiros, de 0 a 10, nas características da sua posição.') + '</p>' +
     (Object.keys(attrs.values).length
@@ -2890,11 +2928,11 @@ function openAthleteModal(athleteId) {
   wrapper.innerHTML =
     '<div class="athlete-modal pos-' + positionGroup(athlete.pos) + ' max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-card surface surface--raised shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="athlete-modal-title" data-lenis-prevent>' +
     '<header class="athlete-modal-hero"><button type="button" class="icon-button athlete-modal-close" data-close-modal aria-label="' + t('Fechar') + '">' + icon('close') + '</button>' +
-    '<div class="flex flex-wrap items-end gap-5">' + personAvatar(athlete, 'avatar-xl profile-avatar athlete-modal-avatar') +
+    '<div class="flex flex-wrap items-end gap-5">' + playerCard(athlete) +
     '<div class="min-w-0 flex-1"><h2 id="athlete-modal-title" class="text-3xl font-semibold leading-tight">' + escapeHtml(athlete.name) + '</h2>' +
     '<p class="mt-1 text-ink-soft">' + athlete.age + ' ' + t('anos') + ' · ' + escapeHtml(athlete.city) + '/' + escapeHtml(athlete.state) + (athlete.demo ? ' · ' + t('perfil de exemplo') : '') + '</p>' +
     '<div class="mt-3 flex flex-wrap gap-1.5">' + posTag(athlete.pos) + posTag(athlete.secondary) + tag(getCategoryFromAge(athlete.age), true) + (athlete.gender ? tag(athlete.gender, true) : '') + '</div></div>' +
-    '<div class="fut-badge" aria-label="' + t('Nota') + ' ' + formatRating(rating) + '"><span class="num text-[2rem] ' + rateClass(rating) + '">' + formatRating(rating) + '</span><span class="pos-abbr">' + t(POSITION_ABBR[athlete.pos] || '—') + '</span></div></div></header>' +
+    '</div></header>' +
     '<div class="p-6 sm:p-8">' +
     '<div class="scout-note"><p>' + escapeHtml(describeAthlete(athlete)) + '</p>' + (strengths.length ? '<p class="scout-strengths">' + strengths.map((item) => '<span>' + escapeHtml(item) + '</span>').join('') + '</p>' : '') + '</div>' +
     '<dl class="profile-stats mt-5 grid grid-cols-3 gap-3"><div><dt>' + t('Avaliações') + '</dt><dd class="num">' + reviews.length + '</dd></div><div><dt>' + t('Última avaliação') + '</dt><dd class="text-base font-semibold tabular">' + escapeHtml(reviews[0]?.date || '—') + '</dd></div><div><dt>' + t('Status') + '</dt><dd class="text-base font-semibold">' + escapeHtml(t(athlete.status || '—')) + '</dd></div></dl>' +
@@ -3859,6 +3897,10 @@ function bindDynamicCards() {
 }
 
 function bind() {
+  if (document.querySelector('[data-card-reveal]')) {
+    try { localStorage.setItem('ap_card_seen:' + state.user.email, String((state.reviews[getCurrentAthlete()?.id ?? 'me'] || []).length)) } catch {}
+    toast(t('Nova avaliação: sua carta foi atualizada.'))
+  }
   document.querySelectorAll('[data-route]').forEach((button) => button.addEventListener('click', (event) => {
     event.preventDefault()
     go(button.dataset.route)

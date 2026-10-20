@@ -965,4 +965,16 @@ const ES = {
   "Atletas sem avaliação": "Atletas sin evaluación",
   "Na sua lista de observação": "En tu lista de observación",
   "Mensagens não lidas": "Mensajes no leídos",
+  // Carta do atleta
+  "Carta de": "Carta de",
+  "Carta base": "Carta base",
+  "Ouro": "Oro",
+  "Prata": "Plata",
+  "Bronze": "Bronce",
+  "desde a última": "desde la última",
+  "Nota de exemplo": "Nota de ejemplo",
+  "Nova avaliação: sua carta foi atualizada.": "Nueva evaluación: tu carta se actualizó.",
+  "FIN": "DEF",
+  "DEF": "ATJ",
+  "SAÍ": "SAL",
 }
