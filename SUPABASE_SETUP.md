@@ -34,12 +34,13 @@ em tempo real.
    entrar como funcionário. (Convites não têm esse problema: o link só vale para o e-mail convidado.)
 6. Rode também, na ordem, `20261016120000_peneiras.sql`, `20261019120000_seguranca.sql`,
    `20261020120000_locais.sql`, `20261021120000_equipe.sql`,
-   `20261022120000_descricao_peneira.sql` e `20261023120000_responsavel.sql`. A de segurança trava a última vaga das peneiras e limita o envio
+   `20261022120000_descricao_peneira.sql`, `20261023120000_responsavel.sql` e `20261024120000_presenca.sql`. A de segurança trava a última vaga das peneiras e limita o envio
    de mensagens a 8 por minuto. A de locais cria o cadastro de locais (aba **Peneiras → Locais**),
    fecha as inscrições no horário de início e guarda quem criou/alterou locais e peneiras na
    tabela `audit_log` (consulta pelo Table Editor). A de equipe cria os convites de funcionário e o
    papel de administrador (veja abaixo); a de descrição adiciona o texto "Sobre a peneira"; a de responsável exige a autorização de um
-   responsável legal para atletas com menos de 18 anos (veja abaixo). Nenhuma delas apaga dados. Se rodar de novo
+   responsável legal para atletas com menos de 18 anos (veja abaixo); a de presença cria a chamada do dia
+   (só a equipe marca, a partir do dia da peneira; quem já teve a presença marcada não cancela a inscrição). Nenhuma delas apaga dados. Se rodar de novo
    uma migration antiga, rode as mais novas depois dela.
 7. Pronto. Abra o site normalmente (sem nada extra na URL) — ele detecta o Supabase sozinho.
 

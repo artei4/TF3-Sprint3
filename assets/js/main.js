@@ -24,7 +24,7 @@ import {
   percent,
   validateStats,
 } from './evaluation.js'
-import { threadKey, searchConversations } from './messages.js'
+import { threadKey, searchConversations, normalize } from './messages.js'
 import {
   remote,
   disableRemote,
@@ -60,6 +60,7 @@ import {
   fetchGuardians,
   saveGuardian,
   revokeGuardianConsent,
+  setAttendance,
 } from './remote.js'
 
 const app = document.querySelector('#app')
@@ -650,7 +651,7 @@ function mapRemoteTryout(row) {
     id: Number(row.id), title: row.title, date: row.date, time: row.time, location: row.location, city: row.city, state: row.state,
     category: row.category, positions: row.positions || [], seats: row.seats, status: row.status, cancelReason: row.cancel_reason,
     createdBy: row.created_by_email, remote: true,
-    venueId: row.venue_id == null ? null : Number(row.venue_id), address: row.address || '', district: row.district || '', reference: row.reference || '', description: row.description || '',
+    venueId: row.venue_id == null ? null : Number(row.venue_id), address: row.address || '', district: row.district || '', reference: row.reference || '', description: row.description || '', checkins: row.checkins || {},
     enrolled: emails.concat(Array(Math.max(0, (row.taken || 0) - emails.length)).fill('')),
   }
 }
@@ -1531,6 +1532,10 @@ function tryoutTabs(role, list) {
   return { bar, items: current[0] === 'past' ? items.reverse() : items, key: current[0] }
 }
 
+// Presença: a chamada abre no dia da peneira e segue aberta depois, para corrigir um esquecimento (mesma regra do servidor).
+const checkinOpen = (tryout) => ['today', 'live', 'ended'].includes(tryoutPhase(tryout))
+const checkinsOf = (tryout) => tryout.checkins || {}
+
 // O que a tela precisa saber de uma peneira: usado pelo card e pela janela de detalhes.
 function tryoutView(tryout) {
   const staff = state.user?.role === 'staff'
@@ -1545,11 +1550,18 @@ function tryoutView(tryout) {
   const playerPos = state.profile?.pos
   const canEnroll = staff || ((tryout.positions.includes(playerPos) || tryout.positions.includes(state.profile?.secondary)) && (!tryout.category || tryout.category === playerCategory))
   const incompatible = !staff && !enrolled && !canEnroll
+  const past = isPastTryout(tryout)
+  const myCheckin = checkinsOf(tryout)[email]
 
   let actions
   if (staff) {
-    actions = '<button type="button" class="btn-secondary w-full" data-action="view-enrolled" data-id="' + tryout.id + '">' + t('Ver inscritos') + ' (' + taken + '/' + seats + ') ' + icon('arrow', 'size-4') + '</button>' +
-      '<button type="button" class="btn-danger w-full" data-action="cancel-tryout" data-id="' + tryout.id + '">' + icon('close', 'size-4') + ' ' + t('Cancelar peneira') + '</button>'
+    const present = Object.keys(checkinsOf(tryout)).length
+    actions = (checkinOpen(tryout)
+      ? '<button type="button" class="' + (past ? 'btn-secondary' : 'btn-primary') + ' w-full" data-action="view-enrolled" data-id="' + tryout.id + '">' + icon('check', 'size-4') + ' ' + t('Chamada') + ' · ' + present + ' ' + t('de') + ' ' + taken + ' ' + t('presentes') + '</button>'
+      : '<button type="button" class="btn-secondary w-full" data-action="view-enrolled" data-id="' + tryout.id + '">' + t('Ver inscritos') + ' (' + taken + '/' + seats + ') ' + icon('arrow', 'size-4') + '</button>') +
+      (past ? '' : '<button type="button" class="btn-danger w-full" data-action="cancel-tryout" data-id="' + tryout.id + '">' + icon('close', 'size-4') + ' ' + t('Cancelar peneira') + '</button>')
+  } else if (myCheckin) {
+    actions = ''
   } else if (enrolled) {
     actions = '<button type="button" class="btn-danger w-full" data-action="withdraw" data-id="' + tryout.id + '">' + t('Cancelar minha inscrição') + '</button>'
   } else {
@@ -1557,18 +1569,20 @@ function tryoutView(tryout) {
       (full ? t('Sem vagas') : canEnroll ? t('Inscrever-me') : t('Indisponível para o seu perfil')) + (canEnroll && !full ? ' ' + icon('arrow', 'size-4') : '') + '</button>'
   }
 
-  const past = isPastTryout(tryout)
   const fit = staff ? { ok: true, reasons: [] } : tryoutFit(tryout)
   const scarce = !full && vacancies <= Math.max(2, Math.ceil(seats * 0.2))
   const place = tryoutPlace(tryout)
-  const fitLine = staff ? '' : enrolled
+  const fitLine = staff ? '' : myCheckin
+    ? '<p class="fit-line fit-ok">' + icon('check', 'size-4 shrink-0') + t('Presença confirmada às') + ' ' + fmtClock(myCheckin) + '.</p>'
+    : enrolled && past ? ''
+    : enrolled
     ? '<p class="fit-line fit-ok">' + icon('check', 'size-4 shrink-0') + '<span>' + t('Você está inscrito. Chegue 30 minutos antes.') + (place.reference ? ' ' + t('Referência:') + ' ' + escapeHtml(place.reference) + '.' : '') + '</span></p>'
     : fit.ok
       ? '<p class="fit-line fit-ok">' + icon('check', 'size-4 shrink-0') + t('Compatível com você:') + ' ' + escapeHtml(state.profile?.pos || '') + ' · ' + escapeHtml(fit.category) + '</p>'
       : '<p class="fit-line fit-no">' + icon('info', 'size-4 shrink-0') + t('Fora do seu perfil: esta peneira') + ' ' + escapeHtml(fit.reasons.join(' e ')) + '.</p>'
-  if (past) actions = '<p class="text-sm text-ink-soft">' + t('Peneira encerrada.') + '</p>'
+  if (past && !staff) actions = '<p class="text-sm text-ink-soft">' + t('Peneira encerrada.') + '</p>'
   const phase = tryoutPhase(tryout)
-  if (!staff && phase === 'live') actions = enrolled
+  if (!staff && phase === 'live' && !myCheckin) actions = enrolled
     ? '<p class="fit-line fit-ok">' + icon('check', 'size-4 shrink-0') + t('Em andamento. Bom jogo!') + '</p>'
     : '<p class="text-sm text-ink-soft">' + t('Inscrições encerradas: a peneira já começou.') + '</p>'
   if (!staff && phase === 'tbd' && !enrolled) actions = '<button type="button" class="btn-incompatible w-full" disabled>' + t('Data a confirmar') + '</button>'
@@ -3260,20 +3274,80 @@ function openCancelTryoutModal(tryoutId) {
   })
 }
 
+// Chamada no dia: busca pelo nome e um toque marca (ou desmarca) a presença.
+// Referências: check-in manual do Eventbrite Organizer (buscar ou rolar a lista e marcar "Check in")
+// e do Peatix e do Understory (busca pelo nome, desfazer ao lado do "presente").
 function openEnrolledModal(tryoutId) {
   const tryout = state.tryouts.find((item) => item.id === Number(tryoutId))
   if (!tryout) return
   const emails = Array.isArray(tryout.enrolled) ? tryout.enrolled : []
   const profiles = emails.map((email) => state.accounts.find((account) => account.email === email)?.profile).filter(Boolean)
+    .sort((a, b) => String(a.name).localeCompare(String(b.name), 'pt'))
+  const open = checkinOpen(tryout)
+  const arrived = (at) => '<p class="checkin-at">' + (at ? t('Chegou às') + ' ' + fmtClock(at) : '') + '</p>'
+  const row = (profile) => {
+    const at = checkinsOf(tryout)[profile.email]
+    return '<div class="team-row checkin-row' + (at ? ' is-present' : '') + '" data-checkin-row data-name="' + escapeHtml(normalize(profile.name)) + '">' +
+      '<span class="avatar">' + avatar(profile.name) + '</span><div class="min-w-0"><p class="font-semibold">' + escapeHtml(profile.name) + '</p>' +
+      '<p class="text-xs text-ink-soft"><span class="text-brand">' + t('Principal:') + '</span> ' + escapeHtml(profile.pos) + ' • <span class="text-brand">' + t('Secundária:') + '</span> ' + escapeHtml(profile.secondary && profile.secondary !== '—' ? profile.secondary : t('nenhuma')) + '</p>' +
+      '<p class="text-xs text-ink-soft">' + escapeHtml(getCategoryFromAge(getAgeFromProfile(profile.birth))) + ' • ' + escapeHtml(profile.city) + (profile.foot ? ' • ' + escapeHtml(profile.foot) : '') + '</p>' +
+      (open ? arrived(at) : '') + '</div>' +
+      '<div class="team-actions">' +
+      (open ? '<label class="checkin-toggle"><input type="checkbox" data-checkin="' + escapeHtml(profile.email) + '"' + (at ? ' checked' : '') + ' /><span>' + icon('check', 'size-4') + t('Presente') + '</span><span class="sr-only"> ' + escapeHtml(profile.name) + '</span></label>' : '') +
+      '<button type="button" class="btn-ghost" data-view-email="' + escapeHtml(profile.email) + '">' + t('Ver perfil') + '</button><button type="button" class="btn-ghost" data-message-email="' + escapeHtml(profile.email) + '">' + t('Mensagem') + '</button></div></div>'
+  }
   const wrapper = document.createElement('div')
   wrapper.className = 'fixed inset-0 z-[92] grid place-items-center bg-black/75 p-4'
   wrapper.innerHTML =
-    '<div class="max-h-[86vh] w-full max-w-xl overflow-y-auto rounded-card surface surface--raised p-6" role="dialog" aria-modal="true"><div class="flex items-start justify-between gap-3"><div><span class="eyebrow">Inscritos • ' + emails.length + '/' + escapeHtml(tryout.seats) + '</span><h2 class="mt-2 text-2xl font-bold">' + escapeHtml(tryout.title) + '</h2></div><button type="button" class="icon-button" aria-label="Fechar" data-close>' + icon('close') + '</button></div><div class="mt-5 space-y-2">' +
-    (profiles.length ? profiles.map((profile) => '<div class="flex items-center justify-between gap-3 rounded-2xl surface p-4"><div class="flex items-center gap-3"><span class="avatar">' + avatar(profile.name) + '</span><div><p class="font-semibold">' + escapeHtml(profile.name) + '</p><p class="text-xs text-ink-soft"><span class="text-brand">Principal:</span> ' + escapeHtml(profile.pos) + ' • <span class="text-brand">Secundária:</span> ' + escapeHtml(profile.secondary && profile.secondary !== '—' ? profile.secondary : 'nenhuma') + '</p><p class="text-xs text-ink-soft">' + escapeHtml(getCategoryFromAge(getAgeFromProfile(profile.birth))) + ' • ' + escapeHtml(profile.city) + (profile.foot ? ' • ' + escapeHtml(profile.foot) : '') + '</p></div></div><div class="flex shrink-0 flex-col gap-1"><button type="button" class="btn-ghost" data-view-email="' + escapeHtml(profile.email) + '">Ver perfil</button><button type="button" class="btn-ghost" data-message-email="' + escapeHtml(profile.email) + '">Mensagem</button></div></div>').join('') : '<div class="rounded-2xl border border-dashed border-line p-8 text-center text-ink-soft">Ainda não há inscritos nesta peneira.</div>') +
+    '<div class="max-h-[86vh] w-full max-w-2xl overflow-y-auto rounded-card surface surface--raised p-6" role="dialog" aria-modal="true" aria-labelledby="enrolled-title" data-lenis-prevent><div class="flex items-start justify-between gap-3"><div><span class="eyebrow">' + (open ? t('Chamada') : t('Inscritos')) + ' • ' + emails.length + '/' + escapeHtml(tryout.seats) + '</span><h2 id="enrolled-title" class="mt-2 text-2xl font-bold">' + escapeHtml(tryout.title) + '</h2><p class="mt-1 text-sm text-ink-soft">' + escapeHtml(longTryoutDate(tryout)) + (validTime(tryout.time) ? ' · ' + escapeHtml(tryout.time) : '') + '</p></div><button type="button" class="icon-button" aria-label="' + t('Fechar') + '" data-close>' + icon('close') + '</button></div>' +
+    (open && profiles.length
+      ? '<div class="checkin-meter mt-5"><p class="text-sm" aria-live="polite" data-checkin-count></p><div class="mt-2 h-2 overflow-hidden rounded-full bg-line"><div class="checkin-fill h-full rounded-full bg-success" data-checkin-fill></div></div></div>' +
+        (profiles.length > 1 ? '<label class="mt-4 block"><span class="sr-only">' + t('Buscar atleta pelo nome') + '</span><input type="search" class="field" placeholder="' + t('Buscar atleta pelo nome') + '" autocomplete="off" data-checkin-search /></label>' : '')
+      : tryout.status !== 'cancelled' && profiles.length ? '<p class="fit-line mt-4">' + icon('info', 'size-4 shrink-0') + t('A chamada abre no dia da peneira.') + '</p>' : '') +
+    '<div class="team-list mt-4">' +
+    (profiles.length ? profiles.map(row).join('') + '<p class="py-6 text-center text-sm text-ink-soft" data-checkin-empty hidden>' + t('Ninguém com esse nome na lista.') + '</p>' : '<div class="rounded-2xl border border-dashed border-line p-8 text-center text-ink-soft">' + t('Ainda não há inscritos nesta peneira.') + '</div>') +
     '</div></div>'
 
+  const updateCount = () => {
+    const count = wrapper.querySelector('[data-checkin-count]')
+    if (!count) return
+    const present = profiles.filter((profile) => checkinsOf(tryout)[profile.email]).length
+    count.innerHTML = '<strong class="num text-2xl text-chalk">' + present + '</strong> <span class="text-ink-soft">' + t('de') + ' ' + profiles.length + ' ' + t('presentes') + (present < profiles.length ? ' · ' + (profiles.length - present) + ' ' + t('faltando') : '') + '</span>'
+    wrapper.querySelector('[data-checkin-fill]').style.width = (present / profiles.length * 100) + '%'
+  }
+  updateCount()
   document.body.appendChild(wrapper)
-  wrapper.querySelector('[data-close]').addEventListener('click', () => wrapper.remove())
+  wrapper.querySelector('[data-checkin-search]')?.focus()
+
+  // O card atrás mostra o total de presentes: redesenha quando a janela fechar (botão, Esc ou clique fora).
+  let changed = false
+  const watch = new MutationObserver(() => {
+    if (wrapper.isConnected) return
+    watch.disconnect()
+    if (changed) render()
+  })
+  watch.observe(document.body, { childList: true })
+  wrapper.addEventListener('click', (event) => { if (event.target === wrapper || event.target.closest('[data-close]')) wrapper.remove() })
+  wrapper.querySelector('[data-checkin-search]')?.addEventListener('input', (event) => {
+    const query = normalize(event.target.value).trim()
+    let shown = 0
+    wrapper.querySelectorAll('[data-checkin-row]').forEach((item) => { item.hidden = !!query && !item.dataset.name.includes(query); shown += item.hidden ? 0 : 1 })
+    wrapper.querySelector('[data-checkin-empty]').hidden = shown > 0
+  })
+  wrapper.addEventListener('change', async (event) => {
+    const box = event.target.closest('[data-checkin]')
+    if (!box) return
+    const present = box.checked
+    box.disabled = true
+    const at = await markAttendance(tryout, box.dataset.checkin, present)
+    box.disabled = false
+    if (at === false) { box.checked = !present; return }
+    changed = true
+    const item = box.closest('[data-checkin-row]')
+    item.classList.toggle('is-present', !!at)
+    item.querySelector('.checkin-at').outerHTML = arrived(at)
+    updateCount()
+  })
   wrapper.querySelectorAll('[data-view-email]').forEach((button) => button.addEventListener('click', () => {
     const account = state.accounts.find((entry) => entry.email === button.dataset.viewEmail)
     const athlete = state.athletes.find((a) => a.id === account?.athleteId)
@@ -3290,6 +3364,26 @@ function openEnrolledModal(tryoutId) {
     if (athlete) startConversationForAthlete(athlete.id)
     else go('messages')
   }))
+}
+
+// Devolve a hora da chegada, null ao desfazer, ou false se não deu certo.
+async function markAttendance(tryout, email, present) {
+  let at = present ? (checkinsOf(tryout)[email] || new Date().toISOString()) : null
+  if (tryout.remote && remote.enabled) {
+    const result = await setAttendance(tryout.id, email, present)
+    if (result.error) {
+      toast(describeError(result.error), 'error')
+      return false
+    }
+    at = result.at
+  } else {
+    logChange(present ? 'checkin' : 'undo_checkin', 'tryout', tryout.id, { athlete: state.accounts.find((account) => account.email === email)?.athleteId ?? null })
+  }
+  tryout.checkins = { ...checkinsOf(tryout) }
+  if (at) tryout.checkins[email] = at
+  else delete tryout.checkins[email]
+  persist()
+  return at
 }
 
 function openNotifications() {
@@ -3466,7 +3560,10 @@ async function saveProfile() {
     state.user.email = p.email
   }
   if (oldEmail !== p.email) {
-    state.tryouts.forEach((tryout) => { tryout.enrolled = (tryout.enrolled || []).map((email) => (email === oldEmail ? p.email : email)) })
+    state.tryouts.forEach((tryout) => {
+      tryout.enrolled = (tryout.enrolled || []).map((email) => (email === oldEmail ? p.email : email))
+      if (tryout.checkins?.[oldEmail]) { tryout.checkins[p.email] = tryout.checkins[oldEmail]; delete tryout.checkins[oldEmail] }
+    })
   }
   syncAthletes()
   persist()

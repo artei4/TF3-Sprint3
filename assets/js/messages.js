@@ -5,7 +5,7 @@ export function threadKey(athleteId, staffEmail){
 }
 
 // Ignora maiúsculas e acentos: "joao" encontra "João".
-const normalize = (text) => String(text||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()
+export const normalize = (text) => String(text||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()
 
 export function searchConversations(conversations, term){
   const query=normalize(term).trim()

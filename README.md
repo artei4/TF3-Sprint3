@@ -54,6 +54,7 @@ No painel do Supabase → **SQL Editor**, rode em ordem os arquivos de `supabase
 6. `20261021120000_equipe.sql`
 7. `20261022120000_descricao_peneira.sql`
 8. `20261023120000_responsavel.sql`
+9. `20261024120000_presenca.sql`
 
 URL e chave publicável ficam em `assets/js/config.js`. Detalhes em `SUPABASE_SETUP.md`.
 

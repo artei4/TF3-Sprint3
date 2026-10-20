@@ -894,3 +894,18 @@ body::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:n
 @media (max-width: 30rem) { .invite-link { flex-direction:column; } }
 .map-link { font-weight:600; color:var(--color-brand); text-decoration: underline; text-decoration-thickness:1px; text-underline-offset:3px; white-space:nowrap; }
 .map-link::after { content:" ↗"; }
+/* Chamada: o checkbox nativo vira um botão "Presente"; a linha fica verde e a barra de presentes acompanha. */
+.checkin-row { border:1px solid transparent; transition: background-color .25s, border-color .25s; }
+.checkin-row.is-present { border-color: color-mix(in oklab, var(--color-success) 35%, transparent); background: color-mix(in oklab, var(--color-success) 7%, transparent); }
+.checkin-at { min-height:1rem; margin-top:.15rem; font-size:.75rem; font-weight:600; color:var(--color-success); }
+.checkin-toggle { position:relative; display:inline-flex; cursor:pointer; }
+.checkin-toggle input { position:absolute; inset:0; opacity:0; cursor:pointer; margin:0; }
+.checkin-toggle input + span { display:inline-flex; align-items:center; gap:.35rem; min-height:2.5rem; padding:.45rem .95rem; border-radius:999px; border:1px solid var(--color-line-strong); font-size:.875rem; font-weight:700; color:var(--color-ink-soft); transition: background-color .2s, color .2s, border-color .2s; }
+.checkin-toggle input + span svg { opacity:.35; transition: opacity .2s; }
+.checkin-toggle:hover input + span { border-color:var(--color-success); color:var(--color-chalk); }
+.checkin-toggle input:checked + span { color:var(--color-night); background:var(--color-success); border-color:transparent; animation: checkin-pop .4s var(--ease-out); }
+.checkin-toggle input:checked + span svg { opacity:1; }
+.checkin-toggle input:focus-visible + span { outline:2px solid var(--color-focus); outline-offset:2px; }
+.checkin-toggle input:disabled + span { opacity:.6; cursor:progress; }
+@keyframes checkin-pop { 40% { transform: scale(1.08); } }
+.checkin-fill { width:0; transition: width .5s var(--ease-out); }

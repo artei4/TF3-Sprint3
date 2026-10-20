@@ -53,6 +53,8 @@ export function describeError(error) {
   if (text.includes('invalid_email')) return t('Informe um e-mail válido.')
   if (text.includes('invite_not_pending')) return t('Este convite já foi usado ou cancelado.')
   if (text.includes('cannot_change_self')) return t('Você não pode alterar a própria conta. Peça a outro administrador.')
+  if (text.includes('checkin_not_open')) return t('A chamada abre no dia da peneira.')
+  if (text.includes('not_enrolled')) return t('Este atleta não está inscrito nesta peneira.')
   if (text.includes('not_staff')) return t('Esta conta não é de funcionário.')
   if (text.includes('guardian_required')) return t('Falta a autorização do responsável. Registre no seu perfil.')
   if (text.includes('consent_required')) return t('A autorização do responsável é obrigatória para menores de 18 anos.')
@@ -214,6 +216,12 @@ export async function enrollTryout(id) {
 export async function withdrawTryout(id, uid) {
   const { error } = await client.from('tryout_enrollments').delete().eq('tryout_id', id).eq('athlete_id', uid)
   return error || null
+}
+
+// Presença no dia (migration 20261024120000_presenca.sql). Devolve a hora da chegada (ou null ao desfazer).
+export async function setAttendance(id, email, present) {
+  const { data, error } = await client.rpc('set_attendance', { p_tryout: id, p_email: email, p_present: present })
+  return { error: error || null, at: data || null }
 }
 
 // ---------- Locais de peneira ----------
