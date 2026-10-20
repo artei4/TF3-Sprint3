@@ -3,6 +3,8 @@
 // Foto: a orientação do celular é corrigida (createImageBitmap + from-image) e a pessoa enquadra
 // num recorte circular com zoom e arrastar. A saída usa exatamente a mesma conta da prévia:
 // 320 px em WebP (JPEG se o navegador não gerar WebP), ~15–40 KB, pequena o bastante para ir no perfil.
+import { t } from './i18n.js'
+
 const PHOTO_SIZE = 320
 const MAX_FILE = 8 * 1024 * 1024
 const MAX_ZOOM = 4
@@ -23,11 +25,11 @@ export async function cropPhoto(file) {
     wrapper.className = 'fixed inset-0 z-[130] grid place-items-center bg-black/80 p-4'
     wrapper.innerHTML =
       '<div class="cropper surface surface--raised" role="dialog" aria-modal="true" aria-labelledby="crop-title">' +
-      '<h2 id="crop-title" class="text-xl font-semibold">Enquadre sua foto</h2>' +
-      '<p class="mt-1 text-sm text-ink-soft">Arraste para mover e use o zoom. No teclado: setas movem, + e − aproximam.</p>' +
-      '<div class="crop-stage" tabindex="0" role="group" aria-label="Área de recorte da foto"><img alt="" draggable="false" /><span class="crop-ring" aria-hidden="true"></span></div>' +
+      '<h2 id="crop-title" class="text-xl font-semibold">' + t('Enquadre sua foto') + '</h2>' +
+      '<p class="mt-1 text-sm text-ink-soft">' + t('Arraste para mover e use o zoom. No teclado: setas movem, + e − aproximam.') + '</p>' +
+      '<div class="crop-stage" tabindex="0" role="group" aria-label="' + t('Área de recorte da foto') + '"><img alt="" draggable="false" /><span class="crop-ring" aria-hidden="true"></span></div>' +
       '<label class="crop-zoom"><span>Zoom</span><input type="range" min="1" max="' + MAX_ZOOM + '" step="0.01" value="1" /></label>' +
-      '<div class="mt-5 flex justify-end gap-2"><button type="button" class="btn-secondary" data-close>Cancelar</button><button type="button" class="btn-primary" data-crop-ok>Usar foto</button></div></div>'
+      '<div class="mt-5 flex justify-end gap-2"><button type="button" class="btn-secondary" data-close>' + t('Cancelar') + '</button><button type="button" class="btn-primary" data-crop-ok>' + t('Usar foto') + '</button></div></div>'
     document.body.appendChild(wrapper)
 
     const stage = wrapper.querySelector('.crop-stage')

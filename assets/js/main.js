@@ -226,7 +226,7 @@ function notify(to, title, text) {
 // O id da notificação carrega o horário de criação (Date.now() * 1000 + seq).
 function notificationTime(n) {
   const ts = Math.floor(Number(n.id) / 1000)
-  return ts > 1e12 ? fmtListTime(ts) : (n.time || '')
+  return ts > 1e12 ? fmtListTime(ts) : t(n.time || '')
 }
 
 function myNotifications() {
@@ -345,7 +345,7 @@ function getConversations() {
       .map((a) => ({
         id: String(a.id),
         name: a.name,
-        subtitle: a.pos + ' • ' + a.city,
+        subtitle: t(a.pos) + ' • ' + a.city,
         avatar: a.name,
         person: a,
         key: remote.enabled ? threadKey(a.profileId, state.user.uid) : threadKey(a.id, state.user.email),
@@ -358,7 +358,7 @@ function getConversations() {
   return state.accounts.filter((a) => a.role === 'staff').map((a) => ({
     id: remote.enabled ? a.uid : a.email,
     name: a.profile?.name || a.email,
-    subtitle: (a.profile?.position || 'Profissional') + ' • ' + (a.profile?.city || 'Pelé Academia'),
+    subtitle: (a.profile?.position || t('Profissional')) + ' • ' + (a.profile?.city || 'Pelé Academia'),
     avatar: a.profile?.name || a.email,
     person: { name: a.profile?.name || a.email, photo: a.profile?.photo || null, demo: !!a.profile?.demo, id: a.email, group: 'staff' },
     key: remote.enabled ? threadKey(state.user.uid, a.uid) : threadKey(me.id, a.email),
@@ -486,9 +486,9 @@ function conversationItemsHtml(conversations, selectedId) {
       personAvatar(c.person || { name: c.avatar }) +
       '<span class="min-w-0 flex-1 text-left"><strong class="block truncate">' + escapeHtml(c.name) + '</strong>' +
       '<small class="conv-sub block truncate text-ink-soft">' + escapeHtml(c.subtitle) + '</small>' +
-      '<small class="conv-preview truncate text-ink-soft">' + (last ? (last.senderRole === role ? '<span>Você: </span>' : '') + '<span translate="no">' + escapeHtml(last.text) + '</span>' : '<span>' + escapeHtml(c.subtitle) + '</span>') + '</small></span>' +
+      '<small class="conv-preview truncate text-ink-soft">' + (last ? (last.senderRole === role ? '<span>' + t('Você:') + ' </span>' : '') + '<span translate="no">' + escapeHtml(last.text) + '</span>' : '<span>' + escapeHtml(c.subtitle) + '</span>') + '</small></span>' +
       '<span class="conv-meta">' + (last ? '<time class="conv-time">' + escapeHtml(fmtListTime(messageTs(last))) + '</time>' : '') + (unread ? '<b class="conv-unread">' + unread + '</b>' : '') + '</span></button>'
-  }).join('') + '<p id="conversation-empty" class="p-4 text-center text-xs text-ink-soft" hidden>Nenhum resultado encontrado.</p>'
+  }).join('') + '<p id="conversation-empty" class="p-4 text-center text-xs text-ink-soft" hidden>' + t('Nenhum resultado encontrado.') + '</p>'
 }
 
 function bindConversationItems() {
@@ -787,7 +787,7 @@ function ratingOf(athlete) {
 
 function footTag(foot) {
   if (!foot) return ''
-  return tag(foot === 'Destro' ? 'Perna direita' : foot === 'Canhoto' ? 'Perna esquerda' : 'Ambidestro', true)
+  return tag(foot === 'Destro' ? t('Perna direita') : foot === 'Canhoto' ? t('Perna esquerda') : t('Ambidestro'), true)
 }
 
 function formatRating(value) {
@@ -858,6 +858,7 @@ function currentRoute() {
 }
 
 function toast(message, type = 'success', action = null) {
+  message = t(message)
   let root = document.querySelector('#toast-root')
   if (!root) {
     root = document.createElement('div')
@@ -985,7 +986,7 @@ function playerDashboard() {
   const status = mine.length
     ? t('Você tem') + ' ' + plural(mine.length, 'inscrição', 'inscrições') + '. ' + nextTryoutLine(mine[0])
     : forYou.length
-      ? t('Há') + ' ' + plural(forYou.length, 'peneira aberta', 'peneiras abertas') + ' ' + t('para') + ' ' + escapeHtml(profile.pos.toLowerCase()) + ' ' + t('na') + ' ' + escapeHtml(category) + '.'
+      ? t('Há') + ' ' + plural(forYou.length, 'peneira aberta', 'peneiras abertas') + ' ' + t('para') + ' ' + escapeHtml(t(profile.pos).toLowerCase()) + ' ' + t('na') + ' ' + escapeHtml(category) + '.'
       : t('Nenhuma peneira compatível agora. Complete o perfil para aparecer para os olheiros.')
   const cta = mine.length
     ? '<button type="button" class="btn-primary" data-tryout-filter="mine">' + icon('calendar', 'size-4') + ' ' + t('Ver minhas inscrições') + '</button>'
@@ -1019,7 +1020,7 @@ function playerDashboard() {
   return shell(
     '<section class="grid gap-5 xl:grid-cols-[1.5fr_.9fr]">' +
     '<div class="hero rounded-card surface p-6 sm:p-8"><span class="jersey" aria-hidden="true">' + (category.replace(/\D/g, '') || '10') + '</span>' +
-    '<p class="text-sm text-ink-soft">' + escapeHtml(profile.pos) + ' · ' + escapeHtml(category) + ' · ' + escapeHtml(profile.city || '') + '</p>' +
+    '<p class="text-sm text-ink-soft">' + escapeHtml(t(profile.pos)) + ' · ' + escapeHtml(category) + ' · ' + escapeHtml(profile.city || '') + '</p>' +
     '<h1 class="page-title mt-2 max-w-2xl">' + t('Olá,') + ' ' + firstName + '.</h1><p class="mt-3 max-w-xl text-lg leading-7">' + status + '</p>' +
     '<div class="mt-6 flex flex-wrap gap-2">' + cta + '<button type="button" class="btn-secondary" data-route="profile">' + icon('user', 'size-4') + ' ' + t('Meu perfil') + '</button></div>' +
     '<dl class="profile-stats mt-8 grid grid-cols-2 gap-3 md:grid-cols-4">' +
@@ -1031,7 +1032,7 @@ function playerDashboard() {
     '<section class="mt-6 grid gap-5 ' + (checklistPanel ? 'lg:grid-cols-2' : '') + '">' + checklistPanel +
     '<div class="reveal panel"><h2 class="section-title !mt-0">' + t('Minha atividade') + '</h2><div class="mt-5 space-y-4">' +
     (myNotifications().length
-      ? myNotifications().slice(0, 4).map((n) => activity(escapeHtml(n.title), escapeHtml(n.text), notificationTime(n))).join('')
+      ? myNotifications().slice(0, 4).map((n) => activity(escapeHtml(t(n.title)), escapeHtml(t(n.text)), notificationTime(n))).join('')
       : '<div class="empty-state"><strong>' + t('Nada por aqui ainda') + '</strong><span class="text-sm">' + t('Inscrições, avaliações e mensagens de treinadores aparecem aqui.') + '</span></div>') +
     '</div></div></section>',
     { active: 'dashboard', role: 'player' },
@@ -1042,7 +1043,7 @@ function playerDashboard() {
 function staffDashboard() {
   return shell(
     '<section class="grid gap-6 xl:grid-cols-[1.55fr_.8fr]">' +
-    '<div class="hero rounded-card surface p-6 sm:p-8"><span class="jersey" aria-hidden="true">10</span><h1 class="page-title max-w-3xl">Encontre atletas, avalie perfis e crie oportunidades.</h1><p class="mt-4 max-w-2xl text-ink-soft">Pesquise o banco, abra o perfil completo do atleta, envie mensagens, registre avaliações e agende peneiras.</p><div class="mt-8 flex flex-wrap gap-3"><button type="button" class="btn-primary" data-route="athletes">' + t('Pesquisar atletas') + ' ' + icon('search', 'size-4') + '</button><button type="button" class="btn-secondary" data-action="openTryout">' + icon('plus', 'size-4') + ' ' + t('Criar peneira') + '</button></div></div>' +
+    '<div class="hero rounded-card surface p-6 sm:p-8"><span class="jersey" aria-hidden="true">10</span><h1 class="page-title max-w-3xl">' + t('Encontre atletas, avalie perfis e crie oportunidades.') + '</h1><p class="mt-4 max-w-2xl text-ink-soft">' + t('Pesquise o banco, abra o perfil completo do atleta, envie mensagens, registre avaliações e agende peneiras.') + '</p><div class="mt-8 flex flex-wrap gap-3"><button type="button" class="btn-primary" data-route="athletes">' + t('Pesquisar atletas') + ' ' + icon('search', 'size-4') + '</button><button type="button" class="btn-secondary" data-action="openTryout">' + icon('plus', 'size-4') + ' ' + t('Criar peneira') + '</button></div></div>' +
     '<aside class="panel"><span class="eyebrow">' + t('Hoje') + '</span><div class="mt-3 grid grid-cols-2 gap-3">' +
     staffStat(String(state.athletes.length).padStart(2, '0'), t('Atletas ativos')) + staffStat(String(Object.values(state.reviews).filter((list) => Array.isArray(list) && list.length).length).padStart(2, '0'), t('Perfis avaliados')) + staffStat(String(state.tryouts.length).padStart(2, '0'), t('Peneiras')) + staffStat(String(state.messages.filter((m) => String(m.thread).endsWith('::' + state.user?.email)).length).padStart(2, '0'), t('Mensagens')) +
     '</div></aside></section>' +
@@ -1072,10 +1073,10 @@ function rateClass(value) {
 
 function posTag(pos) {
   if (!pos || pos === '—') return ''
-  return '<span class="tag pos-tag pos-' + positionGroup(pos) + '">' + escapeHtml(pos) + '</span>'
+  return '<span class="tag pos-tag pos-' + positionGroup(pos) + '">' + escapeHtml(t(pos)) + '</span>'
 }
 
-const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many)
+const plural = (n, one, many) => n + ' ' + t(n === 1 ? one : many)
 
 // ---------- Loader de futebol: bola quicando sobre a linha do campo ----------
 const BALL_SVG = '<svg viewBox="0 0 24 24" class="ball" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#EEF1E8"/><path d="M12 7.2l4.1 3-1.6 4.8h-5l-1.6-4.8z" fill="#0D1612"/><path d="M12 7.2V2.5M16.1 10.2l4.4-1.6M14.5 15l2.8 3.9M9.5 15l-2.8 3.9M7.9 10.2 3.5 8.6" stroke="#0D1612" stroke-width="1.3" fill="none"/></svg>'
@@ -1084,11 +1085,11 @@ function ballLoader(label = t('Carregando…')) {
 }
 
 // ---------- Placar: data da peneira ----------
-const MONTHS = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ']
+const MONTHS = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'] // traduzidos por t() ao mostrar
 function scoreboard(date, time) {
   const [year, month, day] = String(date || '').split('-')
   if (!day) return ''
-  return '<div class="scoreboard" aria-label="' + formatDate(date) + (time ? ' às ' + escapeHtml(time) : '') + '"><span class="sb-day num">' + day + '</span><span class="sb-month">' + (MONTHS[Number(month) - 1] || '') + '</span>' + (time ? '<span class="sb-time tabular">' + escapeHtml(time) + '</span>' : '') + '</div>'
+  return '<div class="scoreboard" aria-label="' + formatDate(date) + (time ? ' ' + t('às') + ' ' + escapeHtml(time) : '') + '"><span class="sb-day num">' + day + '</span><span class="sb-month">' + t(MONTHS[Number(month) - 1] || '') + '</span>' + (time ? '<span class="sb-time tabular">' + escapeHtml(time) + '</span>' : '') + '</div>'
 }
 
 // ---------- Elenco em campo: cada atleta na zona da posição principal ----------
@@ -1103,7 +1104,7 @@ function pitchFormation(athletes, { highlight = null, interactive = true } = {})
     const lane = PITCH_LANES[a.pos] || PITCH_LANES.Meia
     const n = used[a.pos] = (used[a.pos] || 0) + 1
     const y = lane[1][(n - 1) % lane[1].length] + Math.floor((n - 1) / lane[1].length) * 5
-    const label = escapeHtml(a.name) + ', ' + escapeHtml(a.pos) + (a.rating ? ', nota ' + formatRating(ratingOf(a)) : '')
+    const label = escapeHtml(a.name) + ', ' + escapeHtml(t(a.pos)) + (a.rating ? ', ' + t('nota') + ' ' + formatRating(ratingOf(a)) : '')
     const cls = 'pitch-dot pos-' + positionGroup(a.pos) + (highlight === a.id ? ' is-me' : '')
     const style = 'left:' + lane[0] + '%;top:' + Math.min(92, y) + '%;--i:' + i
     return interactive
@@ -1135,14 +1136,14 @@ const partnerSeal = () => '<span class="partner-seal"><img src="./assets/brand/s
 // Preferência salva vence; sem preferência, segue o sistema. O <head> aplica antes da 1ª pintura.
 const currentTheme = () => document.documentElement.dataset.theme === 'light' ? 'light' : 'dark'
 function themeButton(extra = '') {
-  const next = currentTheme() === 'light' ? 'escuro' : 'claro'
-  return '<button type="button" class="icon-button theme-toggle ' + extra + '" data-action="toggle-theme" aria-label="Ativar tema ' + next + '" title="Alternar tema claro/escuro" aria-live="polite">' + icon('sun', 'size-4 theme-sun') + icon('moon', 'size-4 theme-moon') + '</button>'
+  const next = currentTheme() === 'light' ? t('Ativar tema escuro') : t('Ativar tema claro')
+  return '<button type="button" class="icon-button theme-toggle ' + extra + '" data-action="toggle-theme" aria-label="' + next + '" title="' + t('Alternar tema claro/escuro') + '" aria-live="polite">' + icon('sun', 'size-4 theme-sun') + icon('moon', 'size-4 theme-moon') + '</button>'
 }
 function applyTheme(theme, persistChoice = true) {
   const swap = () => {
     document.documentElement.dataset.theme = theme
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'light' ? '#F2F5EF' : '#0D1612')
-    document.querySelectorAll('[data-action="toggle-theme"]').forEach((button) => button.setAttribute('aria-label', 'Ativar tema ' + (theme === 'light' ? 'escuro' : 'claro')))
+    document.querySelectorAll('[data-action="toggle-theme"]').forEach((button) => button.setAttribute('aria-label', theme === 'light' ? t('Ativar tema escuro') : t('Ativar tema claro')))
   }
   if (persistChoice) { try { localStorage.setItem('ap_theme', theme) } catch {} }
   if (document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -1178,9 +1179,9 @@ document.addEventListener('click', (event) => {
 })
 
 // ---------- Texto humano para o card ----------
-const joinPt = (items) => items.length <= 1 ? (items[0] || '') : items.slice(0, -1).join(', ') + ' e ' + items[items.length - 1]
+const joinPt = (items) => items.length <= 1 ? (items[0] || '') : items.slice(0, -1).join(', ') + ' ' + t('e') + ' ' + items[items.length - 1]
 function footPhrase(foot) {
-  return foot === 'Canhoto' ? 'chuta de canhota' : foot === 'Destro' ? 'chuta de direita' : foot === 'Ambidestro' ? 'usa bem as duas pernas' : ''
+  return t(foot === 'Canhoto' ? 'chuta de canhota' : foot === 'Destro' ? 'chuta de direita' : foot === 'Ambidestro' ? 'usa bem as duas pernas' : '')
 }
 // Destaques: os mais citados pelos olheiros; sem avaliação, as características do cadastro.
 function strengthsOf(a) {
@@ -1188,12 +1189,12 @@ function strengthsOf(a) {
   ;(state.reviews[a.id] || []).forEach((review) => (review.strengths || []).forEach((item) => { counts[item] = (counts[item] || 0) + 1 }))
   const fromReviews = Object.keys(counts).sort((x, y) => counts[y] - counts[x])
   const list = fromReviews.length ? fromReviews : (a.tags || []).filter((item) => item && item !== a.pos && item !== a.secondary)
-  return list.slice(0, 3).map((item) => item.toLowerCase())
+  return list.slice(0, 3).map((item) => t(item).toLowerCase())
 }
 function describeAthlete(a) {
-  const role = a.secondary && a.secondary !== '—' && a.secondary !== a.pos ? a.pos + ' que também joga de ' + a.secondary.toLowerCase() : a.pos
+  const role = a.secondary && a.secondary !== '—' && a.secondary !== a.pos ? t(a.pos) + ' ' + t('que também joga de') + ' ' + t(a.secondary).toLowerCase() : t(a.pos)
   const foot = footPhrase(a.foot)
-  return role + (foot ? ' e ' + foot : '') + '.'
+  return role + (foot ? ' ' + t('e') + ' ' + foot : '') + '.'
 }
 
 // ---------- Radar de atributos (média das avaliações, 0–10) ----------
@@ -1210,10 +1211,10 @@ function radarChart(criteria, values) {
     const [x, y] = point(i, 12.2)
     const anchor = Math.abs(x - cx) < 4 ? 'middle' : x > cx ? 'start' : 'end'
     const value = values[c.key]
-    return '<text x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" text-anchor="' + anchor + '" class="radar-label">' + escapeHtml(c.label.split(' e ')[0]) + '<tspan class="radar-value" dx="5">' + (value ? formatRating(value) : '—') + '</tspan></text>'
+    return '<text x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" text-anchor="' + anchor + '" class="radar-label">' + escapeHtml(t(c.label).split(/ [ey] /)[0]) + '<tspan class="radar-value" dx="5">' + (value ? formatRating(value) : '—') + '</tspan></text>'
   }).join('')
-  const summary = criteria.map((c) => c.label + ' ' + (values[c.key] ? formatRating(values[c.key]) : 'sem nota')).join('; ')
-  return '<svg class="radar" viewBox="0 0 320 260" role="img" aria-label="Atributos: ' + escapeHtml(summary) + '">' +
+  const summary = criteria.map((c) => t(c.label) + ' ' + (values[c.key] ? formatRating(values[c.key]) : t('sem nota'))).join('; ')
+  return '<svg class="radar" viewBox="0 0 320 260" role="img" aria-label="' + t('Atributos') + ': ' + escapeHtml(summary) + '">' +
     [2.5, 5, 7.5, 10].map((v) => '<polygon points="' + ring(v) + '" class="radar-ring"/>').join('') +
     criteria.map((_, i) => { const [x, y] = point(i, 10); return '<line x1="' + cx + '" y1="' + cy + '" x2="' + x.toFixed(1) + '" y2="' + y.toFixed(1) + '" class="radar-ring"/>' }).join('') +
     '<polygon points="' + shape + '" class="radar-shape"/>' + labels + '</svg>'
@@ -1307,8 +1308,8 @@ function athleteCard(a, staff = false) {
   const rating = ratingOf(a)
 
   return '<article class="reveal spot athlete-card pos-' + positionGroup(a.pos) + ' flex h-full flex-col rounded-card surface p-4">' +
-    '<div class="flex gap-4"><div class="fut-badge" aria-label="Nota ' + formatRating(rating) + ', ' + escapeHtml(a.pos) + '"><span class="num text-[2rem] ' + rateClass(rating) + '">' + formatRating(rating) + '</span><span class="pos-abbr">' + (POSITION_ABBR[a.pos] || '—') + '</span></div>' +
-    '<div class="min-w-0 flex-1"><div class="flex items-start justify-between gap-2"><div class="flex min-w-0 items-center gap-3">' + personAvatar(a, 'avatar card-avatar') + '<button type="button" class="min-w-0 text-left" data-open-athlete="' + a.id + '"><h3 class="truncate text-lg font-semibold leading-tight">' + escapeHtml(a.name) + '</h3><p class="mt-0.5 truncate text-sm text-ink-soft">' + a.age + ' anos · ' + escapeHtml(a.city) + '/' + escapeHtml(a.state) + '</p></button></div>' +
+    '<div class="flex gap-4"><div class="fut-badge" aria-label="' + t('Nota') + ' ' + formatRating(rating) + ', ' + escapeHtml(t(a.pos)) + '"><span class="num text-[2rem] ' + rateClass(rating) + '">' + formatRating(rating) + '</span><span class="pos-abbr">' + t(POSITION_ABBR[a.pos] || '—') + '</span></div>' +
+    '<div class="min-w-0 flex-1"><div class="flex items-start justify-between gap-2"><div class="flex min-w-0 items-center gap-3">' + personAvatar(a, 'avatar card-avatar') + '<button type="button" class="min-w-0 text-left" data-open-athlete="' + a.id + '"><h3 class="truncate text-lg font-semibold leading-tight">' + escapeHtml(a.name) + '</h3><p class="mt-0.5 truncate text-sm text-ink-soft">' + a.age + ' ' + t('anos') + ' · ' + escapeHtml(a.city) + '/' + escapeHtml(a.state) + '</p></button></div>' +
     saveToggle(a) + '</div>' +
     '<div class="mt-3 flex flex-wrap gap-1.5">' + posTag(a.pos) + posTag(a.secondary) + tag(getCategoryFromAge(a.age), true) + '</div></div></div>' +
     '<div class="scout-note mt-4"><p>' + escapeHtml(describeAthlete(a)) + '</p>' +
@@ -1316,7 +1317,7 @@ function athleteCard(a, staff = false) {
     '<p class="mt-3 text-xs text-ink-soft">' + (reviewCount ? '<span class="tabular">' + plural(reviewCount, 'avaliação', 'avaliações') + '</span>' : t('ainda sem avaliação')) + (a.demo ? ' · ' + t('perfil de exemplo') : '') + '</p>' +
     '<div class="mt-auto flex flex-wrap gap-2 pt-4">' +
     (staff ? '<button type="button" class="btn-secondary" data-message-athlete="' + a.id + '">' + t('Mensagem') + '</button>' : '') +
-    '<button type="button" class="btn-ghost ml-auto" data-open-athlete="' + a.id + '" aria-label="Abrir perfil de ' + escapeHtml(a.name) + '">' + t('Ver perfil') + '</button></div></article>'
+    '<button type="button" class="btn-ghost ml-auto" data-open-athlete="' + a.id + '" aria-label="' + t('Abrir perfil de') + ' ' + escapeHtml(a.name) + '">' + t('Ver perfil') + '</button></div></article>'
 }
 
 // Lista de observação: marcador pessoal de quem o funcionário quer acompanhar. Não é voto nem curtida:
@@ -1331,26 +1332,26 @@ let watchOnly = false
 
 function tag(text, ghost = false) {
   if (!text || text === '—') return ''
-  const safe = escapeHtml(text)
+  const safe = escapeHtml(t(text))
   return '<span class="tag ' + (ghost ? 'ghost' : '') + '">' + safe + '</span>'
 }
 
 function athletesPage() {
   watchOnly = false // como os outros filtros, volta a "todos" ao abrir a página
-  const filters = '<div class="filters-scrim" data-filters-close></div><aside id="filters-panel" class="filters-panel panel h-max" aria-label="Filtros de atletas" data-lenis-prevent><div class="flex items-center justify-between gap-2"><h2 class="font-bold">Filtros</h2><div class="flex items-center gap-1"><button type="button" class="btn-ghost text-xs text-brand" data-action="clearFilters">Limpar</button><button type="button" class="filters-toggle icon-button sm" aria-label="Fechar filtros" data-filters-close>' + icon('close', 'size-4') + '</button></div></div>' +
-    '<div class="mt-4 space-y-4"><label class="field-label">' + t('Buscar por nome') + '<input id="filter-name" class="field" placeholder="Ex.: Gabriel" /></label>' +
-    '<label class="field-label">' + t('Posição principal ou secundária') + '<select id="filter-pos" class="field"><option value="">Todas</option>' + POSITIONS.map((p) => '<option>' + p + '</option>').join('') + '</select></label>' +
-    '<label class="field-label">' + t('Perna dominante') + '<select id="filter-foot" class="field"><option value="">Todas</option>' + FEET.map((f) => '<option>' + f + '</option>').join('') + '</select></label>' +
-    '<label class="field-label">' + t('Cidade/região') + '<select id="filter-city" class="field"><option value="">Todas</option>' + [...new Set(state.athletes.map((a) => a.city))].sort().map((c) => '<option>' + escapeHtml(c) + '</option>').join('') + '</select></label>' +
-    '<label class="field-label">' + t('Idade') + '<select id="filter-age" class="field"><option value="">Todas</option>' + [...new Set(state.athletes.map((a) => a.age))].sort((a,b)=>a-b).map((age) => '<option value="' + age + '">' + age + '</option>').join('') + '</select></label>' +
-    '<label class="field-label">' + t('Categoria') + '<select id="filter-category" class="field"><option value="">Todas</option><option>Sub-7</option><option>Sub-9</option><option>Sub-11</option><option>Sub-13</option><option>Sub-15</option><option>Sub-17</option><option>Sub-20</option></select></label>' +
-    '</div><div class="mt-6 rounded-2xl border border-brand/15 bg-brand/7 p-4 text-xs leading-5 text-ink-soft"><strong class="text-brand">Filtro em tempo real</strong><br/>Nome, posição, perna dominante, cidade, idade e categoria alteram a lista sem recarregar.</div></aside>'
+  const filters = '<div class="filters-scrim" data-filters-close></div><aside id="filters-panel" class="filters-panel panel h-max" aria-label="' + t('Filtros de atletas') + '" data-lenis-prevent><div class="flex items-center justify-between gap-2"><h2 class="font-bold">' + t('Filtros') + '</h2><div class="flex items-center gap-1"><button type="button" class="btn-ghost text-xs text-brand" data-action="clearFilters">' + t('Limpar') + '</button><button type="button" class="filters-toggle icon-button sm" aria-label="' + t('Fechar filtros') + '" data-filters-close>' + icon('close', 'size-4') + '</button></div></div>' +
+    '<div class="mt-4 space-y-4"><label class="field-label">' + t('Buscar por nome') + '<input id="filter-name" class="field" placeholder="' + t('Ex.: Gabriel') + '" /></label>' +
+    '<label class="field-label">' + t('Posição principal ou secundária') + '<select id="filter-pos" class="field"><option value="">' + t('Todas') + '</option>' + POSITIONS.map((p) => '<option value="' + p + '">' + t(p) + '</option>').join('') + '</select></label>' +
+    '<label class="field-label">' + t('Perna dominante') + '<select id="filter-foot" class="field"><option value="">' + t('Todas') + '</option>' + FEET.map((f) => '<option value="' + f + '">' + t(f) + '</option>').join('') + '</select></label>' +
+    '<label class="field-label">' + t('Cidade/região') + '<select id="filter-city" class="field"><option value="">' + t('Todas') + '</option>' + [...new Set(state.athletes.map((a) => a.city))].sort().map((c) => '<option>' + escapeHtml(c) + '</option>').join('') + '</select></label>' +
+    '<label class="field-label">' + t('Idade') + '<select id="filter-age" class="field"><option value="">' + t('Todas') + '</option>' + [...new Set(state.athletes.map((a) => a.age))].sort((a,b)=>a-b).map((age) => '<option value="' + age + '">' + age + '</option>').join('') + '</select></label>' +
+    '<label class="field-label">' + t('Categoria') + '<select id="filter-category" class="field"><option value="">' + t('Todas') + '</option><option>Sub-7</option><option>Sub-9</option><option>Sub-11</option><option>Sub-13</option><option>Sub-15</option><option>Sub-17</option><option>Sub-20</option></select></label>' +
+    '</div><div class="mt-6 rounded-2xl border border-brand/15 bg-brand/7 p-4 text-xs leading-5 text-ink-soft"><strong class="text-brand">' + t('Filtro em tempo real') + '</strong><br/>' + t('Nome, posição, perna dominante, cidade, idade e categoria alteram a lista sem recarregar.') + '</div></aside>'
 
   return shell(
-    '<div class="page-head"><div><h1 class="page-title">' + t('Pesquisar atletas') + '</h1><p class="page-subtitle">Abra o perfil completo, mande uma mensagem, registre uma avaliação e salve quem você quer acompanhar.</p></div><button type="button" class="btn-primary lg:hidden" data-action="openTryout">' + icon('plus', 'size-4') + ' ' + t('Nova peneira') + '</button></div>' +
+    '<div class="page-head"><div><h1 class="page-title">' + t('Pesquisar atletas') + '</h1><p class="page-subtitle">' + t('Abra o perfil completo, mande uma mensagem, registre uma avaliação e salve quem você quer acompanhar.') + '</p></div><button type="button" class="btn-primary lg:hidden" data-action="openTryout">' + icon('plus', 'size-4') + ' ' + t('Nova peneira') + '</button></div>' +
     '<section class="mt-6 grid gap-5 lg:grid-cols-[280px_1fr]">' +
     filters +
-    '<div><div class="mb-4 flex flex-wrap items-center justify-between gap-2"><button type="button" class="filters-toggle btn-secondary" aria-controls="filters-panel" aria-expanded="false" data-filters-open>' + icon('filter', 'size-4') + ' Filtros</button><div class="flex flex-wrap items-center gap-3"><button type="button" class="tab-chip" data-action="toggle-watchlist" aria-pressed="' + watchOnly + '">' + icon('bookmark', 'size-4') + t('Lista de observação') + '<span class="tab-count" id="watch-count">' + state.favorites.filter((id) => state.athletes.some((a) => a.id === id)).length + '</span></button><p id="athlete-count" class="text-sm text-ink-soft" aria-live="polite">' + plural(state.athletes.length, 'atleta encontrado', 'atletas encontrados') + '</p></div><button type="button" class="btn-secondary" data-action="export">' + icon('arrow', 'size-4') + ' Exportar seleção</button></div><div id="athlete-grid" class="grid gap-4 md:grid-cols-2 min-[1700px]:grid-cols-3">' + state.athletes.map((a) => athleteCard(a, true)).join('') + '</div></div></section>',
+    '<div><div class="mb-4 flex flex-wrap items-center justify-between gap-2"><button type="button" class="filters-toggle btn-secondary" aria-controls="filters-panel" aria-expanded="false" data-filters-open>' + icon('filter', 'size-4') + ' ' + t('Filtros') + '</button><div class="flex flex-wrap items-center gap-3"><button type="button" class="tab-chip" data-action="toggle-watchlist" aria-pressed="' + watchOnly + '">' + icon('bookmark', 'size-4') + t('Lista de observação') + '<span class="tab-count" id="watch-count">' + state.favorites.filter((id) => state.athletes.some((a) => a.id === id)).length + '</span></button><p id="athlete-count" class="text-sm text-ink-soft" aria-live="polite">' + plural(state.athletes.length, 'atleta encontrado', 'atletas encontrados') + '</p></div><button type="button" class="btn-secondary" data-action="export">' + icon('arrow', 'size-4') + ' ' + t('Exportar seleção') + '</button></div><div id="athlete-grid" class="grid gap-4 md:grid-cols-2 min-[1700px]:grid-cols-3">' + state.athletes.map((a) => athleteCard(a, true)).join('') + '</div></div></section>',
     { active: 'athletes', role: 'staff' },
   )
 }
@@ -1378,7 +1379,7 @@ function profilePage() {
   return shell(
     '<section class="hero surface rounded-card p-6 sm:p-8 pos-' + positionGroup(p.pos) + '"><span class="jersey" aria-hidden="true">' + (category.replace(/\D/g, '') || '10') + '</span>' +
     '<div class="flex flex-wrap items-center gap-5">' + photoUploader({ name: p.name, photo: p.photo }) + '<div class="min-w-0 flex-1"><h1 class="page-title !mt-0">' + escapeHtml(p.name) + '</h1>' +
-    '<p class="mt-2 text-ink-soft">' + escapeHtml(describeAthlete(p)) + ' ' + age + ' anos, ' + escapeHtml(category) + ', ' + escapeHtml(p.city || '') + '.</p>' +
+    '<p class="mt-2 text-ink-soft">' + escapeHtml(describeAthlete(p)) + ' ' + age + ' ' + t('anos') + ', ' + escapeHtml(category) + ', ' + escapeHtml(p.city || '') + '.</p>' +
     '<div class="mt-3 flex flex-wrap gap-1.5">' + posTag(p.pos) + posTag(p.secondary) + tag(category, true) + '</div></div>' +
     '<button type="button" class="btn-secondary self-start" data-action="logout">' + icon('logout', 'size-4') + ' ' + t('Sair') + '</button></div>' +
     '<dl class="profile-stats mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">' +
@@ -1399,7 +1400,7 @@ function profilePage() {
     input('CPF', 'profile-cpf', p.cpf || '', 'text', false, true) +
     input(t('Data de nascimento'), 'profile-birth', p.birth, 'date', true, true) +
     input(t('Idade'), 'profile-age', String(age), 'number', false, false, true) +
-    '<label class="field-label">Categoria<select id="profile-category" class="field" disabled><option>' + escapeHtml(category) + '</option></select></label>' +
+    '<label class="field-label">' + t('Categoria') + '<select id="profile-category" class="field" disabled><option>' + escapeHtml(category) + '</option></select></label>' +
     selectField(t('Gênero'), 'profile-gender', GENDERS, p.gender) +
     '<p class="sm:col-span-2 -mt-1 text-xs text-ink-soft">' + t('CPF e data de nascimento não mudam depois do cadastro. Para corrigir, fale com a equipe em Conversas.') + '</p>' +
     input(t('E-mail'), 'profile-email', p.email, 'email', true, remote.enabled) + input(t('Telefone'), 'profile-phone', p.phone, 'tel', true) +
@@ -1451,17 +1452,17 @@ function reviewCard(review, athleteId = null) {
   const criteria = review.ratings && review.position
     ? criteriaForPosition(review.position).filter((c) => review.ratings[c.key] !== undefined && review.ratings[c.key] !== '')
     : []
-  return '<article class="rounded-2xl surface p-5"><div class="flex items-start justify-between gap-3"><div class="flex items-center gap-3"><span class="avatar">' + avatar(review.author || 'Olheiro') + '</span><div><p class="font-semibold">' + escapeHtml(review.author || 'Olheiro') + '</p><p class="text-xs text-ink-soft">' + escapeHtml(review.date || 'Agora') + (review.position ? ' • ' + t('como') + ' ' + escapeHtml(review.position) : '') + '</p></div></div>' +
+  return '<article class="rounded-2xl surface p-5"><div class="flex items-start justify-between gap-3"><div class="flex items-center gap-3"><span class="avatar">' + avatar(review.author || 'Olheiro') + '</span><div><p class="font-semibold">' + escapeHtml(review.author || 'Olheiro') + '</p><p class="text-xs text-ink-soft">' + escapeHtml(review.date || t('Agora')) + (review.position ? ' • ' + t('como') + ' ' + escapeHtml(t(review.position)) : '') + '</p></div></div>' +
     '<div class="text-center"><div class="rounded-xl border border-brand/20 bg-brand/8 px-3 py-2 text-sm font-bold text-brand">' + escapeHtml(String(review.rating).replace('.', ',')) + '</div>' + (criteria.length ? '<p class="mt-1 text-xs text-ink-soft">' + t('nota ponderada') + '</p>' : '') + '</div></div>' +
     (criteria.length ? '<div class="mt-4 grid grid-cols-2 gap-x-4 gap-y-2">' + criteria.map((c) => {
       const value = Number(review.ratings[c.key])
-      return '<div><div class="flex justify-between text-xs text-ink-soft"><span>' + escapeHtml(c.label) + '</span><strong class="text-chalk">' + String(value).replace('.', ',') + '</strong></div><div class="mt-1 h-1 overflow-hidden rounded-full bg-line"><div class="h-1 rounded-full bg-brand" style="width:' + Math.max(0, Math.min(100, value * 10)) + '%"></div></div></div>'
+      return '<div><div class="flex justify-between text-xs text-ink-soft"><span>' + escapeHtml(t(c.label)) + '</span><strong class="text-chalk">' + String(value).replace('.', ',') + '</strong></div><div class="mt-1 h-1 overflow-hidden rounded-full bg-line"><div class="h-1 rounded-full bg-brand" style="width:' + Math.max(0, Math.min(100, value * 10)) + '%"></div></div></div>'
     }).join('') + '</div>' : '') +
     (review.baseRating !== undefined && review.adjustment ? '<p class="mt-3 text-xs text-ink-soft">' + t('Nota base') + ' <strong class="text-chalk">' + String(review.baseRating).replace('.', ',') + '</strong> • ' + t('ajuste por desempenho') + ' <strong class="' + (review.adjustment > 0 ? 'text-success' : 'text-danger') + '">' + (review.adjustment > 0 ? '+' : '') + String(review.adjustment).replace('.', ',') + '</strong></p>' : '') +
     (reviewStatChips(review) ? '<div class="mt-4 flex flex-wrap gap-1.5">' + reviewStatChips(review) + '</div>' : '') +
     (review.strengths && review.strengths.length ? '<div class="mt-3"><p class="text-xs font-bold text-ink-soft">' + t('Pontos fortes') + '</p><div class="mt-1.5 flex flex-wrap gap-1.5">' + review.strengths.map((item) => tag(item)).join('') + '</div></div>' : '') +
     '<p class="mt-4 text-sm leading-6 text-ink-soft">“' + escapeHtml(review.comment) + '”</p>' +
-    (canDelete ? '<button type="button" class="mt-3 text-xs font-semibold text-danger hover:text-danger" data-delete-review="' + review.id + '">Excluir minha avaliação</button>' : '') + '</article>'
+    (canDelete ? '<button type="button" class="mt-3 text-xs font-semibold text-danger hover:text-danger" data-delete-review="' + review.id + '">' + t('Excluir minha avaliação') + '</button>' : '') + '</article>'
 }
 
 function tryoutsPage() {
@@ -1514,7 +1515,7 @@ function tryoutFit(tryout) {
   const positionOk = tryout.positions.includes(profile.pos) || tryout.positions.includes(profile.secondary)
   const categoryOk = !tryout.category || tryout.category === category
   const reasons = []
-  if (!positionOk) reasons.push(t('aceita') + ' ' + joinPt(tryout.positions.map((pos) => pos.toLowerCase())))
+  if (!positionOk) reasons.push(t('aceita') + ' ' + joinPt(tryout.positions.map((pos) => t(pos).toLowerCase())))
   if (!categoryOk) reasons.push(t('é') + ' ' + tryout.category + ' ' + t('e a sua categoria é') + ' ' + category)
   return { ok: positionOk && categoryOk, reasons, category }
 }
@@ -1578,7 +1579,7 @@ function tryoutView(tryout) {
     : enrolled
     ? '<p class="fit-line fit-ok">' + icon('check', 'size-4 shrink-0') + '<span>' + t('Você está inscrito. Chegue 30 minutos antes.') + (place.reference ? ' ' + t('Referência:') + ' ' + escapeHtml(place.reference) + '.' : '') + '</span></p>'
     : fit.ok
-      ? '<p class="fit-line fit-ok">' + icon('check', 'size-4 shrink-0') + t('Compatível com você:') + ' ' + escapeHtml(state.profile?.pos || '') + ' · ' + escapeHtml(fit.category) + '</p>'
+      ? '<p class="fit-line fit-ok">' + icon('check', 'size-4 shrink-0') + t('Compatível com você:') + ' ' + escapeHtml(t(state.profile?.pos || '')) + ' · ' + escapeHtml(fit.category) + '</p>'
       : '<p class="fit-line fit-no">' + icon('info', 'size-4 shrink-0') + t('Fora do seu perfil: esta peneira') + ' ' + escapeHtml(fit.reasons.join(' e ')) + '.</p>'
   if (past && !staff) actions = '<p class="text-sm text-ink-soft">' + t('Peneira encerrada.') + '</p>'
   const phase = tryoutPhase(tryout)
@@ -2539,7 +2540,7 @@ function messagesPage() {
     activeThreadKey = null
     return shell(
       '<div><h1 class="page-title">' + t('Conversas') + '</h1></div><div class="mt-6 rounded-2xl border border-dashed border-line p-10 text-center text-ink-soft">' +
-      (remote.enabled && staff ? 'Nenhum jogador cadastrado ainda. Quando um atleta criar a conta, ele aparece aqui.' : 'Nenhuma conversa disponível no momento.') + '</div>',
+      t(remote.enabled && staff ? 'Nenhum jogador cadastrado ainda. Quando um atleta criar a conta, ele aparece aqui.' : 'Nenhuma conversa disponível no momento.') + '</div>',
       { active: 'messages', role },
     )
   }
@@ -2554,10 +2555,10 @@ function messagesPage() {
   return shell(
     heading +
     '<section class="chat-layout mt-6 grid min-h-[620px] overflow-hidden rounded-card surface md:grid-cols-[300px_1fr]" data-mobile-view="' + (mobileChatOpen ? 'chat' : 'list') + '">' +
-    '<aside class="chat-list border-b border-line bg-night/60 md:border-b-0 md:border-r"><div class="p-4"><label class="field-label">Pesquisar ' + (staff ? 'atleta' : 'profissional') + '<input id="conversation-search" class="field mt-2" placeholder="Digite um nome, posição ou cidade..." autocomplete="off" /></label></div>' +
+    '<aside class="chat-list border-b border-line bg-night/60 md:border-b-0 md:border-r"><div class="p-4"><label class="field-label">' + (staff ? t('Pesquisar atleta') : t('Pesquisar profissional')) + '<input id="conversation-search" class="field mt-2" placeholder="' + t('Digite um nome, posição ou cidade...') + '" autocomplete="off" /></label></div>' +
     '<div id="conversation-list" class="max-h-[520px] space-y-1 overflow-y-auto p-2">' + conversationItemsHtml(conversations, selected.id) + '</div></aside>' +
     '<div class="chat-pane flex min-w-0 flex-col"><header class="chat-header flex items-center justify-between gap-3 border-b border-line px-5 py-4"><div class="flex min-w-0 items-center gap-3">' +
-    '<button type="button" class="chat-back icon-button" data-action="chat-back" aria-label="Voltar para as conversas">' + icon('back') + '</button>' +
+    '<button type="button" class="chat-back icon-button" data-action="chat-back" aria-label="' + t('Voltar para as conversas') + '">' + icon('back') + '</button>' +
     personAvatar(selected.person || { name: selected.avatar }) + '<div class="min-w-0"><p class="truncate font-bold">' + escapeHtml(selected.name) + '</p><p class="truncate text-xs text-ink-soft">' + escapeHtml(selected.subtitle) + '</p></div></div></header>' +
     '<div id="chat-messages" class="chat-messages flex-1 overflow-y-auto p-5">' + renderHistory(history, role) + '</div>' +
     '<form id="message-form" class="chat-input-bar border-t border-line p-3 sm:p-4"><div class="composer"><label for="message-input" class="sr-only">' + t('Mensagem para') + ' ' + escapeHtml(selected.name) + '</label><input id="message-input" class="composer-input" placeholder="' + t('Escreva uma mensagem') + '" autocomplete="off" maxlength="2000" required/><button class="btn-primary chat-send shrink-0" aria-label="' + t('Enviar mensagem') + '">' + icon('send', 'size-4') + '</button></div></form></div></section>',
@@ -2605,7 +2606,7 @@ function loginPage() {
     '<button type="button" class="btn-secondary w-full" data-route="register">' + t('Criar conta de jogador') + '</button><button type="button" class="mt-3 w-full text-center text-xs text-ink-soft hover:text-chalk" data-action="demo">' + t('Entrar com conta demo') + '</button>' +
     '<button type="button" class="mt-4 inline-flex w-full items-center justify-center gap-1.5 text-xs text-ink-soft hover:text-chalk" data-action="change-lang">' + icon('globe', 'size-3.5') + ' ' + LANGS.find((l) => l.code !== getLang())?.label + '</button><div class="mt-3 flex justify-center">' + themeButton() + '</div>' +
     '<p class="mt-4 text-center text-xs"><a class="text-ink-soft underline underline-offset-4 hover:text-chalk" href="#/privacidade">' + t('Como usamos seus dados') + '</a></p>' +
-    '<p class="mt-3 text-center text-xs leading-5 text-ink-soft">Funcionário (teste): funcionario@academiapele.com / Academia123!<br/>Jogador (teste): gabriel@academiapele.com / Demo123!</p></div></div></main>'
+    '<p class="mt-3 text-center text-xs leading-5 text-ink-soft">' + t('Funcionário (teste)') + ': funcionario@academiapele.com / Academia123!<br/>' + t('Jogador (teste)') + ': gabriel@academiapele.com / Demo123!</p></div></div></main>'
 }
 
 function passwordRecoveryPage() {
@@ -2653,7 +2654,7 @@ const REG_STEPS = [
 ]
 function registerPage() {
   regPhoto = null
-  const step = (n, body) => '<fieldset class="reg-step" data-step="' + n + '"' + (n ? ' hidden' : '') + '><legend class="sr-only">' + REG_STEPS[n].title + '</legend><h2 class="reg-step-title" tabindex="-1">' + t(REG_STEPS[n].title) + '</h2><p class="mt-1 text-sm text-ink-soft">' + t(REG_STEPS[n].hint) + '</p><div class="mt-5 grid gap-4 sm:grid-cols-2">' + body + '</div></fieldset>'
+  const step = (n, body) => '<fieldset class="reg-step" data-step="' + n + '"' + (n ? ' hidden' : '') + '><legend class="sr-only">' + t(REG_STEPS[n].title) + '</legend><h2 class="reg-step-title" tabindex="-1">' + t(REG_STEPS[n].title) + '</h2><p class="mt-1 text-sm text-ink-soft">' + t(REG_STEPS[n].hint) + '</p><div class="mt-5 grid gap-4 sm:grid-cols-2">' + body + '</div></fieldset>'
   return '<main id="conteudo" tabindex="-1" class="register-stage outline-none text-chalk">' +
     '<aside class="register-aside"><button type="button" class="self-start" data-route="login" aria-label="' + t('Voltar para o login') + '">' + brandLockup(36) + '</button>' +
     '<div><h1 class="register-title">' + t('Criar conta de jogador') + '</h1><p class="mt-3 max-w-sm text-ink-soft">' + t('Três etapas curtas (quatro para menores de 18). A idade e a categoria saem da data de nascimento.') + '</p></div>' +
@@ -2790,18 +2791,18 @@ function initRegisterSteps() {
 
 
 function input(label, id, value = '', type = 'text', required = false, disabled = false, readonly = false) {
-  return '<label class="field-label">' + escapeHtml(label) + '<input id="' + id + '" class="field" type="' + type + '" value="' + escapeHtml(value) + '"' + (required ? ' required' : '') + (disabled ? ' disabled' : '') + (readonly ? ' readonly' : '') + ' /></label>'
+  return '<label class="field-label">' + escapeHtml(t(label)) + '<input id="' + id + '" class="field" type="' + type + '" value="' + escapeHtml(value) + '"' + (required ? ' required' : '') + (disabled ? ' disabled' : '') + (readonly ? ' readonly' : '') + ' /></label>'
 }
 
 function selectField(label, id, options, selected = '') {
-  const placeholder = selected ? '' : '<option value="" disabled selected>Selecione</option>'
-  return '<label class="field-label">' + escapeHtml(label) + '<select id="' + id + '" class="field" required>' + placeholder + options.map((option) => '<option value="' + escapeHtml(option) + '" ' + (String(option) === String(selected) ? 'selected' : '') + '>' + escapeHtml(option) + '</option>').join('') + '</select></label>'
+  const placeholder = selected ? '' : '<option value="" disabled selected>' + t('Selecione') + '</option>'
+  return '<label class="field-label">' + escapeHtml(t(label)) + '<select id="' + id + '" class="field" required>' + placeholder + options.map((option) => '<option value="' + escapeHtml(option) + '" ' + (String(option) === String(selected) ? 'selected' : '') + '>' + escapeHtml(t(option)) + '</option>').join('') + '</select></label>'
 }
 
 function showFeedback(id, text, error = false) {
   const element = document.querySelector('#' + id)
   if (!element) return
-  element.textContent = text
+  element.textContent = t(text)
   element.className = (id === 'reg-feedback' ? 'sm:col-span-2' : '') + ' rounded-2xl border px-4 py-3 text-sm ' + (error
     ? 'border-danger/40 bg-danger/10 text-danger'
     : 'border-success/40 bg-success/10 text-success')
@@ -2830,7 +2831,7 @@ function averagePlayerRating() {
 }
 
 function formatDate(date) {
-  if (!date) return 'Data não informada'
+  if (!date) return t('Data não informada')
   const parts = String(date).split('-')
   if (parts.length !== 3) return escapeHtml(date)
   return parts[2] + '/' + parts[1] + '/' + parts[0]
@@ -2842,7 +2843,7 @@ function handleBirthPreview(prefix) {
   const categoryField = document.querySelector('#' + prefix + '-category')
   if (!birth || !validBirthDate(birth)) {
     if (ageField) ageField.value = ''
-    if (categoryField) categoryField.innerHTML = '<option>Preencha uma data válida</option>'
+    if (categoryField) categoryField.innerHTML = '<option>' + t('Preencha uma data válida') + '</option>'
     return
   }
   const age = getAgeFromBirth(birth)
@@ -2863,15 +2864,15 @@ function openAthleteModal(athleteId) {
   const strengths = strengthsOf(athlete)
   wrapper.innerHTML =
     '<div class="athlete-modal pos-' + positionGroup(athlete.pos) + ' max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-card surface surface--raised shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="athlete-modal-title" data-lenis-prevent>' +
-    '<header class="athlete-modal-hero"><button type="button" class="icon-button athlete-modal-close" data-close-modal aria-label="Fechar">' + icon('close') + '</button>' +
+    '<header class="athlete-modal-hero"><button type="button" class="icon-button athlete-modal-close" data-close-modal aria-label="' + t('Fechar') + '">' + icon('close') + '</button>' +
     '<div class="flex flex-wrap items-end gap-5">' + personAvatar(athlete, 'avatar-xl profile-avatar athlete-modal-avatar') +
     '<div class="min-w-0 flex-1"><h2 id="athlete-modal-title" class="text-3xl font-semibold leading-tight">' + escapeHtml(athlete.name) + '</h2>' +
     '<p class="mt-1 text-ink-soft">' + athlete.age + ' ' + t('anos') + ' · ' + escapeHtml(athlete.city) + '/' + escapeHtml(athlete.state) + (athlete.demo ? ' · ' + t('perfil de exemplo') : '') + '</p>' +
     '<div class="mt-3 flex flex-wrap gap-1.5">' + posTag(athlete.pos) + posTag(athlete.secondary) + tag(getCategoryFromAge(athlete.age), true) + (athlete.gender ? tag(athlete.gender, true) : '') + '</div></div>' +
-    '<div class="fut-badge" aria-label="Nota ' + formatRating(rating) + '"><span class="num text-[2rem] ' + rateClass(rating) + '">' + formatRating(rating) + '</span><span class="pos-abbr">' + (POSITION_ABBR[athlete.pos] || '—') + '</span></div></div></header>' +
+    '<div class="fut-badge" aria-label="' + t('Nota') + ' ' + formatRating(rating) + '"><span class="num text-[2rem] ' + rateClass(rating) + '">' + formatRating(rating) + '</span><span class="pos-abbr">' + t(POSITION_ABBR[athlete.pos] || '—') + '</span></div></div></header>' +
     '<div class="p-6 sm:p-8">' +
     '<div class="scout-note"><p>' + escapeHtml(describeAthlete(athlete)) + '</p>' + (strengths.length ? '<p class="scout-strengths">' + strengths.map((item) => '<span>' + escapeHtml(item) + '</span>').join('') + '</p>' : '') + '</div>' +
-    '<dl class="profile-stats mt-5 grid grid-cols-3 gap-3"><div><dt>' + t('Avaliações') + '</dt><dd class="num">' + reviews.length + '</dd></div><div><dt>' + t('Última avaliação') + '</dt><dd class="text-base font-semibold tabular">' + escapeHtml(reviews[0]?.date || '—') + '</dd></div><div><dt>' + t('Status') + '</dt><dd class="text-base font-semibold">' + escapeHtml(athlete.status || '—') + '</dd></div></dl>' +
+    '<dl class="profile-stats mt-5 grid grid-cols-3 gap-3"><div><dt>' + t('Avaliações') + '</dt><dd class="num">' + reviews.length + '</dd></div><div><dt>' + t('Última avaliação') + '</dt><dd class="text-base font-semibold tabular">' + escapeHtml(reviews[0]?.date || '—') + '</dd></div><div><dt>' + t('Status') + '</dt><dd class="text-base font-semibold">' + escapeHtml(t(athlete.status || '—')) + '</dd></div></dl>' +
     guardianStaffBox(athlete) +
     '<div class="mt-6 flex flex-wrap gap-2"><button type="button" class="btn-primary" data-message-athlete="' + athlete.id + '">' + icon('message', 'size-4') + ' ' + t('Abrir conversa') + '</button><button type="button" class="btn-secondary save-toggle" data-save="' + athlete.id + '" aria-pressed="' + isSaved(athlete.id) + '">' + icon('bookmark', 'size-4') + '<span>' + (isSaved(athlete.id) ? t('Na sua lista') : t('Salvar na lista')) + '</span></button>' +
     (state.user?.role === 'staff' ? '<button type="button" class="btn-secondary" data-review-athlete="' + athlete.id + '">' + icon('edit', 'size-4') + ' ' + t('Registrar avaliação') + '</button>' : '') + '</div>' +
@@ -2952,16 +2953,16 @@ function openReviewModal(athleteId) {
   wrapper.className = 'fixed inset-0 z-[95] grid place-items-center bg-black/75 p-4 backdrop-blur-md'
   wrapper.innerHTML =
     '<div class="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-card surface surface--raised p-6 shadow-2xl sm:p-8" role="dialog" aria-modal="true" aria-labelledby="review-modal-title">' +
-    '<div class="flex items-start justify-between gap-4"><div><h2 id="review-modal-title" class="mt-2 text-2xl font-bold">Avaliar ' + escapeHtml(athlete.name) + '</h2><p class="mt-1 text-sm text-ink-soft">Dê uma nota de 0 a 10 para cada característica. A nota base é uma média ponderada pela posição avaliada; as estatísticas da partida ajustam a nota em até ±' + String(MAX_ADJUSTMENT).replace('.', ',') + ' ponto.</p></div><button type="button" class="icon-button" data-close aria-label="Fechar">' + icon('close') + '</button></div>' +
+    '<div class="flex items-start justify-between gap-4"><div><h2 id="review-modal-title" class="mt-2 text-2xl font-bold">' + t('Avaliar') + ' ' + escapeHtml(athlete.name) + '</h2><p class="mt-1 text-sm text-ink-soft">' + t('Dê uma nota de 0 a 10 para cada característica. A nota base é uma média ponderada pela posição avaliada; as estatísticas da partida ajustam a nota em até ±') + String(MAX_ADJUSTMENT).replace('.', ',') + ' ' + t('ponto.') + '</p></div><button type="button" class="icon-button" data-close aria-label="' + t('Fechar') + '">' + icon('close') + '</button></div>' +
     '<form id="review-form" class="mt-6 space-y-6">' +
-    '<label class="field-label">' + t('Posição avaliada') + '<select id="review-position" class="field">' + positions.map((p, i) => '<option value="' + escapeHtml(p) + '">' + escapeHtml(p) + (i === 0 ? ' (principal)' : ' (secundária)') + '</option>').join('') + '</select></label>' +
-    '<section><div class="flex items-center justify-between gap-3"><h3 class="font-bold">Características <span class="text-xs font-normal text-ink-soft">(0 a 10)</span></h3><span class="text-xs text-ink-soft">O “peso” mostra a importância na posição</span></div><div id="review-criteria" class="mt-3 grid gap-3 sm:grid-cols-2"></div>' +
-    '<div class="mt-4 flex items-center justify-between gap-4 rounded-2xl border border-brand/20 bg-brand/7 p-4"><div><p class="text-sm font-bold text-brand">Nota final ponderada</p><p id="review-score-hint" class="mt-1 text-xs text-ink-soft"></p></div><p id="review-score" class="text-4xl font-bold text-brand">—</p></div></section>' +
-    '<section><h3 class="font-bold">Estatísticas da partida <span class="text-xs font-normal text-ink-soft">(opcional • visível só para o atleta e para a equipe)</span></h3><div id="review-stats" class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"></div></section>' +
-    '<section><h3 class="font-bold">Pontos fortes <span class="text-xs font-normal text-ink-soft">(opcional)</span></h3><div class="mt-3 flex flex-wrap gap-2">' + STRENGTHS.map((item) => '<label class="check-pill"><input type="checkbox" name="strength" value="' + escapeHtml(item) + '"/><span>' + escapeHtml(item) + '</span></label>').join('') + '</div></section>' +
-    '<label class="field-label">' + t('Comentário') + '<textarea id="review-comment" class="field min-h-28 resize-y" required placeholder="Descreva o que observou no jogo, atitude, evolução..."></textarea></label>' +
+    '<label class="field-label">' + t('Posição avaliada') + '<select id="review-position" class="field">' + positions.map((p, i) => '<option value="' + escapeHtml(p) + '">' + escapeHtml(t(p)) + ' (' + (i === 0 ? t('principal') : t('secundária')) + ')</option>').join('') + '</select></label>' +
+    '<section><div class="flex items-center justify-between gap-3"><h3 class="font-bold">' + t('Características') + ' <span class="text-xs font-normal text-ink-soft">(0 a 10)</span></h3><span class="text-xs text-ink-soft">' + t('O “peso” mostra a importância na posição') + '</span></div><div id="review-criteria" class="mt-3 grid gap-3 sm:grid-cols-2"></div>' +
+    '<div class="mt-4 flex items-center justify-between gap-4 rounded-2xl border border-brand/20 bg-brand/7 p-4"><div><p class="text-sm font-bold text-brand">' + t('Nota final ponderada') + '</p><p id="review-score-hint" class="mt-1 text-xs text-ink-soft"></p></div><p id="review-score" class="text-4xl font-bold text-brand">—</p></div></section>' +
+    '<section><h3 class="font-bold">' + t('Estatísticas da partida') + ' <span class="text-xs font-normal text-ink-soft">(' + t('opcional • visível só para o atleta e para a equipe') + ')</span></h3><div id="review-stats" class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"></div></section>' +
+    '<section><h3 class="font-bold">' + t('Pontos fortes') + ' <span class="text-xs font-normal text-ink-soft">(' + t('opcional') + ')</span></h3><div class="mt-3 flex flex-wrap gap-2">' + STRENGTHS.map((item) => '<label class="check-pill"><input type="checkbox" name="strength" value="' + escapeHtml(item) + '"/><span>' + escapeHtml(t(item)) + '</span></label>').join('') + '</div></section>' +
+    '<label class="field-label">' + t('Comentário') + '<textarea id="review-comment" class="field min-h-28 resize-y" required placeholder="' + t('Descreva o que observou no jogo, atitude, evolução...') + '"></textarea></label>' +
     '<p id="review-error" class="hidden rounded-xl border border-danger/40 bg-danger/10 px-3 py-2 text-xs font-semibold text-danger" role="alert"></p>' +
-    '<div class="flex justify-end gap-2"><button type="button" class="btn-secondary" data-close>Cancelar</button><button type="submit" class="btn-primary">Salvar avaliação ' + icon('check', 'size-4') + '</button></div></form></div>'
+    '<div class="flex justify-end gap-2"><button type="button" class="btn-secondary" data-close>' + t('Cancelar') + '</button><button type="submit" class="btn-primary">' + t('Salvar avaliação') + ' ' + icon('check', 'size-4') + '</button></div></form></div>'
   document.body.appendChild(wrapper)
 
   const form = wrapper.querySelector('#review-form')
@@ -2998,10 +2999,10 @@ function openReviewModal(athleteId) {
     criteriaBox.innerHTML = criteriaForPosition(pos).map((c) => {
       const level = weightLevel(pos, c.key)
       const tone = level === 'alto' ? 'text-brand' : level === 'médio' ? 'text-ink-soft' : 'text-ink-soft'
-      return '<label class="field-label"><span class="flex items-center justify-between gap-2"><span>' + escapeHtml(c.label) + '</span><span class="text-xs font-bold uppercase tracking-wider ' + tone + '">peso ' + level + '</span></span><input class="field" type="number" inputmode="decimal" min="0" max="10" step="0.5" required placeholder="0 a 10" data-criterion="' + c.key + '" value="' + escapeHtml(keepCriteria[c.key] ?? '') + '"/></label>'
+      return '<label class="field-label"><span class="flex items-center justify-between gap-2"><span>' + escapeHtml(t(c.label)) + '</span><span class="text-xs font-bold uppercase tracking-wider ' + tone + '">' + t('peso') + ' ' + t(level) + '</span></span><input class="field" type="number" inputmode="decimal" min="0" max="10" step="0.5" required placeholder="' + t('0 a 10') + '" data-criterion="' + c.key + '" value="' + escapeHtml(keepCriteria[c.key] ?? '') + '"/></label>'
     }).join('')
     statsBox.innerHTML = statsForPosition(pos).map((c) =>
-      '<label class="field-label">' + escapeHtml(c.label) + '<input class="field" type="number" inputmode="numeric" min="0" step="1" placeholder="—" data-stat="' + c.key + '" value="' + escapeHtml(keepStats[c.key] ?? '') + '"/></label>').join('')
+      '<label class="field-label">' + escapeHtml(t(c.label)) + '<input class="field" type="number" inputmode="numeric" min="0" step="1" placeholder="—" data-stat="' + c.key + '" value="' + escapeHtml(keepStats[c.key] ?? '') + '"/></label>').join('')
     updateScore()
   }
 
@@ -3014,7 +3015,7 @@ function openReviewModal(athleteId) {
     event.preventDefault()
     const error = wrapper.querySelector('#review-error')
     const fail = (message) => {
-      error.textContent = message
+      error.textContent = t(message)
       error.classList.remove('hidden')
       error.scrollIntoView({ block: 'nearest' })
     }
@@ -3022,7 +3023,7 @@ function openReviewModal(athleteId) {
     const ratings = {}
     for (const c of criteriaForPosition(pos)) {
       const value = Number(wrapper.querySelector('[data-criterion="' + c.key + '"]').value)
-      if (!Number.isFinite(value) || value < 0 || value > 10) return fail('A nota de "' + c.label + '" deve estar entre 0 e 10.')
+      if (!Number.isFinite(value) || value < 0 || value > 10) return fail(t('A nota de') + ' "' + t(c.label) + '" ' + t('deve estar entre 0 e 10.'))
       ratings[c.key] = value
     }
     const stats = {}
@@ -3030,7 +3031,7 @@ function openReviewModal(athleteId) {
       const raw = wrapper.querySelector('[data-stat="' + c.key + '"]').value
       if (raw === '') continue
       const value = Number(raw)
-      if (!Number.isInteger(value) || value < 0) return fail('"' + c.label + '" deve ser um número inteiro, 0 ou maior.')
+      if (!Number.isInteger(value) || value < 0) return fail('"' + t(c.label) + '" ' + t('deve ser um número inteiro, 0 ou maior.'))
       stats[c.key] = value
     }
     const statsError = validateStats(stats)
@@ -3079,7 +3080,7 @@ function openReviewModal(athleteId) {
     const list = state.reviews[athleteId] || []
     list.unshift(review)
     state.reviews[athleteId] = list
-    if (athlete.email) notify(athlete.email, 'Nova avaliação', 'Um olheiro avaliou seu desempenho como ' + pos + ' (nota ' + score.toFixed(1).replace('.', ',') + ').')
+    if (athlete.email) notify(athlete.email, t('Nova avaliação'), t('Um olheiro avaliou seu desempenho como') + ' ' + t(pos) + ' (' + t('nota') + ' ' + score.toFixed(1).replace('.', ',') + ').')
     persist()
     wrapper.remove()
     toast(t('Avaliação salva. Nota final:') + ' ' + score.toFixed(1).replace('.', ',') + '.')
@@ -3099,17 +3100,17 @@ function openTryoutModal() {
   wrapper.className = 'fixed inset-0 z-[90] grid place-items-center bg-black/75 p-4 backdrop-blur-md'
   wrapper.innerHTML =
     '<div class="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-card surface surface--raised p-6 shadow-2xl sm:p-8" role="dialog" aria-modal="true" aria-labelledby="tryout-title" data-lenis-prevent>' +
-    '<div class="flex items-start justify-between gap-4"><div><h2 id="tryout-title" class="mt-2 text-2xl font-bold">' + t('Criar e agendar') + '</h2><p class="mt-1 text-sm text-ink-soft">' + t('Horário de Brasília. As inscrições fecham na hora em que a peneira começa.') + '</p></div><button type="button" class="icon-button" aria-label="Fechar" data-close>' + icon('close') + '</button></div>' +
+    '<div class="flex items-start justify-between gap-4"><div><h2 id="tryout-title" class="mt-2 text-2xl font-bold">' + t('Criar e agendar') + '</h2><p class="mt-1 text-sm text-ink-soft">' + t('Horário de Brasília. As inscrições fecham na hora em que a peneira começa.') + '</p></div><button type="button" class="icon-button" aria-label="' + t('Fechar') + '" data-close>' + icon('close') + '</button></div>' +
     '<form id="tryout-form" class="mt-6 grid gap-4 sm:grid-cols-2" novalidate>' +
     input('Nome da peneira', 'try-title', '', 'text', true) +
     input('Data', 'try-date', '', 'date', true) +
     input('Horário', 'try-time', '', 'time', true) +
     input('Quantidade de vagas', 'try-seats', '12', 'number', true) +
-    '<label class="field-label">Categoria<select id="try-category" class="field" required><option>Sub-7</option><option>Sub-9</option><option>Sub-11</option><option>Sub-13</option><option>Sub-15</option><option>Sub-17</option><option selected>Sub-20</option></select></label>' +
+    '<label class="field-label">' + t('Categoria') + '<select id="try-category" class="field" required><option>Sub-7</option><option>Sub-9</option><option>Sub-11</option><option>Sub-13</option><option>Sub-15</option><option>Sub-17</option><option selected>Sub-20</option></select></label>' +
     '<div class="sm:col-span-2"><div class="flex flex-wrap items-end gap-2"><label class="field-label min-w-0 flex-1">' + t('Local') + '<select id="try-venue" class="field" required>' + venueOptions() + '</select></label>' +
     '<button type="button" class="btn-secondary" data-new-venue-inline>' + icon('plus', 'size-4') + ' ' + t('Novo local') + '</button></div><p id="try-venue-hint" class="mt-2 text-xs text-ink-soft" aria-live="polite"></p></div>' +
     '<div class="sm:col-span-2"><p class="field-label">' + t('Posições disponíveis') + '</p><div class="mt-2 grid grid-cols-2 gap-2 rounded-2xl border border-line bg-night/60 p-3 sm:grid-cols-3">' +
-    POSITIONS.map((p, i) => '<label class="check-pill"><input type="checkbox" name="position" value="' + escapeHtml(p) + '" ' + (i === 6 ? 'checked' : '') + '/><span>' + escapeHtml(p) + '</span></label>').join('') +
+    POSITIONS.map((p, i) => '<label class="check-pill"><input type="checkbox" name="position" value="' + escapeHtml(p) + '" ' + (i === 6 ? 'checked' : '') + '/><span>' + escapeHtml(t(p)) + '</span></label>').join('') +
     '</div></div>' +
     '<label class="field-label sm:col-span-2">' + t('Sobre a peneira (opcional)') + '<textarea id="try-description" class="field min-h-28 resize-y" maxlength="1000" aria-describedby="try-description-count" placeholder="' + t('Ex.: como vai ser a avaliação, o que levar (chuteira, caneleira, água), documentos e a que horas chegar.') + '"></textarea>' +
     '<span id="try-description-count" class="block text-right text-xs font-normal text-ink-soft">0/1000</span></label>' +
@@ -3194,13 +3195,13 @@ function enrollInTryout(id, button) {
   if (vacancies <= 0) return toast(t('Não há mais vagas nesta peneira.'), 'error')
   if (tryout.remote && remote.enabled) {
     runTryoutAction(button, () => enrollTryout(tryout.id), t('Inscrição confirmada.')).then((ok) => {
-      if (ok) notify(state.user.email, t('Inscrição confirmada'), 'Você se inscreveu em ' + tryout.title + '.')
+      if (ok) notify(state.user.email, t('Inscrição confirmada'), t('Você se inscreveu em') + ' ' + tryout.title + '.')
     })
     return
   }
   enrolled.push(state.user.email)
-  notifyTryoutStaff(tryout, 'Nova inscrição', state.user.name + ' se inscreveu em "' + tryout.title + '" (' + enrolled.length + '/' + tryout.seats + ').')
-  notify(state.user.email, t('Inscrição confirmada'), 'Você se inscreveu em ' + tryout.title + '.')
+  notifyTryoutStaff(tryout, t('Nova inscrição'), state.user.name + ' ' + t('se inscreveu em') + ' "' + tryout.title + '" (' + enrolled.length + '/' + tryout.seats + ').')
+  notify(state.user.email, t('Inscrição confirmada'), t('Você se inscreveu em') + ' ' + tryout.title + '.')
   persist()
   render()
   toast(t('Inscrição confirmada.'))
@@ -3212,9 +3213,9 @@ function confirmWithdraw(tryoutId) {
   const wrapper = document.createElement('div')
   wrapper.className = 'fixed inset-0 z-[92] grid place-items-center bg-black/75 p-4'
   wrapper.innerHTML =
-    '<div class="w-full max-w-md rounded-card surface surface--raised p-6" role="dialog" aria-modal="true" aria-labelledby="withdraw-title"><h2 id="withdraw-title" class="mt-2 text-2xl font-bold">Sair da peneira?</h2>' +
-    '<p class="mt-3 text-sm leading-6 text-ink-soft">Você será removido de <strong class="text-chalk">' + escapeHtml(tryout.title) + '</strong> (' + formatDate(tryout.date) + ' • ' + escapeHtml(tryout.time) + '). A vaga ficará livre para outros atletas.</p>' +
-    '<div class="mt-6 flex justify-end gap-2"><button type="button" class="btn-secondary" data-close>Manter inscrição</button><button type="button" class="btn-danger" data-confirm>Cancelar inscrição</button></div></div>'
+    '<div class="w-full max-w-md rounded-card surface surface--raised p-6" role="dialog" aria-modal="true" aria-labelledby="withdraw-title"><h2 id="withdraw-title" class="mt-2 text-2xl font-bold">' + t('Sair da peneira?') + '</h2>' +
+    '<p class="mt-3 text-sm leading-6 text-ink-soft">' + t('Você será removido de') + ' <strong class="text-chalk">' + escapeHtml(tryout.title) + '</strong> (' + formatDate(tryout.date) + ' • ' + escapeHtml(tryout.time) + '). ' + t('A vaga ficará livre para outros atletas.') + '</p>' +
+    '<div class="mt-6 flex justify-end gap-2"><button type="button" class="btn-secondary" data-close>' + t('Manter inscrição') + '</button><button type="button" class="btn-danger" data-confirm>' + t('Cancelar inscrição') + '</button></div></div>'
   document.body.appendChild(wrapper)
   wrapper.querySelector('[data-close]').addEventListener('click', () => wrapper.remove())
   wrapper.addEventListener('click', (event) => { if (event.target === wrapper) wrapper.remove() })
@@ -3233,8 +3234,8 @@ function withdrawFromTryout(tryoutId) {
     return
   }
   tryout.enrolled = tryout.enrolled.filter((item) => item !== email)
-  notify(email, 'Inscrição cancelada', 'Você saiu da peneira "' + tryout.title + '". A vaga foi liberada.')
-  notifyTryoutStaff(tryout, 'Vaga liberada', state.user.name + ' cancelou a inscrição em "' + tryout.title + '" (' + tryout.enrolled.length + '/' + tryout.seats + ').')
+  notify(email, t('Inscrição cancelada'), t('Você saiu da peneira') + ' "' + tryout.title + '". ' + t('A vaga foi liberada.'))
+  notifyTryoutStaff(tryout, t('Vaga liberada'), state.user.name + ' ' + t('cancelou a inscrição em') + ' "' + tryout.title + '" (' + tryout.enrolled.length + '/' + tryout.seats + ').')
   persist()
   render()
   toast(t('Inscrição cancelada. A vaga foi liberada.'))
@@ -3248,21 +3249,21 @@ function openCancelTryoutModal(tryoutId) {
   wrapper.className = 'fixed inset-0 z-[92] grid place-items-center bg-black/75 p-4'
   wrapper.innerHTML =
     '<div class="w-full max-w-lg rounded-card surface surface--raised p-6" role="dialog" aria-modal="true" aria-labelledby="cancel-title"><h2 id="cancel-title" class="mt-2 text-2xl font-bold">' + escapeHtml(tryout.title) + '</h2>' +
-    '<p class="mt-3 text-sm leading-6 text-ink-soft">' + (total ? '<strong class="text-chalk">' + total + ' inscrito(s)</strong> receberão um aviso automático com o motivo abaixo.' : 'Não há inscritos nesta peneira, então nenhum aviso será enviado.') + ' Esta ação remove a peneira da lista e não pode ser desfeita.</p>' +
-    '<form id="cancel-tryout-form" class="mt-5"><label class="field-label">' + t('Motivo do cancelamento (opcional)') + '<textarea id="cancel-reason" class="field min-h-24 resize-y" maxlength="240" placeholder="Ex.: chuva forte, campo indisponível, nova data será divulgada."></textarea></label>' +
-    '<div class="mt-6 flex justify-end gap-2"><button type="button" class="btn-secondary" data-close>Manter peneira</button><button type="submit" class="btn-danger">Cancelar peneira e avisar inscritos</button></div></form></div>'
+    '<p class="mt-3 text-sm leading-6 text-ink-soft">' + (total ? '<strong class="text-chalk">' + total + ' ' + t('inscrito(s)') + '</strong> ' + t('receberão um aviso automático com o motivo abaixo.') : t('Não há inscritos nesta peneira, então nenhum aviso será enviado.')) + ' ' + t('Esta ação remove a peneira da lista e não pode ser desfeita.') + '</p>' +
+    '<form id="cancel-tryout-form" class="mt-5"><label class="field-label">' + t('Motivo do cancelamento (opcional)') + '<textarea id="cancel-reason" class="field min-h-24 resize-y" maxlength="240" placeholder="' + t('Ex.: chuva forte, campo indisponível, nova data será divulgada.') + '"></textarea></label>' +
+    '<div class="mt-6 flex justify-end gap-2"><button type="button" class="btn-secondary" data-close>' + t('Manter peneira') + '</button><button type="submit" class="btn-danger">' + t('Cancelar peneira e avisar inscritos') + '</button></div></form></div>'
   document.body.appendChild(wrapper)
   wrapper.querySelector('[data-close]').addEventListener('click', () => wrapper.remove())
   wrapper.addEventListener('click', (event) => { if (event.target === wrapper) wrapper.remove() })
   wrapper.querySelector('#cancel-tryout-form').addEventListener('submit', (event) => {
     event.preventDefault()
-    const reason = wrapper.querySelector('#cancel-reason').value.trim() || 'A peneira foi cancelada por uma eventualidade.'
+    const reason = wrapper.querySelector('#cancel-reason').value.trim() || t('A peneira foi cancelada por uma eventualidade.')
     const when = formatDate(tryout.date) + ' • ' + tryout.time
     if (tryout.remote && remote.enabled) {
       runTryoutAction(wrapper.querySelector('[type="submit"]'), () => cancelTryout(tryout.id, reason), t('Peneira cancelada. Os inscritos verão o motivo na tela de peneiras.')).then((ok) => { if (ok) wrapper.remove() })
       return
     }
-    ;(tryout.enrolled || []).forEach((email) => notify(email, 'Peneira cancelada', '"' + tryout.title + '" (' + when + ') foi cancelada. Motivo: ' + reason))
+    ;(tryout.enrolled || []).forEach((email) => notify(email, t('Peneira cancelada'), '"' + tryout.title + '" (' + when + ') ' + t('foi cancelada. Motivo:') + ' ' + reason))
     // Cancelar não apaga: a peneira fica guardada com o motivo (os inscritos a veem em "Encerradas").
     tryout.status = 'cancelled'
     tryout.cancelReason = reason
@@ -3270,7 +3271,7 @@ function openCancelTryoutModal(tryoutId) {
     persist()
     wrapper.remove()
     render()
-    toast('Peneira cancelada. ' + total + ' inscrito(s) avisado(s).')
+    toast(t('Peneira cancelada.') + ' ' + total + ' ' + t('inscrito(s) avisado(s).'))
   })
 }
 
@@ -3289,8 +3290,8 @@ function openEnrolledModal(tryoutId) {
     const at = checkinsOf(tryout)[profile.email]
     return '<div class="team-row checkin-row' + (at ? ' is-present' : '') + '" data-checkin-row data-name="' + escapeHtml(normalize(profile.name)) + '">' +
       '<span class="avatar">' + avatar(profile.name) + '</span><div class="min-w-0"><p class="font-semibold">' + escapeHtml(profile.name) + '</p>' +
-      '<p class="text-xs text-ink-soft"><span class="text-brand">' + t('Principal:') + '</span> ' + escapeHtml(profile.pos) + ' • <span class="text-brand">' + t('Secundária:') + '</span> ' + escapeHtml(profile.secondary && profile.secondary !== '—' ? profile.secondary : t('nenhuma')) + '</p>' +
-      '<p class="text-xs text-ink-soft">' + escapeHtml(getCategoryFromAge(getAgeFromProfile(profile.birth))) + ' • ' + escapeHtml(profile.city) + (profile.foot ? ' • ' + escapeHtml(profile.foot) : '') + '</p>' +
+      '<p class="text-xs text-ink-soft"><span class="text-brand">' + t('Principal:') + '</span> ' + escapeHtml(t(profile.pos)) + ' • <span class="text-brand">' + t('Secundária:') + '</span> ' + escapeHtml(profile.secondary && profile.secondary !== '—' ? t(profile.secondary) : t('nenhuma')) + '</p>' +
+      '<p class="text-xs text-ink-soft">' + escapeHtml(getCategoryFromAge(getAgeFromProfile(profile.birth))) + ' • ' + escapeHtml(profile.city) + (profile.foot ? ' • ' + escapeHtml(t(profile.foot)) : '') + '</p>' +
       (open ? arrived(at) : '') + '</div>' +
       '<div class="team-actions">' +
       (open ? '<label class="checkin-toggle"><input type="checkbox" data-checkin="' + escapeHtml(profile.email) + '"' + (at ? ' checked' : '') + ' /><span>' + icon('check', 'size-4') + t('Presente') + '</span><span class="sr-only"> ' + escapeHtml(profile.name) + '</span></label>' : '') +
@@ -3391,11 +3392,11 @@ function openNotifications() {
   wrapper.className = 'fixed inset-0 z-[90] grid place-items-center bg-black/70 p-4'
   wrapper.innerHTML =
     '<div class="w-full max-w-lg rounded-card surface surface--raised p-6" role="dialog" aria-modal="true" aria-labelledby="notifications-title">' +
-    '<div class="flex items-center justify-between gap-3"><div><h2 id="notifications-title" class="mt-1 text-2xl font-bold">Notificações</h2></div><button type="button" class="icon-button" aria-label="Fechar" data-close>' + icon('close') + '</button></div>' +
+    '<div class="flex items-center justify-between gap-3"><div><h2 id="notifications-title" class="mt-1 text-2xl font-bold">' + t('Notificações') + '</h2></div><button type="button" class="icon-button" aria-label="' + t('Fechar') + '" data-close>' + icon('close') + '</button></div>' +
     '<div class="mt-5 space-y-2">' +
     (unreadSummary().total ? '<article class="rounded-2xl surface p-4"><div class="flex items-start justify-between gap-3"><div><p class="font-semibold">' + plural(unreadSummary().total, 'mensagem não lida', 'mensagens não lidas') + '</p><p class="mt-1 text-sm text-ink-soft">' + t('De') + ' ' + escapeHtml(joinPt(unreadSummary().people)) + '.</p></div><button type="button" class="btn-secondary shrink-0" data-open-unread>' + t('Abrir') + '</button></div></article>' : '') +
-    (myNotifications().length ? myNotifications().map((n) => '<article class="rounded-2xl surface p-4"><div class="flex items-start justify-between gap-3"><div><p class="font-semibold">' + escapeHtml(n.title) + '</p><p class="mt-1 text-sm text-ink-soft">' + escapeHtml(n.text) + '</p></div><span class="text-xs text-ink-soft">' + escapeHtml(n.time) + '</span></div></article>').join('') : '<div class="rounded-2xl border border-dashed border-line p-8 text-center text-ink-soft">Nenhuma notificação.</div>') +
-    '</div><button type="button" class="btn-secondary mt-5 w-full" data-clear-notifications>Marcar como lidas</button></div>'
+    (myNotifications().length ? myNotifications().map((n) => '<article class="rounded-2xl surface p-4"><div class="flex items-start justify-between gap-3"><div><p class="font-semibold">' + escapeHtml(t(n.title)) + '</p><p class="mt-1 text-sm text-ink-soft">' + escapeHtml(t(n.text)) + '</p></div><span class="text-xs text-ink-soft">' + escapeHtml(t(n.time || '')) + '</span></div></article>').join('') : '<div class="rounded-2xl border border-dashed border-line p-8 text-center text-ink-soft">' + t('Nenhuma notificação.') + '</div>') +
+    '</div><button type="button" class="btn-secondary mt-5 w-full" data-clear-notifications>' + t('Marcar como lidas') + '</button></div>'
 
   document.body.appendChild(wrapper)
   wrapper.querySelector('[data-close]').addEventListener('click', () => wrapper.remove())
@@ -3414,7 +3415,7 @@ function openMobileMenu() {
   const root = document.querySelector('#mobile-menu')
   if (!root) return
   root.innerHTML =
-    '<div class="fixed inset-0 z-[70] bg-black/70 p-4 backdrop-blur-sm" data-close-mobile><div class="ml-auto w-[min(86vw,340px)] rounded-card surface surface--raised p-4 shadow-2xl" role="dialog" aria-modal="true"><div class="flex items-center justify-between"><p class="font-bold">Navegação</p><button type="button" class="icon-button" data-close-mobile aria-label="Fechar menu">' + icon('close') + '</button></div><div class="mt-4 grid gap-2">' +
+    '<div class="fixed inset-0 z-[70] bg-black/70 p-4 backdrop-blur-sm" data-close-mobile><div class="ml-auto w-[min(86vw,340px)] rounded-card surface surface--raised p-4 shadow-2xl" role="dialog" aria-modal="true"><div class="flex items-center justify-between"><p class="font-bold">' + t('Navegação') + '</p><button type="button" class="icon-button" data-close-mobile aria-label="' + t('Fechar menu') + '">' + icon('close') + '</button></div><div class="mt-4 grid gap-2">' +
     (state.user?.role === 'staff'
       ? [['dashboard',t('Visão geral')],['athletes',t('Atletas')],['tryouts',t('Peneiras')],['messages',t('Conversas')],['profile',t('Perfil')]]
       : [['dashboard',t('Início')],['profile',t('Meu perfil')],['tryouts',t('Peneiras')],['messages',t('Conversas')]]
@@ -3427,15 +3428,15 @@ function openMobileMenu() {
 
 function exportSelection() {
   const athletes = state.filteredAthletes || state.athletes
-  const header = ['Nome', t('Idade'), t('Categoria'), t('Gênero'), t('Perna dominante'), t('Posição principal'), t('Posição secundária'), t('Cidade'), t('Estado'), 'Nota média', 'Avaliações']
+  const header = [t('Nome'), t('Idade'), t('Categoria'), t('Gênero'), t('Perna dominante'), t('Posição principal'), t('Posição secundária'), t('Cidade'), t('Estado'), t('Nota média'), t('Avaliações')]
   const rows = athletes.map((a) => [
     a.name,
     a.age,
     getCategoryFromAge(a.age),
-    a.gender || 'Não informado',
-    a.foot || 'Não informada',
-    a.pos || 'Não informada',
-    a.secondary && a.secondary !== '—' ? a.secondary : 'Nenhuma',
+    t(a.gender || 'Não informado'),
+    t(a.foot || 'Não informada'),
+    t(a.pos || 'Não informada'),
+    a.secondary && a.secondary !== '—' ? t(a.secondary) : t('Nenhuma'),
     a.city,
     a.state,
     ratingOf(a) ? ratingOf(a).toFixed(1).replace('.', ',') : 'Sem nota',
@@ -3657,7 +3658,7 @@ async function registerAccount() {
       return showFeedback('reg-feedback', describeError(error), true)
     }
     if (regPhoto) { try { await savePhoto(regPhoto) } catch (error) { console.warn('[Supabase] foto não salva:', error) } }
-    notify(email, 'Conta criada', 'Seu cadastro foi concluído com categoria ' + getCategoryFromAge(age) + '.')
+    notify(email, t('Conta criada'), t('Seu cadastro foi concluído com categoria') + ' ' + getCategoryFromAge(age) + '.')
     persist()
     go('dashboard')
     toast(t('Conta criada com sucesso.'))
@@ -3671,7 +3672,7 @@ async function registerAccount() {
   state.user = { name, email, role: 'player' }
   if (guardian) logChange('consent', 'guardian', email, { relationship: guardian.relationship, version: CONSENT_VERSION })
   syncAthletes()
-  notify(email, 'Conta criada', 'Seu cadastro foi concluído com categoria ' + getCategoryFromAge(age) + '.')
+  notify(email, t('Conta criada'), t('Seu cadastro foi concluído com categoria') + ' ' + getCategoryFromAge(age) + '.')
   persist()
   go('dashboard')
   toast(t('Conta criada com sucesso.'))
@@ -3688,12 +3689,12 @@ async function finishRemoteLogin(uid, role, errorId) {
   if (state.user.role !== role) {
     const actual = state.user.role
     await clearRemoteSession()
-    showFeedback(errorId, 'Esta conta é de ' + (actual === 'staff' ? 'funcionário' : 'jogador') + '. Selecione a aba correta acima.', true)
+    showFeedback(errorId, actual === 'staff' ? t('Esta conta é de funcionário. Selecione a aba correta acima.') : t('Esta conta é de jogador. Selecione a aba correta acima.'), true)
     return false
   }
   persist()
   go('dashboard')
-  toast('Login realizado como ' + (role === 'staff' ? 'funcionário' : 'jogador') + '.')
+  toast(role === 'staff' ? t('Login realizado como funcionário.') : t('Login realizado como jogador.'))
   setTimeout(() => { updateMessageBadge(); announceUnread() }, 600)
   return true
 }
@@ -3730,7 +3731,7 @@ async function loginAccount() {
 
   const anyRole = state.accounts.find((entry) => entry.email === email)
   if (anyRole && anyRole.role !== role && anyRole.password === password) {
-    return showFeedback(errorId, 'Esta conta é de ' + (anyRole.role === 'staff' ? 'funcionário' : 'jogador') + '. Selecione a aba correta acima.', true)
+    return showFeedback(errorId, anyRole.role === 'staff' ? t('Esta conta é de funcionário. Selecione a aba correta acima.') : t('Esta conta é de jogador. Selecione a aba correta acima.'), true)
   }
   const account = state.accounts.find((entry) => entry.email === email && entry.role === role)
   if (account && account.password === password && account.active === false) return showFeedback(errorId, t('Esta conta de funcionário foi desativada. Fale com um administrador.'), true)
@@ -3744,7 +3745,7 @@ async function loginAccount() {
   state.profile = role === 'player' ? account.profile : null
   persist()
   go('dashboard')
-  toast('Login realizado como ' + (role === 'staff' ? 'funcionário' : 'jogador') + '.')
+  toast(role === 'staff' ? t('Login realizado como funcionário.') : t('Login realizado como jogador.'))
   setTimeout(() => { updateMessageBadge(); announceUnread() }, 600)
 }
 
@@ -4203,7 +4204,11 @@ function finishSplash() {
 }
 
 async function boot() {
-  app.innerHTML = '<div class="grid min-h-screen place-items-center text-sm text-ink-soft">Carregando...</div>'
+  // O index.html vem em português; o que ele mostra antes do app é traduzido aqui.
+  document.querySelector('.skip-link')?.replaceChildren(t('Pular para o conteúdo'))
+  document.querySelector('#splash .ball-loader > span')?.replaceChildren(t('Entrando em campo…'))
+  document.querySelector('#splash .sr-only')?.replaceChildren(t('Carregando a Pelé Academia'))
+  app.innerHTML = '<div class="grid min-h-screen place-items-center text-sm text-ink-soft">' + t('Carregando…') + '</div>'
   if (await initRemote()) {
     // Com o Supabase, a sessão vem do servidor (não do localStorage)
     state.user = null
