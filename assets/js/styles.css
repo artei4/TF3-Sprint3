@@ -909,3 +909,12 @@ body::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:n
 .checkin-toggle input:disabled + span { opacity:.6; cursor:progress; }
 @keyframes checkin-pop { 40% { transform: scale(1.08); } }
 .checkin-fill { width:0; transition: width .5s var(--ease-out); }
+/* Bloco opcional do formulário (endereço completo): fechado por padrão, abre com um toque. */
+.optional-group { border:1px dashed var(--color-line-strong); border-radius:var(--radius-control); padding:.85rem 1rem; }
+.optional-group > summary { display:grid; gap:.15rem; cursor:pointer; list-style:none; padding-right:1.75rem; position:relative; font-weight:600; }
+.optional-group > summary::-webkit-details-marker { display:none; }
+.optional-group > summary::after { content:"+"; position:absolute; right:0; top:0; font-size:1.25rem; line-height:1; color:var(--color-brand); transition: transform .25s var(--ease-out); }
+.optional-group[open] > summary::after { transform: rotate(45deg); }
+.optional-group > summary small { font-weight:400; font-size:.8rem; color:var(--color-ink-soft); }
+.optional-group > summary:focus-visible { outline:2px solid var(--color-focus); outline-offset:4px; border-radius:4px; }
+.optional-group[open] > div { animation: details-in .3s var(--ease-out); }

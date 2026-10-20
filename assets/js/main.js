@@ -958,7 +958,6 @@ function playerChecklist(profile) {
     [!!profile.secondary && profile.secondary !== '—', t('Defina uma posição secundária'), t('Abre mais peneiras compatíveis.'), 'profile'],
     [state.tryouts.some(isEnrolledIn), t('Inscreva-se numa peneira'), t('É assim que você entra no radar da Academia.'), 'tryouts:for-you'],
     [myMessages, t('Mande uma mensagem a um treinador'), t('Apresente-se e tire dúvidas.'), 'messages'],
-    [!!(profile.city && profile.zip), t('Confira seu endereço'), t('Fica visível só para você.'), 'profile'],
   ])
 }
 
@@ -1405,9 +1404,7 @@ function profilePage() {
     '<p class="sm:col-span-2 -mt-1 text-xs text-ink-soft">' + t('CPF e data de nascimento não mudam depois do cadastro. Para corrigir, fale com a equipe em Conversas.') + '</p>' +
     input(t('E-mail'), 'profile-email', p.email, 'email', true, remote.enabled) + input(t('Telefone'), 'profile-phone', p.phone, 'tel', true) +
     '<p class="form-group-title sm:col-span-2">' + t('Futebol') + '</p>' + selectField(t('Posição principal'), 'profile-pos', POSITIONS, p.pos) + selectField(t('Posição secundária'), 'profile-secondary', ['—'].concat(POSITIONS), p.secondary) + selectField(t('Perna dominante'), 'profile-foot', FEET, p.foot || '') +
-    '<p class="form-group-title sm:col-span-2">' + t('Endereço') + '</p>' +
-    input(t('CEP'), 'profile-zip', p.zip, 'text', true) + input(t('Cidade'), 'profile-city', p.city, 'text', true) + input(t('Estado'), 'profile-state', p.state, 'text', true) + input(t('Bairro'), 'profile-district', p.district, 'text', true) +
-    input(t('Endereço'), 'profile-address', p.address, 'text', true) + input(t('Número'), 'profile-number', p.number, 'text', true) +
+    addressFields('profile', p) +
     '<div id="profile-feedback" class="sm:col-span-2 hidden" role="alert"></div><div class="sm:col-span-2 flex justify-end"><button class="btn-primary" type="submit">' + t('Salvar alterações') + ' ' + icon('check', 'size-4') + '</button></div></form></div></section>' +
     '<section class="mt-6 grid gap-5 ' + (isMinorBirth(p.birth) ? 'lg:grid-cols-2' : '') + '">' + guardianPanel() + privacyPanel() + '</section>' +
     '<section class="mt-6 panel"><div class="flex items-center justify-between"><div><h2 class="section-title">' + t('Comentários e notas') + '</h2><p class="mt-1 text-xs text-ink-soft">' + t('Notas e estatísticas ficam visíveis apenas para você e para a equipe da Academia.') + '</p></div><span class="tag">' + getPlayerReviewCount() + ' ' + t('registro(s)') + '</span></div><div class="mt-5 grid gap-4 md:grid-cols-2">' + renderPlayerReviews() + '</div></section>',
@@ -2507,7 +2504,7 @@ function privacyPage() {
     row('Posições, perna dominante, cidade e UF', 'Mostrar as peneiras compatíveis e ajudar os olheiros a encontrar você.', 'Você e a equipe') +
     row('E-mail', 'Entrar na conta e identificar sua inscrição nas peneiras.', 'Você e a equipe') +
     row('CPF', 'Evitar duas contas para a mesma pessoa.', 'Só você') +
-    row('Telefone e endereço', 'Ficam no seu perfil. Hoje nenhuma outra função usa o endereço.', 'Só você') +
+    row('Telefone e endereço (opcional)', 'Ficam no seu perfil. O endereço é opcional e nenhuma função o usa.', 'Só você') +
     row('Inscrições, avaliações e conversas', 'Organizar as peneiras e o acompanhamento técnico.', 'Você e a equipe') +
     row('Responsável legal (menores de 18)', 'Registrar a autorização e permitir que a equipe fale com a família.', 'Você e a equipe') +
     '</tbody></table></div>' +
@@ -2650,7 +2647,7 @@ const REG_STEPS = [
   { title: 'Você', hint: 'Nome, documento e idade', fields: ['reg-name', 'reg-cpf', 'reg-birth', 'reg-gender'] },
   { title: 'Seu jogo', hint: 'Posições e perna dominante', fields: ['reg-pos', 'reg-secondary', 'reg-foot'] },
   { title: 'Responsável', hint: 'Autorização para menores de 18', fields: ['reg-g-name', 'reg-g-relation', 'reg-g-email', 'reg-g-phone', 'reg-g-consent'], minorOnly: true },
-  { title: 'Contato e acesso', hint: 'E-mail, endereço e senha', fields: ['reg-email', 'reg-phone', 'reg-zip', 'reg-city', 'reg-state', 'reg-district', 'reg-address', 'reg-number', 'reg-password', 'reg-confirm'] },
+  { title: 'Contato e acesso', hint: 'E-mail, cidade e senha', fields: ['reg-email', 'reg-phone', 'reg-zip', 'reg-city', 'reg-state', 'reg-district', 'reg-address', 'reg-number', 'reg-password', 'reg-confirm'] },
 ]
 function registerPage() {
   regPhoto = null
@@ -2680,9 +2677,7 @@ function registerPage() {
       consentBox('reg-g-consent')) +
     step(3,
       input(t('E-mail'), 'reg-email', '', 'email', true) + input(t('Telefone'), 'reg-phone', '', 'tel', true) +
-      '<p class="form-group-title sm:col-span-2">' + t('Endereço') + '</p>' +
-      input(t('CEP'), 'reg-zip', '', 'text', true) + input(t('Cidade'), 'reg-city', '', 'text', true) + input(t('Estado'), 'reg-state', '', 'text', true) + input(t('Bairro'), 'reg-district', '', 'text', true) +
-      input(t('Endereço'), 'reg-address', '', 'text', true) + input(t('Número'), 'reg-number', '', 'text', true) +
+      addressFields('reg') +
       '<p class="form-group-title sm:col-span-2">' + t('Acesso') + '</p>' +
       input(t('Senha'), 'reg-password', '', 'password', true) + input(t('Confirmar senha'), 'reg-confirm', '', 'password', true) +
       '<p class="sm:col-span-2 text-xs leading-5 text-ink-soft">' + (remote.enabled ? t('Sua conta fica no servidor da plataforma. CPF, telefone e endereço são visíveis só para você.') : t('Modo local: os dados ficam apenas neste navegador. Não use senhas reais.')) + '</p>') +
@@ -2697,6 +2692,8 @@ function setFieldError(id, message) {
   let error = document.getElementById(id + '-err')
   field.setAttribute('aria-invalid', message ? 'true' : 'false')
   if (!message) { error?.remove(); field.removeAttribute('aria-describedby'); return }
+  const group = field.closest('details')
+  if (group) group.open = true
   if (!error) {
     error = document.createElement('p')
     error.id = id + '-err'
@@ -2726,7 +2723,8 @@ function validateRegisterStep(n) {
   if (n === 2) guardianErrors(v('reg-g-name'), v('reg-g-relation'), v('reg-g-email'), v('reg-g-phone'), document.getElementById('reg-g-consent')?.checked, 'reg-g-').forEach((item) => errors.push(item))
   if (n === 3) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v('reg-email'))) errors.push(['reg-email', t('Informe um e-mail válido.')])
-    ;['reg-phone', 'reg-zip', 'reg-city', 'reg-state', 'reg-district', 'reg-address', 'reg-number'].forEach((id) => { if (!v(id)) errors.push([id, t('Campo obrigatório.')]) })
+    ;['reg-phone', 'reg-city', 'reg-state'].forEach((id) => { if (!v(id)) errors.push([id, t('Campo obrigatório.')]) })
+    if (!zipOk(v('reg-zip'))) errors.push(['reg-zip', t('CEP no formato 00000-000.')])
     if (v('reg-password').length < 6) errors.push(['reg-password', t('Use pelo menos 6 caracteres.')])
     if (v('reg-confirm') !== v('reg-password')) errors.push(['reg-confirm', t('As senhas não coincidem.')])
   }
@@ -2789,6 +2787,18 @@ function initRegisterSteps() {
   form.addEventListener('submit', (event) => { if (!validateRegisterStep(stepAt(current))) { event.preventDefault(); event.stopImmediatePropagation() } }, true)
 }
 
+
+// Cidade e UF são obrigatórias (filtro de atletas e card). O resto do endereço é opcional:
+// nenhuma função da plataforma usa, então só pedimos o que é necessário (LGPD, art. 6º, III).
+const zipOk = (zip) => !zip || /^\d{5}-?\d{3}$/.test(zip)
+function addressFields(prefix, p = {}) {
+  const filled = p.zip || p.district || p.address || p.number
+  return '<p class="form-group-title sm:col-span-2">' + t('Onde você mora') + '</p>' +
+    input(t('Cidade'), prefix + '-city', p.city || '', 'text', true) + input(t('Estado (UF)'), prefix + '-state', p.state || '', 'text', true) +
+    '<details class="optional-group sm:col-span-2"' + (filled ? ' open' : '') + '><summary><span>' + t('Endereço completo (opcional)') + '</span><small>' + t('Nenhuma função da plataforma usa o endereço. Preencha só se quiser.') + '</small></summary>' +
+    '<div class="mt-4 grid gap-4 sm:grid-cols-2">' + input(t('CEP'), prefix + '-zip', p.zip || '', 'text') + input(t('Bairro'), prefix + '-district', p.district || '', 'text') +
+    input(t('Rua'), prefix + '-address', p.address || '', 'text') + input(t('Número'), prefix + '-number', p.number || '', 'text') + '</div></details>'
+}
 
 function input(label, id, value = '', type = 'text', required = false, disabled = false, readonly = false) {
   return '<label class="field-label">' + escapeHtml(t(label)) + '<input id="' + id + '" class="field" type="' + type + '" value="' + escapeHtml(value) + '"' + (required ? ' required' : '') + (disabled ? ' disabled' : '') + (readonly ? ' readonly' : '') + ' /></label>'
@@ -3524,6 +3534,7 @@ async function saveProfile() {
   const newEmail = normalizeEmail(document.querySelector('#profile-email').value)
   const oldEmail = state.user.email
   if (newEmail !== oldEmail && state.accounts.some((entry) => entry.email === newEmail)) return showFeedback('profile-feedback', t('Já existe uma conta com esse e-mail.'), true)
+  if (!zipOk(document.querySelector('#profile-zip').value.trim())) return showFeedback('profile-feedback', t('CEP no formato 00000-000.'), true)
   const next = {
     name: document.querySelector('#profile-name').value.trim(),
     cpf: document.querySelector('#profile-cpf').value.trim(),
@@ -3603,7 +3614,8 @@ async function registerAccount() {
   if (!secondary) return showFeedback('reg-feedback', 'Selecione a posição secundária ou "—".', true)
   if (secondary === pos && secondary !== '—') return showFeedback('reg-feedback', 'A posição secundária deve ser diferente da principal.', true)
   if (!foot) return showFeedback('reg-feedback', 'Selecione a perna dominante.', true)
-  if (!zip || !city || !region || !district || !address || !number) return showFeedback('reg-feedback', 'Preencha todo o endereço, incluindo cidade e estado.', true)
+  if (!city || !region) return showFeedback('reg-feedback', 'Informe a cidade e o estado.', true)
+  if (!zipOk(zip)) return showFeedback('reg-feedback', 'CEP no formato 00000-000.', true)
   if (password.length < 6) return showFeedback('reg-feedback', 'A senha precisa ter pelo menos 6 caracteres.', true)
   if (password !== confirm) return showFeedback('reg-feedback', 'As senhas não coincidem.', true)
   const guardian = isMinorBirth(birth) ? readGuardianForm('reg-g-') : null

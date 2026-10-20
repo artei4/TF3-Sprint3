@@ -947,4 +947,14 @@ const ES = {
   "MEI": "MED",
   "PON": "EXT",
   "ATA": "DEL",
+  // Endereço opcional
+  "Onde você mora": "Dónde vives",
+  "Estado (UF)": "Estado (UF)",
+  "Endereço completo (opcional)": "Dirección completa (opcional)",
+  "Nenhuma função da plataforma usa o endereço. Preencha só se quiser.": "Ninguna función de la plataforma usa la dirección. Complétala solo si quieres.",
+  "Rua": "Calle",
+  "E-mail, cidade e senha": "Correo, ciudad y contraseña",
+  "Informe a cidade e o estado.": "Indica la ciudad y el estado.",
+  "Telefone e endereço (opcional)": "Teléfono y dirección (opcional)",
+  "Ficam no seu perfil. O endereço é opcional e nenhuma função o usa.": "Quedan en tu perfil. La dirección es opcional y ninguna función la usa.",
 }
