@@ -293,7 +293,7 @@
 
 /* Navegação inferior no celular (zona do polegar). */
 .bottom-nav { position:fixed; inset:auto .75rem calc(.75rem + env(safe-area-inset-bottom)) .75rem; z-index:50; display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:.25rem; padding:.35rem; border:1px solid var(--color-line); border-radius:1.25rem; background: color-mix(in oklab, var(--color-raised) 88%, transparent); backdrop-filter: blur(14px); box-shadow: var(--shadow-modal); }
-.bottom-nav button { position:relative; display:grid; justify-items:center; gap:.2rem; min-height:3.25rem; padding:.45rem .25rem; border-radius:.9rem; font-size:.7rem; font-weight:600; color:var(--color-ink-soft); transition: color var(--dur-hover), background-color var(--dur-hover); }
+.bottom-nav button { position:relative; display:grid; justify-items:center; gap:.2rem; min-height:3.25rem; padding:.45rem .25rem; border-radius:.9rem; font-size:.75rem; font-weight:600; color:var(--color-ink-soft); transition: color var(--dur-hover), background-color var(--dur-hover); }
 .bottom-nav button[aria-current="page"] { color:var(--color-brand-ink); background:var(--color-cta); }
 .bottom-nav button:active { transform:scale(.95); }
 @media (max-width:47.99rem) { .has-bottom-nav main { padding-bottom:6.5rem; } .has-bottom-nav footer { padding-bottom:6.5rem; } }
@@ -467,7 +467,7 @@ button.pitch-dot { cursor:pointer; min-width:2.75rem; min-height:2.75rem; backgr
 .composer-input::placeholder { color: color-mix(in oklab, var(--color-ink-soft) 85%, transparent); }
 .composer .chat-send { width:2.6rem; height:2.6rem; min-height:0; padding:0; border-radius:50%; box-shadow:none; }
 .conversation-item.selected { background: color-mix(in oklab, var(--color-brand) 12%, transparent); }
-.conversation-item.selected strong { color: var(--color-brand); }
+.conversation-item.selected strong { font-weight:800; }
 
 /* ===== Perfil ===== */
 .profile-avatar { box-shadow: 0 0 0 3px var(--color-panel), 0 0 0 5px var(--pos, var(--color-brand)); background: color-mix(in oklab, var(--pos, var(--color-brand)) 80%, #fff); }
@@ -593,7 +593,7 @@ button.pitch-dot { cursor:pointer; min-width:2.75rem; min-height:2.75rem; backgr
 
 /* ===== Modal do atleta ===== */
 .athlete-modal { padding:0; }
-.athlete-modal-hero { position:relative; padding:2rem 1.5rem 1.5rem; border-bottom:1px solid var(--color-line); background: radial-gradient(30rem 14rem at 0% 0%, color-mix(in oklab, var(--pos) 22%, transparent), transparent 70%), linear-gradient(180deg, color-mix(in oklab, var(--pos) 8%, transparent), transparent); border-radius: var(--radius-card) var(--radius-card) 0 0; }
+.athlete-modal-hero { position:relative; padding:2rem 1.5rem 1.5rem; border-bottom:1px solid var(--color-line); background: color-mix(in oklab, var(--pos) 4%, transparent); border-radius: var(--radius-card) var(--radius-card) 0 0; }
 .athlete-modal-close { position:absolute; top:1rem; right:1rem; }
 .athlete-modal-avatar { width:6rem; height:6rem; }
 @media (min-width:40rem) { .athlete-modal-hero { padding:2.25rem 2rem 1.75rem; } }
@@ -1148,7 +1148,7 @@ h2, h3 { font-stretch:108%; }
 .legal-toc p { font-size:.75rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--color-ink-soft); }
 .legal-toc ol { margin-top:.6rem; display:flex; gap:.4rem; overflow-x:auto; padding-bottom:.4rem; }
 .legal-toc button { display:flex; align-items:baseline; gap:.5rem; flex:none; min-height:2.5rem; padding:.45rem .75rem; border-radius:var(--radius-control); border:1px solid var(--color-line); font-size:.85rem; font-weight:600; text-align:left; color:var(--color-chalk); transition: border-color var(--dur-hover), background-color var(--dur-hover); }
-.legal-toc button span { font-size:.72rem; color:var(--color-ink-soft); }
+.legal-toc button span { font-size:.75rem; color:var(--color-ink-soft); }
 @media (max-width: 63.99rem) { .legal-toc button { white-space:nowrap; } }
 @media (hover:hover) and (pointer:fine) { .legal-toc button:hover { border-color:var(--color-brand); } }
 .legal-article { min-width:0; }
@@ -1247,8 +1247,8 @@ h2, h3 { font-stretch:108%; }
 .athlete-tryouts li { display:flex; align-items:center; justify-content:space-between; gap:.75rem; padding:.7rem .9rem; border:1px solid var(--color-line); border-radius:var(--radius-control); }
 
 /* ===== Rodapé do site: faixa grande com marca, parceria e três grupos de links (GOV.UK) ===== */
-.site-footer { margin-top:2.5rem; background:var(--color-album); color:var(--color-album-ink); border-top:6px solid var(--color-album-ink); }
-.site-footer.is-ink { margin-top:0; background:var(--color-album-ink); color:#F1F3F8; border-top-color: var(--color-album); }
+.site-footer { margin-top:2.5rem; background:var(--color-album); color:var(--color-album-ink); }
+.site-footer.is-ink { margin-top:0; background:var(--color-album-ink); color:#F1F3F8; }
 .sf-wrap { width:100%; max-width:72rem; margin-inline:auto; padding-inline: clamp(1rem, 4vw, 2.5rem); }
 .site-footer > .sf-wrap:first-child { display:grid; gap:2rem; padding-block:2.5rem 2rem; }
 .sf-tag { margin-top:.9rem; max-width:34ch; font-size:.95rem; line-height:1.55; }
@@ -1294,8 +1294,6 @@ h2, h3 { font-stretch:108%; }
 .partner-roles { margin-top:1.25rem; display:grid; gap:1rem; }
 @media (min-width: 48rem) { .partner-roles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .partner-role { padding:1.25rem; border-radius:var(--radius-card); border:1px solid var(--color-line); background:var(--color-panel); }
-.partner-role.is-academy { border-top:4px solid var(--color-album); }
-.partner-role.is-platform { border-top:4px solid var(--color-brand); }
 .partner-role h3 { display:flex; align-items:center; gap:.6rem; font-weight:800; }
 .partner-role h3 img { border-radius:.4rem; }
 .partner-role h3 svg { color:var(--color-brand); }
@@ -1308,7 +1306,7 @@ h2, h3 { font-stretch:108%; }
 .contact-grid { display:grid; gap:1.5rem; }
 @media (min-width: 64rem) { .contact-grid { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); align-items:start; } }
 .contact-ways { display:grid; gap:.75rem; }
-.contact-way { display:flex; gap:.75rem; padding:1rem; border-left:4px solid var(--color-brand); border-radius: 0 var(--radius-control) var(--radius-control) 0; background:var(--color-panel); }
+.contact-way { display:flex; gap:.75rem; padding:1rem; border-radius:var(--radius-control); background:var(--color-panel); }
 .contact-way > svg { flex:none; margin-top:.1rem; color:var(--color-brand); }
 .contact-way p { margin-top:.2rem; font-size:.9rem; line-height:1.55; color:var(--color-ink-soft); }
 .contact-local { font-size:.8rem; color:var(--color-ink-soft); }
@@ -1395,3 +1393,16 @@ h2, h3 { font-stretch:108%; }
 .qr-scale:has(input:checked) .qr-chip input:not(:checked) + span { border-style:dashed; border-color: var(--color-line); font-weight:600; }
 .qr-total { font-size:.95rem; }
 .qr-total strong { font-size:1.4rem; }
+
+/* ===== Segunda passada de AI slop ===== */
+/* Ícone das abas não encolhe (com três abas, o de Funcionário virava um ponto). */
+.segmented .role-tab .seg-icon { flex:none; }
+/* Dentro de um painel, o item do atleta não vira mais um cartão: a carta já é o destaque. */
+.panel .athlete-tile.surface { background:transparent; border-color:transparent; box-shadow:none; }
+/* Sobre: o que a parceria garante, em lista. */
+.partner-promises { margin-top:1rem; display:grid; gap:.85rem; max-width:68ch; }
+.partner-promises li { display:flex; gap:.75rem; line-height:1.6; color:var(--color-ink-soft); }
+.partner-promises svg { margin-top:.2rem; color:var(--color-brand); }
+.partner-promises strong { color:var(--color-chalk); }
+.info-next { display:flex; flex-wrap:wrap; gap:.6rem; align-items:center; font-weight:700; }
+.info-next a { text-decoration:underline; text-underline-offset:4px; }

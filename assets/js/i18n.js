@@ -1362,4 +1362,5 @@ const ES = {
   "Tem uma peneira compatível com você:": "Hay una prueba compatible contigo:",
   "A inscrição é pela tela Peneiras.": "La inscripción es en la pantalla Pruebas.",
   "Mensagens com": "Mensajes con",
+  "Nota de exemplo: perfil fictício, sem avaliação real": "Nota de ejemplo: perfil ficticio, sin evaluación real",
 }

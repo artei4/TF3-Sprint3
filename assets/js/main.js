@@ -963,7 +963,7 @@ function shell(content, options = {}) {
     '<aside class="sidebar" aria-label="' + t('Menu lateral') + '"><button type="button" class="sidebar-brand" data-action="home" aria-label="' + t('TIER ZERO, ir para o início') + '">' + brandLockup(36) + '</button>' +
     '<nav class="sidebar-nav" aria-label="' + t('Navegação principal') + '">' + nav.map((item) => navButton(item, 'nav-side')).join('') + '</nav>' +
     '<div class="sidebar-cta">' + cta + '</div>' +
-    '<div class="sidebar-foot">' + partnerSeal() +
+    '<div class="sidebar-foot">' +
     '<button type="button" class="profile-row" data-route="profile">' + personAvatar(mePerson()) + '<span class="min-w-0 text-left"><span class="block truncate text-sm font-semibold">' + escapeHtml(state.user?.name || 'Atleta') + '</span><span class="block text-xs text-ink-soft">' + (role === 'staff' ? t('Funcionário') : role === 'scout' ? t('Olheiro de clube') : t('Atleta')) + '</span></span></button></div></aside>' +
     // Coluna principal
     '<div class="app-main">' +
@@ -1495,10 +1495,10 @@ function athleteCard(a, staff = false) {
     '<div class="athlete-tile-card" data-open-athlete="' + a.id + '">' + playerCard(a) + '</div>' +
     '<p class="athlete-tile-meta">' + a.age + ' ' + t('anos') + ' · ' + escapeHtml(a.city) + '/' + escapeHtml(a.state) + (a.secondary && a.secondary !== '—' ? ' · ' + t('também') + ' ' + escapeHtml(t(a.secondary)) : '') + '</p>' +
     (strengths.length ? '<p class="scout-strengths athlete-tile-tags">' + strengths.map((item) => '<span>' + escapeHtml(item) + '</span>').join('') + '</p>' : '') +
-    '<p class="athlete-tile-count">' + (reviewCount ? '<span class="tabular">' + plural(reviewCount, 'avaliação', 'avaliações') + '</span>' : t('ainda sem avaliação')) + (a.demo ? ' · ' + t('perfil de exemplo') : '') + '</p>' +
+    '<p class="athlete-tile-count">' + (reviewCount ? '<span class="tabular">' + plural(reviewCount, 'avaliação', 'avaliações') + '</span>' + (a.demo ? ' · ' + t('perfil de exemplo') : '') : a.demo ? t('Nota de exemplo: perfil fictício, sem avaliação real') : t('ainda sem avaliação')) + '</p>' +
     '<div class="athlete-tile-actions">' +
-    (staff === 'scout' ? scoutRequestButton(a) : staff ? '<button type="button" class="btn-secondary" data-message-athlete="' + a.id + '">' + icon('message', 'size-4') + ' ' + t('Mensagem') + '</button>' : '') +
-    '<button type="button" class="btn-primary" data-open-athlete="' + a.id + '" aria-label="' + t('Abrir perfil de') + ' ' + escapeHtml(a.name) + '">' + t('Ver perfil') + '</button></div></article>'
+    (staff === 'scout' ? scoutRequestButton(a) : staff ? '<button type="button" class="btn-ghost" data-message-athlete="' + a.id + '">' + icon('message', 'size-4') + ' ' + t('Mensagem') + '</button>' : '') +
+    '<button type="button" class="btn-secondary" data-open-athlete="' + a.id + '" aria-label="' + t('Abrir perfil de') + ' ' + escapeHtml(a.name) + '">' + t('Ver perfil') + '</button></div></article>'
 }
 
 // Lista de observação: marcador pessoal de quem o funcionário quer acompanhar. Não é voto nem curtida:
@@ -1528,7 +1528,7 @@ function athletesPage() {
     '<label class="field-label">' + t('Cidade/região') + '<select id="filter-city" class="field"><option value="">' + t('Todas') + '</option>' + [...new Set(pool.map((a) => a.city))].sort().map((c) => '<option>' + escapeHtml(c) + '</option>').join('') + '</select></label>' +
     '<label class="field-label">' + t('Idade') + '<select id="filter-age" class="field"><option value="">' + t('Todas') + '</option>' + [...new Set(pool.map((a) => a.age))].sort((a,b)=>a-b).map((age) => '<option value="' + age + '">' + age + '</option>').join('') + '</select></label>' +
     '<label class="field-label">' + t('Categoria') + '<select id="filter-category" class="field"><option value="">' + t('Todas') + '</option><option>Sub-7</option><option>Sub-9</option><option>Sub-11</option><option>Sub-13</option><option>Sub-15</option><option>Sub-17</option><option>Sub-20</option></select></label>' +
-    '</div><div class="mt-6 rounded-2xl border border-brand/15 bg-brand/7 p-4 text-xs leading-5 text-ink-soft"><strong class="text-brand">' + t('Filtro em tempo real') + '</strong><br/>' + t('Nome, posição, perna dominante, cidade, idade e categoria alteram a lista sem recarregar.') + '</div></aside>'
+    '</div></aside>'
 
   return shell(
     '<div class="page-head"><div><h1 class="page-title">' + t(scout ? 'Vitrine de atletas' : 'Pesquisar atletas') + '</h1><p class="page-subtitle">' + t(scout ? 'Atletas que escolheram aparecer para clubes. Para falar com alguém, peça o contato: a equipe da Pelé Academia conversa com o atleta e a família antes.' : 'Abra o perfil completo, mande uma mensagem, registre uma avaliação e salve quem você quer acompanhar.') + '</p></div>' + (scout ? '' : '<button type="button" class="btn-primary lg:hidden" data-action="openTryout">' + icon('plus', 'size-4') + ' ' + t('Nova peneira') + '</button>') + '</div>' +
@@ -2327,7 +2327,7 @@ function infoPage(title, lead, body, { board = false } = {}) {
 
 function aboutPage() {
   const step = (n, title, text) => '<li class="info-step"><span class="info-step-num tabular" aria-hidden="true">' + n + '</span><div><strong>' + t(title) + '</strong><p>' + t(text) + '</p></div></li>'
-  const promise = ([name, title, text]) => '<div class="legal-card">' + icon(name, 'size-5') + '<strong>' + t(title) + '</strong><span>' + t(text) + '</span></div>'
+  const promise = ([name, title, text]) => '<li>' + icon(name, 'size-5 shrink-0') + '<p><strong>' + t(title) + '.</strong> ' + t(text) + '</p></li>'
   const role = (text) => '<li>' + icon('check', 'size-4 shrink-0') + '<span>' + t(text) + '</span></li>'
   return infoPage('Sobre a TIER ZERO', 'A plataforma de peneiras da Pelé Academia: atletas de 7 a 20 anos mostram o seu futebol, e a equipe da academia encontra, avalia e acompanha cada um.',
     '<section class="info-section"><h2>' + t('Como funciona') + '</h2><div class="info-flows">' +
@@ -2359,17 +2359,15 @@ function aboutPage() {
     role('Mostra ao atleta, antes da inscrição, se a peneira combina com a posição e a categoria.') +
     role('Aplica as regras de quem vê o quê e a autorização do responsável para menores de 18 anos.') +
     role('Não escolhe atletas, não muda notas e não vende dados.') + '</ul></div></div>' +
-    '<h3 class="info-sub">' + t('O que a parceria garante a você') + '</h3><div class="legal-cards">' + [
+    '<h3 class="info-sub">' + t('O que a parceria garante a você') + '</h3><ul class="partner-promises">' + [
       ['calendar', 'Peneiras de verdade', 'Toda peneira foi aberta por alguém da equipe da academia, com nome e perfil profissional.'],
       ['user', 'Quem avalia tem nome', 'Cada avaliação mostra quem avaliou. O perfil traz cargo, vínculo e experiência.'],
       ['star', 'Nota explicada', 'A carta mostra de onde vem cada número: média das avaliações, característica por característica.'],
       ['users', 'Família por perto', 'Menores de 18 anos só se inscrevem com a autorização de um responsável, que pode revogá-la.'],
-    ].map(promise).join('') + '</div>' +
-    '<p class="info-note">' + icon('info', 'size-4 shrink-0') + '<span>' + t('Esta página não traz números, depoimentos nem a história da academia: só publicamos o que conseguimos confirmar.') + '</span></p></section>' +
+    ].map(promise).join('') + '</ul>' +
+    '</section>' +
     '<section class="info-section"><h2>' + t('Quem faz') + '</h2><p class="info-lead">' + t('A TIER ZERO é um projeto acadêmico da FIAP (2026), feito para a Pelé Academia. O código, as regras do banco e os testes ficam no repositório do projeto.') + '</p></section>' +
-    '<section class="info-cta on-album"><h2>' + t(state.user ? 'Sua próxima peneira está a um clique.' : 'Pronto para a próxima peneira?') + '</h2><div class="flex flex-wrap gap-2">' +
-    (state.user ? '<button type="button" class="btn-primary" data-route="tryouts">' + icon('calendar', 'size-4') + ' ' + t('Ver peneiras') + '</button>' : '<button type="button" class="btn-primary" data-route="register">' + t('Criar conta de jogador') + ' ' + icon('arrow', 'size-4') + '</button>') +
-    '<button type="button" class="btn-secondary" data-route="contato">' + icon('mail', 'size-4') + ' ' + t('Fale conosco') + '</button></div></section>', { board: true })
+    '<p class="info-next">' + (state.user ? '<a href="#/tryouts">' + t('Ver peneiras') + '</a>' : '<a href="#/register">' + t('Criar conta de jogador') + '</a>') + '<span aria-hidden="true">·</span><a href="#/contato">' + t('Fale conosco') + '</a></p>', { board: true })
 }
 
 const CONTACT_TOPICS = [['peneiras', 'Peneiras e inscrição'], ['cadastro', 'Cadastro e acesso'], ['dados', 'Meus dados (LGPD)'], ['parcerias', 'Parcerias e imprensa'], ['outro', 'Outro assunto']]
@@ -2484,8 +2482,8 @@ function inShowcase(a) {
 const visibleAthletes = () => isScoutUser() ? state.athletes.filter(inShowcase) : state.athletes
 const myScoutRequest = (a) => state.scoutRequests.find((item) => item.athleteId === a.id && item.scoutEmail === state.user?.email && item.status === 'pending')
 function scoutRequestButton(a, big = false) {
-  if (myScoutRequest(a)) return '<button type="button" class="btn-secondary" disabled>' + icon('check', 'size-4') + ' ' + t('Contato pedido') + '</button>'
-  return '<button type="button" class="' + (big ? 'btn-primary' : 'btn-secondary') + '" data-scout-request="' + a.id + '">' + icon('mail', 'size-4') + ' ' + t('Pedir contato') + '</button>'
+  if (myScoutRequest(a)) return '<button type="button" class="btn-ghost" disabled>' + icon('check', 'size-4') + ' ' + t('Contato pedido') + '</button>'
+  return '<button type="button" class="' + (big ? 'btn-primary' : 'btn-ghost') + '" data-scout-request="' + a.id + '">' + icon('mail', 'size-4') + ' ' + t('Pedir contato') + '</button>'
 }
 const mapScoutRequest = (row) => ({
   id: row.id, scoutEmail: row.scout?.email || '', scoutName: row.scout?.name || t('Olheiro'), scoutOrg: row.scout?.data?.org || '',
@@ -4906,6 +4904,7 @@ function bind() {
   document.querySelectorAll('[data-action="demo"]').forEach((button) => button.addEventListener('click', () => safely(loginDemo())))
   document.querySelectorAll('[data-action="edit-pro"]').forEach((button) => button.addEventListener('click', openProEditor))
   bindContactForm()
+  if (calmMotion.matches) document.querySelectorAll('.tactic-board').forEach((svg) => svg.pauseAnimations?.())
   document.querySelector('#showcase-toggle')?.addEventListener('change', (event) => safely(saveShowcase(event.target.checked)))
 
   const conversationSearch = document.querySelector('#conversation-search')
