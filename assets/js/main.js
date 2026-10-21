@@ -820,6 +820,8 @@ function icon(name, cls = 'size-5') {
     plus: '<path d="M12 5v14M5 12h14"/>',
     pin: '<path d="M12 21s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12Z"/><circle cx="12" cy="9" r="2.5"/>',
     check: '<path d="m5 12 4 4L19 6"/>',
+    'trend-up': '<path d="m4 16 6-6 4 4 6-6"/><path d="M15 8h5v5"/>',
+    'trend-down': '<path d="m4 8 6 6 4-4 6 6"/><path d="M15 16h5v-5"/>',
     filter: '<path d="M4 6h16M7 12h10M10 18h4"/>',
     logout: '<path d="M10 17l5-5-5-5M15 12H3M21 19V5a2 2 0 0 0-2-2h-4"/>',
     edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/>',
@@ -1018,12 +1020,11 @@ function playerDashboard() {
 
   return shell(
     '<section class="grid gap-5 xl:grid-cols-[1.5fr_.9fr]">' +
-    '<div class="hero rounded-card surface p-6 sm:p-8">' +
-    '<p class="text-sm text-ink-soft">' + escapeHtml(t(profile.pos)) + ' · ' + escapeHtml(category) + ' · ' + escapeHtml(profile.city || '') + '</p>' +
-    '<h1 class="page-title mt-2 max-w-2xl">' + t('Olá,') + ' ' + firstName + '.</h1><p class="mt-3 max-w-xl text-lg leading-7">' + status + '</p>' +
+    '<div class="hero hero-with-card rounded-card surface p-6 sm:p-8">' + (getCurrentAthlete() ? playerCard(getCurrentAthlete(), { size: 'compact' }) : '') +
+    '<h1 class="page-title max-w-2xl">' + t('Olá,') + ' ' + firstName + '.</h1><p class="mt-3 max-w-xl text-lg leading-7">' + escapeHtml(t(profile.pos)) + ', ' + escapeHtml(category) + (profile.city ? ', ' + escapeHtml(profile.city) : '') + '. ' + status + '</p>' +
     '<div class="mt-6 flex flex-wrap gap-2">' + cta + '<button type="button" class="btn-secondary" data-route="profile">' + icon('user', 'size-4') + ' ' + t('Meu perfil') + '</button></div>' +
     '<dl class="profile-stats mt-8 grid grid-cols-2 gap-3 md:grid-cols-4">' +
-    '<div><dt>' + t('Nota média') + '</dt><dd class="num ' + rateClass(avg) + '">' + escapeHtml(String(avg)) + '</dd></div>' +
+    '<div><dt>' + avgLabel() + '</dt><dd class="num ' + rateClass(avg) + '">' + escapeHtml(String(avg)) + '</dd></div>' +
     '<div><dt>' + t('Inscrições') + '</dt><dd class="num">' + mine.length + '</dd></div>' +
     '<div><dt>' + t('Avaliações') + '</dt><dd class="num">' + getPlayerReviewCount() + '</dd></div>' +
     '<div><dt>' + t('Mensagens novas') + '</dt><dd class="num">' + unread + '</dd></div></dl></div>' +
@@ -1271,10 +1272,10 @@ function playerCard(a, { reveal = false, size = '', flip = false } = {}) {
   const label = t('Carta de') + ' ' + a.name + ': ' + (ovr ? t('nota') + ' ' + ovr + ', ' + t(TIER_LABEL[tier]) : t('sem nota')) + ', ' + t(a.pos) + '. ' +
     criteria.map((c) => t(c.label) + ' ' + (value(c) ?? t('sem nota'))).join(', ') + '.'
   const foot = reviews.length
-    ? plural(reviews.length, 'avaliação', 'avaliações') + (delta ? ' · <span class="' + (delta > 0 ? 'fc-up' : 'fc-down') + '">' + (delta > 0 ? '▲ +' + delta : '▼ ' + delta) + '</span> ' + t('desde a última') : '')
+    ? plural(reviews.length, 'avaliação', 'avaliações') + (delta ? ' · <span class="' + (delta > 0 ? 'fc-up' : 'fc-down') + '">' + icon(delta > 0 ? 'trend-up' : 'trend-down', 'size-3.5 inline') + (delta > 0 ? '+' + delta : delta) + '</span> ' + t('desde a última') : '')
     : a.demo ? t('Nota de exemplo') : t('Sem avaliação ainda')
   const front = '<div class="fc-face fc-front"><div class="fc-inner">' +
-    '<div class="fc-top"><div class="fc-head"><span class="fc-ovr num">' + (ovr || '—') + '</span><span class="fc-pos">' + t(POSITION_ABBR[a.pos] || '—') + '</span><span class="fc-cat">' + escapeHtml(category) + '</span></div>' +
+    '<div class="fc-top"><div class="fc-head"><span class="fc-ovr num">' + (ovr || '—') + '</span><span class="fc-pos">' + t(POSITION_ABBR[a.pos] || '—') + '</span><span class="fc-cat">' + escapeHtml(age ? category : '—') + '</span></div>' +
     personAvatar(a, 'fc-photo') + '</div>' +
     '<p class="fc-name">' + escapeHtml(size === 'compact' ? String(a.name).split(' ')[0] : a.name) + '</p>' +
     (size === 'compact' ? '' :
@@ -1283,6 +1284,9 @@ function playerCard(a, { reveal = false, size = '', flip = false } = {}) {
       '<p class="fc-foot"><span class="fc-tier">' + t(TIER_LABEL[tier]) + '</span> · ' + foot + '</p>') +
     '</div></div>'
   const cls = 'fc-card tier-' + tier + (size ? ' is-' + size : '')
+  // A figurinha do visitante é um espaço para colar: ainda não existe nota nem foto.
+  if (a.slot) return '<figure class="' + cls + ' is-slot" role="img" aria-label="' + escapeHtml(t('Espaço da sua figurinha: ela nasce no cadastro.')) + '"><div class="fc-tilt" aria-hidden="true"><div class="fc-faces"><div class="fc-face fc-front"><div class="fc-inner fc-slot">' +
+    '<span class="fc-slot-plus">' + icon('plus', 'size-6') + '</span><p class="fc-slot-title">' + t('Sua figurinha') + '</p><p class="fc-slot-hint">' + t('Cole aqui no cadastro') + '</p></div></div></div></div></figure>'
   if (!flip) return '<figure class="' + cls + '"' + (reveal ? ' data-card-reveal' : '') + ' role="img" aria-label="' + escapeHtml(label) + '"><div class="fc-tilt" aria-hidden="true"><div class="fc-faces">' + front + '</div></div></figure>'
   // Verso: a ficha do atleta, só com dados que existem.
   const presences = a.email ? state.tryouts.filter((tryout) => checkinsOf(tryout)[a.email]).length : 0
@@ -1304,6 +1308,13 @@ function playerCard(a, { reveal = false, size = '', flip = false } = {}) {
     '<div class="fc-flip" role="button" tabindex="0" aria-pressed="false" aria-label="' + escapeHtml(label + ' ' + t('Virar a carta para ver a ficha.')) + '"><div class="fc-tilt" aria-hidden="true"><div class="fc-faces">' + front + back + '</div></div></div>' +
     '<figcaption class="fc-hint">' + t('Toque na carta para ver a ficha') + '<span class="sr-only">. ' + escapeHtml(t('Ficha') + ': ' + sheetText) + '</span></figcaption></figure>'
 }
+document.addEventListener('pointermove', (event) => {
+  if (!finePointer.matches || calmMotion.matches) return
+  const cover = event.target.closest?.('.album-cover')
+  if (!cover) return
+  cover.style.setProperty('--px', ((event.clientX / innerWidth) - 0.5).toFixed(3))
+  cover.style.setProperty('--py', ((event.clientY / innerHeight) - 0.5).toFixed(3))
+}, { passive: true })
 // Toque (ou Enter/Espaço) vira a figurinha; com mouse, ela inclina e o brilho acompanha o ponteiro.
 const finePointer = window.matchMedia('(hover: hover) and (pointer: fine)')
 const calmMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -1489,7 +1500,7 @@ function profilePage() {
     '<button type="button" class="btn-secondary" data-action="logout">' + icon('logout', 'size-4') + ' ' + t('Sair') + '</button></div>' +
     playerCard(cardOwner, { reveal, size: 'large', flip: true }) +
     '<dl class="profile-stats profile-hero-stats grid grid-cols-2 gap-3">' +
-    '<div><dt>' + t('Nota média') + '</dt><dd class="num ' + rateClass(avg) + '">' + escapeHtml(String(avg)) + '</dd></div>' +
+    '<div><dt>' + avgLabel() + '</dt><dd class="num ' + rateClass(avg) + '">' + escapeHtml(String(avg)) + '</dd></div>' +
     '<div><dt>' + t('Peneiras inscritas') + '</dt><dd class="num">' + enrolledCount + '</dd></div>' +
     '<div><dt>' + t('Avaliações recebidas') + '</dt><dd class="num">' + getPlayerReviewCount() + '</dd></div>' +
     '<div><dt>' + t('Notificações') + '</dt><dd class="num">' + myNotifications().length + '</dd></div></dl></div></section>' +
@@ -1950,7 +1961,6 @@ function openVenueModal(venue = null, onSaved = null) {
     const changed = venue && ['name', 'address', 'district', 'city', 'state', 'zip', 'reference'].some((field) => (venue[field] || '') !== fields[field])
     if (upcomingHere && changed) {
       confirmDialog({
-        eyebrow: t('Local'),
         title: t('Alterar um local com peneiras marcadas?'),
         message: plural(upcomingHere, 'peneira por vir usa', 'peneiras por vir usam') + ' ' + t('este local. O novo endereço aparece para os inscritos; o nome e a cidade já gravados nessas peneiras não mudam.'),
         confirmLabel: t('Salvar alterações'),
@@ -1984,7 +1994,6 @@ function toggleVenue(id) {
   if (!venue.active) return apply()
   const uses = state.tryouts.filter((tryout) => tryout.venueId === id && tryout.status !== 'cancelled').length
   confirmDialog({
-    eyebrow: t('Local'),
     title: t('Desativar') + ' ' + venue.name + '?',
     message: t('Ele deixa de aparecer na criação de peneiras.') + ' ' + (uses ? plural(uses, 'peneira já marcada aqui continua', 'peneiras já marcadas aqui continuam') + ' ' + t('com este endereço.') + ' ' : '') + t('Você pode reativar quando quiser.'),
     confirmLabel: t('Desativar local'),
@@ -2261,7 +2270,6 @@ function confirmRevokeInvite(id) {
   const invite = teamData()?.invites.find((item) => item.id === id)
   if (!invite) return
   confirmDialog({
-    eyebrow: t('Convite'),
     title: t('Cancelar o convite de') + ' ' + invite.email + '?',
     message: t('O link deixa de funcionar na hora. Você pode convidar de novo depois.'),
     confirmLabel: t('Cancelar convite'),
@@ -2292,7 +2300,6 @@ function confirmMemberChange(button) {
   }
   if (!toggleAdmin && active) return apply()
   confirmDialog({
-    eyebrow: t('Equipe'),
     title: toggleAdmin ? (admin ? t('Dar acesso de administrador a') + ' ' + member.name + '?' : t('Remover o acesso de administrador de') + ' ' + member.name + '?') : t('Desativar') + ' ' + member.name + '?',
     message: toggleAdmin
       ? (admin ? member.name + ' ' + t('poderá convidar, desativar funcionários e mudar acessos, inclusive o seu.') : member.name + ' ' + t('continua como funcionário, mas não gerencia mais a equipe.'))
@@ -2339,7 +2346,7 @@ async function loadInvitePage(code) {
     root.innerHTML = inviteProblem(invite?.status)
     return
   }
-  root.innerHTML = '<span class="eyebrow">' + t('Convite para a equipe') + '</span><h1 class="mt-2 text-3xl font-bold">' + t('Crie sua conta de funcionário') + '</h1>' +
+  root.innerHTML = '<h1 class="text-3xl font-bold">' + t('Crie sua conta de funcionário') + '</h1>' +
     '<p class="mt-3 text-sm leading-6 text-ink-soft">' + (invite.invitedBy ? escapeHtml(invite.invitedBy) + ' ' + t('convidou você') : t('Você foi convidado')) + ' ' + t('para entrar como funcionário') + (invite.admin ? ' (' + t('administrador') + ')' : '') + '. ' + t('O convite vale até') + ' ' + fmtWhen(invite.expiresAt) + '.</p>' +
     '<form id="invite-accept-form" class="mt-6 grid gap-4" novalidate>' +
     input(t('Nome completo'), 'inv-name', '', 'text', true) + input(t('Cargo'), 'inv-position', '', 'text', true) +
@@ -2538,7 +2545,6 @@ function openGuardianModal() {
 
 function confirmRevokeGuardian() {
   confirmDialog({
-    eyebrow: t('Responsável legal'),
     title: t('Revogar a autorização?'),
     message: t('Você deixa de poder se inscrever em novas peneiras até um responsável autorizar de novo. As inscrições já feitas continuam.'),
     confirmLabel: t('Revogar autorização'),
@@ -2693,17 +2699,29 @@ function renderHistory(history, role) {
   return html
 }
 
-// Capa do álbum: o ouro a tela toda, a lombada, o título e três figurinhas de exemplo em leque.
+// Prancheta tática do fundo da capa: a jogada (volante → meia → ponta → atacante → gol) é SMIL nativo do SVG, em tinta sobre o ouro.
+const TACTIC_BOARD = '<svg class="tactic-board" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><g class="tb-lines"><rect x="40" y="40" width="1520" height="820" rx="6" pathLength="1"/><path d="M800 40v820" pathLength="1"/><circle cx="800" cy="450" r="120" pathLength="1"/><path d="M40 230h230v440H40M1560 230h-230v440h230" pathLength="1"/><path d="M40 350h80v200H40M1560 350h-80v200h80" pathLength="1"/><path d="M270 360a120 120 0 0 1 0 180M1330 360a120 120 0 0 0 0 180" pathLength="1"/></g><g class="tb-arrows"><path d="M300 170 C 400 110, 520 120, 620 200" pathLength="1"/><path d="M860 770 C 980 810, 1100 770, 1180 690" pathLength="1"/></g><circle cx="1250" cy="400" r="13" class="tb-opp" style="--d:0.60s"/><circle cx="1300" cy="560" r="13" class="tb-opp" style="--d:0.70s"/><circle cx="1180" cy="300" r="13" class="tb-opp" style="--d:0.80s"/><circle cx="1150" cy="690" r="13" class="tb-opp" style="--d:0.90s"/><circle cx="940" cy="520" r="13" class="tb-opp" style="--d:1.00s"/><circle cx="880" cy="280" r="13" class="tb-opp" style="--d:1.10s"/><circle cx="1520" cy="450" r="13" class="tb-opp" style="--d:1.20s"/><g class="tb-player pos-gk" style="--d:0.00s"><circle cx="110" cy="450" r="15" class="tb-dot"/><circle cx="110" cy="450" r="26" class="tb-halo"/></g><g class="tb-player pos-def" style="--d:0.12s"><circle cx="300" cy="170" r="15" class="tb-dot"/><circle cx="300" cy="170" r="26" class="tb-halo"/></g><g class="tb-player pos-def" style="--d:0.24s"><circle cx="300" cy="740" r="15" class="tb-dot"/><circle cx="300" cy="740" r="26" class="tb-halo"/></g><g class="tb-player pos-def" style="--d:0.36s"><circle cx="470" cy="90" r="15" class="tb-dot"/><circle cx="470" cy="90" r="26" class="tb-halo"/></g><g class="tb-player pos-mid" style="--d:0.48s"><circle cx="560" cy="640" r="15" class="tb-dot"/><circle cx="560" cy="640" r="26" class="tb-halo"/></g><g class="tb-player pos-mid" style="--d:0.60s"><circle cx="760" cy="420" r="15" class="tb-dot"/><circle cx="760" cy="420" r="26" class="tb-halo"/></g><g class="tb-player pos-atk" style="--d:0.72s"><circle cx="1000" cy="200" r="15" class="tb-dot"/><circle cx="1000" cy="200" r="26" class="tb-halo"/></g><g class="tb-player pos-atk" style="--d:0.84s"><circle cx="1100" cy="560" r="15" class="tb-dot"/><circle cx="1100" cy="560" r="26" class="tb-halo"/></g><g class="tb-player pos-mid" style="--d:0.96s"><circle cx="860" cy="770" r="15" class="tb-dot"/><circle cx="860" cy="770" r="26" class="tb-halo"/></g><g class="tb-trails"><line x1="560" y1="640" x2="760" y2="420" class="tb-trail" stroke-dasharray="297.3" stroke-dashoffset="297.3"><animate attributeName="stroke-dashoffset" dur="9s" repeatCount="indefinite" values="297.3;297.3;0;0;297.3" keyTimes="0;0.0000;0.1111;0.92;1"/><animate attributeName="opacity" dur="9s" repeatCount="indefinite" values="1;1;0" keyTimes="0;0.9;1"/></line><line x1="760" y1="420" x2="1000" y2="200" class="tb-trail" stroke-dasharray="325.6" stroke-dashoffset="325.6"><animate attributeName="stroke-dashoffset" dur="9s" repeatCount="indefinite" values="325.6;325.6;0;0;325.6" keyTimes="0;0.1556;0.2778;0.92;1"/><animate attributeName="opacity" dur="9s" repeatCount="indefinite" values="1;1;0" keyTimes="0;0.9;1"/></line><line x1="1000" y1="200" x2="1100" y2="560" class="tb-trail" stroke-dasharray="373.6" stroke-dashoffset="373.6"><animate attributeName="stroke-dashoffset" dur="9s" repeatCount="indefinite" values="373.6;373.6;0;0;373.6" keyTimes="0;0.3222;0.4444;0.92;1"/><animate attributeName="opacity" dur="9s" repeatCount="indefinite" values="1;1;0" keyTimes="0;0.9;1"/></line><line x1="1100" y1="560" x2="1556" y2="450" class="tb-trail tb-shot" stroke-dasharray="469.1" stroke-dashoffset="469.1"><animate attributeName="stroke-dashoffset" dur="9s" repeatCount="indefinite" values="469.1;469.1;0;0;469.1" keyTimes="0;0.4778;0.5333;0.92;1"/><animate attributeName="opacity" dur="9s" repeatCount="indefinite" values="1;1;0" keyTimes="0;0.9;1"/></line></g><circle cx="1556" cy="450" r="10" class="tb-goal"><animate attributeName="r" dur="9s" repeatCount="indefinite" values="10;10;90;90" keyTimes="0;0.5333;0.6333;1"/><animate attributeName="opacity" dur="9s" repeatCount="indefinite" values="0;.9;0;0" keyTimes="0;0.5333;0.6333;1"/></circle><g class="tb-ball"><circle r="9" class="tb-ball-core"/><animateMotion dur="9s" repeatCount="indefinite" path="M560 640 L760 420 L1000 200 L1100 560 L1556 450" keyPoints="0.0000;0.2029;0.2029;0.4250;0.4250;0.6799;0.6799;1.0000;1.0000" keyTimes="0.0000;0.1111;0.1556;0.2778;0.3222;0.4444;0.4778;0.5333;1.0000" calcMode="linear"/></g></svg>'
+
+// Fotos coladas na capa (Unsplash, licença Unsplash; origem em assets/photos/*.json). Crianças reais jogando, sem nome nem nota.
+const COVER_PHOTOS = [
+  ['./assets/photos/menino-bola-azul.webp', 'Menino de camisa branca chutando uma bola azul num campo de grama', '-6deg', '0s'],
+  ['./assets/photos/menina-chute.webp', 'Menina de camisa preta chutando a bola num campo à tarde', '5deg', '.18s'],
+  ['./assets/photos/criancas-campo.webp', 'Crianças disputando a bola perto do gol num campo de grama', '-2deg', '.36s'],
+]
+const coverPhoto = ([src, alt, r, d], i) => '<figure class="cover-photo" style="--r:' + r + ';--d:' + d + ';--depth:' + (i + 2) + '"><img src="' + src + '" alt="' + t(alt) + '" width="900" height="600" decoding="async"' + (i ? ' loading="lazy"' : '') + ' /></figure>'
+
+// Capa do álbum: o ouro a tela toda, a prancheta animada ao fundo, a lombada, o título, fotos coladas e três figurinhas de exemplo em leque.
 function loginPage() {
-  const fan = [[2, '-9deg', '1.2rem', '.15s'], [1, '0deg', '0', '.3s'], [5, '8deg', '1.4rem', '.45s']]
-    .map(([id, r, y, d]) => defaultAthletes.find((a) => a.id === id)).filter(Boolean)
+  const visitor = { id: 'voce', slot: true, name: t('Você'), pos: '', city: '', state: '' }
+  const fan = [defaultAthletes.find((a) => a.id === 2), visitor, defaultAthletes.find((a) => a.id === 1)].filter(Boolean)
   const tilt = [['-9deg', '1.1rem', '.15s'], ['0deg', '0', '.3s'], ['8deg', '1.3rem', '.45s']]
-  return '<main id="conteudo" tabindex="-1" class="album-cover on-album outline-none">' +
+  return '<main id="conteudo" tabindex="-1" class="album-cover on-album outline-none">' + TACTIC_BOARD +
     '<header class="cover-top">' + brandLockup(40) + '</header>' +
+    '<div class="cover-photos">' + COVER_PHOTOS.map(coverPhoto).join('') + '</div>' +
     '<p class="cover-spine" aria-hidden="true">' + t('Peneiras · Sub-7 a Sub-20') + '</p>' +
     '<section class="cover-intro"><h1 class="login-title">' + t('Seu próximo jogo começa aqui.') + '</h1><p class="cover-lead">' + t('Peneiras da Pelé Academia para atletas de 7 a 20 anos, da Sub-7 à Sub-20.') + '</p>' +
     '<div class="cover-fan">' + fan.map((a, i) => playerCard(a, { size: 'compact' }).replace('<figure class="', '<figure style="--r:' + tilt[i][0] + ';--y:' + tilt[i][1] + ';--d:' + tilt[i][2] + '" class="')).join('') + '</div>' +
-    '<p class="cover-note">' + t('Figurinhas de exemplo. A sua nasce no cadastro e a nota vem das avaliações dos olheiros.') + '</p>' +
+    '<p class="cover-note">' + t('Nas pontas, figurinhas de exemplo. No meio, a sua: nasce no cadastro como carta base e ganha nota com as avaliações dos olheiros.') + '</p>' +
     '<div class="cover-foot">' + partnerSeal() + '</div></section>' +
     '<div class="login-card paper"><h2 class="text-3xl font-bold">' + t('Entrar') + '</h2><p class="mt-2 text-sm text-ink-soft">' + t('Escolha o tipo de conta antes de entrar.') + '</p>' +
     '<div class="segmented mt-6" role="group" aria-label="' + t('Tipo de conta') + '" data-active="0"><span class="seg-pill" aria-hidden="true"></span><button type="button" class="role-tab active" data-role="player" aria-pressed="true">' + icon('user', 'size-4 seg-icon') + t('Jogador') + '</button><button type="button" class="role-tab" data-role="staff" aria-pressed="false">' + icon('clipboard', 'size-4 seg-icon') + t('Funcionário') + '</button></div>' +
@@ -2945,6 +2963,9 @@ function getPlayerReviewCount() {
   return athlete ? (state.reviews[athlete.id] || []).length : 0
 }
 
+// Perfil de exemplo sem avaliação mostra a nota de exemplo, sinalizada como tal (nada de nota sem origem).
+const ratingIsExample = () => { const a = getCurrentAthlete(); return !!a?.demo && !(state.reviews[a.id] || []).length }
+const avgLabel = () => t('Nota média') + (ratingIsExample() ? ' (' + t('exemplo') + ')' : '')
 function averagePlayerRating() {
   const athlete = getCurrentAthlete()
   return athlete ? formatRating(ratingOf(athlete)).replace('.', ',') : '—'
@@ -3015,7 +3036,6 @@ function openAthleteModal(athleteId) {
   }))
   wrapper.querySelectorAll('[data-delete-review]').forEach((button) => button.addEventListener('click', () => {
     confirmDialog({
-      eyebrow: t('Avaliação'),
       title: t('Excluir sua avaliação?'),
       message: t('A avaliação será removida do perfil de') + ' ' + athlete.name + ' ' + t('e a nota média será recalculada.'),
       confirmLabel: t('Excluir avaliação'),
@@ -3048,11 +3068,11 @@ function startConversationForAthlete(id) {
   go('messages')
 }
 
-function confirmDialog({ eyebrow = t('Confirmação'), title, message, confirmLabel = t('Confirmar'), onConfirm }) {
+function confirmDialog({ title, message, confirmLabel = t('Confirmar'), onConfirm }) {
   const wrapper = document.createElement('div')
   wrapper.className = 'fixed inset-0 z-[110] grid place-items-center bg-black/75 p-4'
   wrapper.innerHTML =
-    '<div class="w-full max-w-md rounded-card surface surface--raised p-6" role="dialog" aria-modal="true"><span class="eyebrow">' + escapeHtml(eyebrow) + '</span><h2 class="mt-2 text-2xl font-bold">' + escapeHtml(title) + '</h2><p class="mt-3 text-sm leading-6 text-ink-soft">' + escapeHtml(message) + '</p>' +
+    '<div class="w-full max-w-md rounded-card surface surface--raised p-6" role="dialog" aria-modal="true"><h2 class="text-2xl font-bold">' + escapeHtml(title) + '</h2><p class="mt-3 text-sm leading-6 text-ink-soft">' + escapeHtml(message) + '</p>' +
     '<div class="mt-6 flex justify-end gap-2"><button type="button" class="btn-secondary" data-close>' + t('Voltar') + '</button><button type="button" class="btn-danger" data-confirm>' + escapeHtml(confirmLabel) + '</button></div></div>'
   document.body.appendChild(wrapper)
   wrapper.querySelector('[data-close]').addEventListener('click', () => wrapper.remove())
@@ -3420,7 +3440,7 @@ function openEnrolledModal(tryoutId) {
   const wrapper = document.createElement('div')
   wrapper.className = 'fixed inset-0 z-[92] grid place-items-center bg-black/75 p-4'
   wrapper.innerHTML =
-    '<div class="max-h-[86vh] w-full max-w-2xl overflow-y-auto rounded-card surface surface--raised p-6" role="dialog" aria-modal="true" aria-labelledby="enrolled-title" data-lenis-prevent><div class="flex items-start justify-between gap-3"><div><span class="eyebrow">' + (open ? t('Chamada') : t('Inscritos')) + ' • ' + emails.length + '/' + escapeHtml(tryout.seats) + '</span><h2 id="enrolled-title" class="mt-2 text-2xl font-bold">' + escapeHtml(tryout.title) + '</h2><p class="mt-1 text-sm text-ink-soft">' + escapeHtml(longTryoutDate(tryout)) + (validTime(tryout.time) ? ' · ' + escapeHtml(tryout.time) : '') + '</p></div><button type="button" class="icon-button" aria-label="' + t('Fechar') + '" data-close>' + icon('close') + '</button></div>' +
+    '<div class="max-h-[86vh] w-full max-w-2xl overflow-y-auto rounded-card surface surface--raised p-6" role="dialog" aria-modal="true" aria-labelledby="enrolled-title" data-lenis-prevent><div class="flex items-start justify-between gap-3"><div><h2 id="enrolled-title" class="text-2xl font-bold">' + escapeHtml(tryout.title) + '</h2><p class="mt-1 text-sm text-ink-soft">' + (open ? t('Chamada') : t('Inscritos')) + ' ' + emails.length + '/' + escapeHtml(tryout.seats) + ' · ' + escapeHtml(longTryoutDate(tryout)) + (validTime(tryout.time) ? ' · ' + escapeHtml(tryout.time) : '') + '</p></div><button type="button" class="icon-button" aria-label="' + t('Fechar') + '" data-close>' + icon('close') + '</button></div>' +
     (open && profiles.length
       ? '<div class="checkin-meter mt-5"><p class="text-sm" aria-live="polite" data-checkin-count></p><div class="mt-2 h-2 overflow-hidden rounded-full bg-line"><div class="checkin-fill h-full rounded-full bg-success" data-checkin-fill></div></div></div>' +
         (profiles.length > 1 ? '<label class="mt-4 block"><span class="sr-only">' + t('Buscar atleta pelo nome') + '</span><input type="search" class="field" placeholder="' + t('Buscar atleta pelo nome') + '" autocomplete="off" data-checkin-search /></label>' : '')

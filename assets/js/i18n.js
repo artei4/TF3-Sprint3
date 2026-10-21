@@ -989,4 +989,12 @@ const ES = {
   "Figurinhas de exemplo. A sua nasce no cadastro e a nota vem das avaliações dos olheiros.": "Cromos de ejemplo. El tuyo nace en el registro y la nota sale de las evaluaciones de los ojeadores.",
   "Abrindo o pacote…": "Abriendo el sobre…",
   "Peneiras · Sub-7 a Sub-20": "Pruebas · Sub-7 a Sub-20",
+  "Menino de camisa branca chutando uma bola azul num campo de grama": "Niño con camiseta blanca pateando una pelota azul en un campo de césped",
+  "Menina de camisa preta chutando a bola num campo à tarde": "Niña con camiseta negra pateando la pelota en un campo por la tarde",
+  "Crianças disputando a bola perto do gol num campo de grama": "Niños disputando la pelota cerca del arco en un campo de césped",
+  "exemplo": "ejemplo",
+  "Nas pontas, figurinhas de exemplo. No meio, a sua: nasce no cadastro como carta base e ganha nota com as avaliações dos olheiros.": "En las puntas, cromos de ejemplo. En el medio, el tuyo: nace en el registro como carta base y gana nota con las evaluaciones de los ojeadores.",
+  "Espaço da sua figurinha: ela nasce no cadastro.": "Espacio de tu cromo: nace en el registro.",
+  "Sua figurinha": "Tu cromo",
+  "Cole aqui no cadastro": "Pégalo aquí al registrarte",
 }

@@ -152,7 +152,7 @@ export function illustratedAvatar(seed, group = 'mid', label = '') {
     ? '<path d="M38 64h12l-6 7Z" fill="#0B0F1C" fill-opacity=".3"/><rect x="52" y="72" width="9" height="11" rx="1.5" fill="#0B0F1C" fill-opacity=".35"/>'
     : '<path d="M37 64l7 9 7-9" fill="none" stroke="#0B0F1C" stroke-opacity=".35" stroke-width="2.5" stroke-linejoin="round"/>'
   return '<svg viewBox="0 0 88 88" class="avatar-illustration"' + (label ? ' role="img" aria-label="' + label + '"' : ' aria-hidden="true"') + '>' +
-    '<defs><radialGradient id="bg' + h + '" cx="50%" cy="30%" r="75%"><stop offset="0" stop-color="#3A6250"/><stop offset="1" stop-color="#16291F"/></radialGradient></defs>' +
+    '<defs><radialGradient id="bg' + h + '" cx="50%" cy="30%" r="75%"><stop offset="0" stop-color="#34406B"/><stop offset="1" stop-color="#141A33"/></radialGradient></defs>' +
     '<rect width="88" height="88" fill="url(#bg' + h + ')"/><circle cx="44" cy="44" r="30" fill="none" stroke="#F1F3F8" stroke-opacity=".08" stroke-width="1.5"/>' +
     '<path d="M14 88c2-16 13-24 30-24s28 8 30 24Z" fill="' + shirt + '"/>' + detail +
     '<rect x="39" y="50" width="10" height="14" rx="4" fill="' + skin + '"/>' +

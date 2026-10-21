@@ -34,14 +34,14 @@
   --color-line: #283352;         /* bordas decorativas e divisórias */
   --color-line-strong: #6E7BA0;  /* borda de controles de formulário (≥3:1) */
   --color-stripe: #0F1424;       /* faixa do gramado cortado */
-  --color-brand-ink: #16110A;    /* texto sobre o dourado */
+  --color-brand-ink: #10142A;    /* texto sobre o dourado */
   --color-cta: #F2C23A;          /* fundo do botão principal (igual nos dois temas) */
   --color-cta-strong: #FFD45C;
   --color-focus: #FFD45C;
   --color-warning: #FFC85C;
   /* Álbum de figurinhas: o ouro que domina landing e heros, e a tinta que escreve sobre ele (11,2:1). */
   --color-album: #F2C23A;
-  --color-album-ink: #16110A;
+  --color-album-ink: #10142A;
   --color-album-soft: #4A3A06;   /* texto secundário sobre o ouro (6,6:1) */
 
   /* Posições (convenção dos games de futebol). Contraste ≥ 5.9:1 sobre raised. */
@@ -151,8 +151,6 @@
 @keyframes spin { to { transform:rotate(360deg); } }
 
 /* Estados forçados para a vitrine do design system (#/design-system). */
-.btn-primary.is-hover { background:var(--color-cta-strong); }
-.btn-secondary.is-hover { border-color:var(--color-brand); }
 .btn-danger.is-hover { background:color-mix(in oklab, var(--color-danger) 12%, transparent); border-color:var(--color-danger); }
 .nav-link.is-hover { color:var(--color-chalk); background:color-mix(in oklab, var(--color-chalk) 6%, transparent); }
 .is-focus { outline:2px solid var(--color-focus); outline-offset:3px; }
@@ -162,8 +160,6 @@
 @media (hover:hover) and (pointer:fine) {
   .nav-link:hover { color:var(--color-chalk); background:color-mix(in oklab, var(--color-chalk) 6%, transparent); }
   .icon-button:hover { color:var(--color-chalk); border-color:color-mix(in oklab, var(--color-brand) 50%, transparent); }
-  .btn-primary:hover:not(:disabled) { background:var(--color-cta-strong); }
-  .btn-secondary:hover:not(:disabled) { border-color:var(--color-brand); }
   .btn-ghost:hover { color:var(--color-chalk); background:color-mix(in oklab, var(--color-chalk) 6%, transparent); }
   .btn-danger:hover:not(:disabled) { background:color-mix(in oklab, var(--color-danger) 12%, transparent); border-color:var(--color-danger); }
   .conversation-item:hover { background:color-mix(in oklab, var(--color-chalk) 6%, transparent); }
@@ -294,7 +290,6 @@
 .nav-indicator { position:absolute; left:.85rem; right:.85rem; bottom:.15rem; height:2px; border-radius:2px; background:var(--color-brand); }
 .nav-link.active::after, .nav-link[aria-current="page"]::after { content:none; }
 
-.hero { position:relative; overflow:hidden; isolation:isolate; }
 
 /* Navegação inferior no celular (zona do polegar). */
 .bottom-nav { position:fixed; inset:auto .75rem calc(.75rem + env(safe-area-inset-bottom)) .75rem; z-index:50; display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:.25rem; padding:.35rem; border:1px solid var(--color-line); border-radius:1.25rem; background: color-mix(in oklab, var(--color-raised) 88%, transparent); backdrop-filter: blur(14px); box-shadow: var(--shadow-modal); }
@@ -338,7 +333,7 @@
 .card-stats dd:not(.num) { font-size:.9rem; line-height:1.35rem; }
 
 /* ===== Loader de futebol ===== */
-:root { --ball-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='11' fill='%23EEF1E8'/%3E%3Cpath d='M12 7.2l4.1 3-1.6 4.8h-5l-1.6-4.8z' fill='%230D1612'/%3E%3Cpath d='M12 7.2V2.5M16.1 10.2l4.4-1.6M14.5 15l2.8 3.9M9.5 15l-2.8 3.9M7.9 10.2 3.5 8.6' stroke='%230D1612' stroke-width='1.3' fill='none'/%3E%3C/svg%3E"); }
+:root { --ball-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='11' fill='%23F1F3F8'/%3E%3Cpath d='M12 7.2l4.1 3-1.6 4.8h-5l-1.6-4.8z' fill='%230B0F1C'/%3E%3Cpath d='M12 7.2V2.5M16.1 10.2l4.4-1.6M14.5 15l2.8 3.9M9.5 15l-2.8 3.9M7.9 10.2 3.5 8.6' stroke='%230B0F1C' stroke-width='1.3' fill='none'/%3E%3C/svg%3E"); }
 .btn-primary[aria-busy="true"]::before { filter: drop-shadow(0 0 0 var(--color-brand-ink)); }
 .ball-loader { display:grid; justify-items:center; gap:.75rem; padding:1rem 0; }
 .ball-stage { position:relative; width:9rem; height:4.5rem; }
@@ -352,7 +347,7 @@
 @keyframes pitch-roll { to { background-position: -1.1rem 0; } }
 
 /* ===== Placar ===== */
-.scoreboard { display:grid; grid-template-columns:auto auto; grid-template-rows:auto auto; column-gap:.4rem; align-items:end; flex:none; padding:.45rem .65rem; border-radius:.6rem; border:1px solid var(--color-line); background: linear-gradient(180deg, #0A120E, #0E1813); box-shadow: inset 0 1px 0 rgb(255 255 255 / .04), inset 0 -10px 18px -12px color-mix(in oklab, var(--color-brand) 35%, transparent); }
+.scoreboard { display:grid; grid-template-columns:auto auto; grid-template-rows:auto auto; column-gap:.4rem; align-items:end; flex:none; padding:.45rem .65rem; border-radius:.6rem; border:1px solid var(--color-line); background: linear-gradient(180deg, #0B0F1C, #131A2B); box-shadow: inset 0 1px 0 rgb(255 255 255 / .04), inset 0 -10px 18px -12px color-mix(in oklab, var(--color-brand) 35%, transparent); }
 .sb-day { grid-row: span 2; font-size:1.9rem; color:var(--color-brand); text-shadow: 0 0 14px color-mix(in oklab, var(--color-brand) 45%, transparent); }
 .sb-month { font-family:var(--font-display); font-size:.75rem; font-weight:700; letter-spacing:.1em; color:var(--color-chalk); }
 .sb-time { font-size:.75rem; color:var(--color-ink-soft); }
@@ -368,7 +363,7 @@ button.pitch-dot { cursor:pointer; min-width:2.75rem; min-height:2.75rem; backgr
 @keyframes dot-in { from { opacity:0; scale:.2; } }
 
 /* =====================================================================================
-   Tema claro — "Gramado de dia". Mesmos nomes de token; valores ajustados para AA sobre fundo claro.
+   Tema claro — "Álbum de dia". Mesmos nomes de token; valores ajustados para AA sobre fundo claro.
    Contraste (sobre panel #FFFFFF / night #EEF0F5): chalk 16.7/15.2 · ink-soft 7.1/6.5 · brand 5.8/5.3 ·
    success 5.8/5.3 · danger 5.9/5.3 · posições ≥ 5.0/4.6 · notas ≥ 5.1/4.7 · line-strong 3.4/3.1.
    ===================================================================================== */
@@ -544,7 +539,7 @@ button.pitch-dot { cursor:pointer; min-width:2.75rem; min-height:2.75rem; backgr
   .sidebar-nav { display:grid; gap:.2rem; }
   .nav-side { width:100%; justify-content:flex-start; gap:.75rem; padding:.7rem .85rem; font-size:.92rem; }
   .nav-side.active, .nav-side[aria-current="page"] { background: color-mix(in oklab, var(--color-brand) 12%, transparent); color:var(--color-chalk); }
-  .nav-side .nav-indicator { left:0; right:auto; top:.55rem; bottom:.55rem; width:3px; height:auto; }
+  .nav-side .nav-indicator { display:none; }
   .sidebar-cta { padding:0 .25rem; }
   .sidebar-foot { margin-top:auto; display:grid; gap:1rem; padding:0 .25rem; }
   .profile-row { display:flex; align-items:center; gap:.65rem; width:100%; padding:.55rem; border-radius:var(--radius-control); border:1px solid var(--color-line); background: color-mix(in oklab, var(--color-panel) 70%, transparent); }
@@ -566,35 +561,12 @@ button.pitch-dot { cursor:pointer; min-width:2.75rem; min-height:2.75rem; backgr
 .segmented .role-tab.active .seg-icon { transform: rotate(-10deg) scale(1.12); }
 
 /* =====================================================================================
-   Telas na folha de conteúdo + botões com gradiente + nota do card
-   Gradiente do botão: texto #16110A passa AA em todos os pontos (pior: 5.95:1 em #C99A12).
+   Telas na folha de conteúdo + nota do card
    ===================================================================================== */
 .page-head { display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:1rem 1.5rem; padding-bottom:1.5rem; margin-bottom:1.75rem; border-bottom:1px solid var(--color-line); }
 .page-head + * { margin-top:0 !important; }
 .page-head .page-subtitle { margin-top:.5rem; }
-.content-sheet .page-title { font-size: clamp(2rem, 1.5rem + 1.8vw, 3.1rem); }
-.content-sheet .hero .page-title { font-size: clamp(2.2rem, 1.5rem + 2.4vw, 3.6rem); }
 
-/* Botão principal: dourado de cima (claro) para baixo (escuro), brilho interno e borda de luz. */
-.btn-primary {
-  background: linear-gradient(180deg, #FFD45C 0%, #F2C23A 48%, #D9A514 100%);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / .45), inset 0 -1px 0 rgb(80 55 10 / .35), 0 6px 14px -10px rgb(0 0 0 / .6);
-  border: 1px solid #C99A12;
-  position: relative; overflow: hidden; isolation:isolate;
-}
-.btn-primary:disabled { background: linear-gradient(180deg, #F2C23A, #D9A514); }
-@media (hover:hover) and (pointer:fine) {
-  .btn-primary:hover:not(:disabled) { background: linear-gradient(180deg, #F0D48C 0%, #DFB966 50%, #C99D42 100%); }
-  .btn-secondary:hover:not(:disabled) { background: linear-gradient(180deg, color-mix(in oklab, var(--color-brand) 14%, var(--color-panel)), var(--color-panel)) padding-box, linear-gradient(160deg, var(--color-brand), var(--edge-2)) border-box; }
-}
-.btn-primary.is-hover { background: linear-gradient(180deg, #F0D48C 0%, #DFB966 50%, #C99D42 100%); }
-/* Secundário: borda em degradê + leve luz no topo. */
-.btn-secondary {
-  border: 1px solid transparent;
-  background: linear-gradient(180deg, color-mix(in oklab, var(--color-chalk) 6%, var(--color-panel)), var(--color-panel)) padding-box, linear-gradient(160deg, var(--edge-1), var(--edge-2) 60%, var(--edge-3)) border-box;
-  box-shadow: inset 0 1px 0 var(--edge-inner);
-}
-.btn-secondary.is-hover { background: linear-gradient(180deg, color-mix(in oklab, var(--color-brand) 14%, var(--color-panel)), var(--color-panel)) padding-box, linear-gradient(160deg, var(--color-brand), var(--edge-2)) border-box; }
 /* Destrutivo: tinta vermelha em degradê. */
 .btn-danger { background: linear-gradient(180deg, color-mix(in oklab, var(--color-danger) 14%, transparent), color-mix(in oklab, var(--color-danger) 4%, transparent)); }
 
@@ -660,7 +632,7 @@ button.pitch-dot { cursor:pointer; min-width:2.75rem; min-height:2.75rem; backgr
 
 /* ===== Recorte da foto ===== */
 .cropper { width:min(100%, 26rem); padding:1.5rem; border-radius:1.5rem; }
-.crop-stage { position:relative; width:min(100%, 18rem); aspect-ratio:1; margin:1.25rem auto 0; overflow:hidden; border-radius:1rem; background:#0A120E; touch-action:none; cursor:grab; user-select:none; }
+.crop-stage { position:relative; width:min(100%, 18rem); aspect-ratio:1; margin:1.25rem auto 0; overflow:hidden; border-radius:1rem; background:#0B0F1C; touch-action:none; cursor:grab; user-select:none; }
 .crop-stage:active { cursor:grabbing; }
 .crop-stage:focus-visible { outline:2px solid var(--color-focus); outline-offset:3px; }
 .crop-stage img { position:absolute; top:0; left:0; max-width:none; transform-origin:0 0; pointer-events:none; }
@@ -840,13 +812,11 @@ button.pitch-dot { cursor:pointer; min-width:2.75rem; min-height:2.75rem; backgr
 /* ===== Carta do atleta (referência: cartas do EA FC) =====
    Faixa pela nota: Ouro (75+), Prata (65–74), Bronze (até 64), base sem nota. Formato de escudo com cantos chanfrados. */
 .profile-hero-grid { display:grid; gap:1.5rem; align-items:center; }
-@media (min-width: 64rem) { .profile-hero-grid { grid-template-columns: minmax(0, 1fr) auto; } }
 .fc-card { --fc-bg: var(--color-raised); --fc-ink: var(--color-chalk); --fc-soft: var(--color-ink-soft); --fc-line: var(--color-line); margin:0; width:13.5rem; flex:none; justify-self:center; }
 .fc-inner { position:relative; display:grid; justify-items:center; padding:1rem 1rem .9rem; color:var(--fc-ink); background:var(--fc-bg); clip-path: polygon(12% 0, 88% 0, 100% 7%, 100% 93%, 88% 100%, 12% 100%, 0 93%, 0 7%); }
 .fc-card.tier-gold { --fc-bg: linear-gradient(160deg, #FFF0B3 0%, #F5CF5A 25%, #D7A73A 55%, #F2D27C 80%, #C99A2E 100%); --fc-ink:#241803; --fc-soft:#3A2B08; --fc-line: rgb(36 24 3 / .22); }
 .fc-card.tier-silver { --fc-bg: linear-gradient(165deg, #F1F4F5 0%, #CBD3D7 50%, #A9B4BA 100%); --fc-ink:#141B1E; --fc-soft:#36434A; --fc-line: rgb(20 27 30 / .2); }
 .fc-card.tier-bronze { --fc-bg: linear-gradient(165deg, #EFC39D 0%, #D49A6C 50%, #BF8457 100%); --fc-ink:#1E1006; --fc-soft:#3F2512; --fc-line: rgb(30 16 6 / .22); }
-.fc-card.tier-base .fc-inner { box-shadow: inset 0 0 0 1px var(--color-line-strong); }
 .fc-top { width:100%; display:flex; align-items:flex-start; justify-content:space-between; gap:.5rem; }
 .fc-head { display:grid; justify-items:center; line-height:1; }
 .fc-ovr { font-size:2.6rem; font-weight:700; }
@@ -863,7 +833,6 @@ button.pitch-dot { cursor:pointer; min-width:2.75rem; min-height:2.75rem; backgr
 .fc-tier { font-weight:800; color:var(--fc-ink); }
 .fc-up { color:#0B5A30; font-weight:800; }
 .fc-down { color:#8E2018; font-weight:800; }
-.tier-base .fc-up { color:var(--color-success); } .tier-base .fc-down { color:var(--color-danger); }
 /* Selo da lista: a borda acompanha a faixa da carta. */
 .fut-badge.tier-gold { border-color:#C79A45; } .fut-badge.tier-silver { border-color:#A9B4BA; } .fut-badge.tier-bronze { border-color:#BF8457; }
 /* Revelação: a carta gira e acende uma vez quando chega avaliação nova (como abrir um pacote). */
@@ -891,8 +860,7 @@ h2, h3 { font-stretch:108%; }
 .surface--raised { box-shadow: var(--surface-shadow); }
 
 /* Ação: ouro chapado com tinta. */
-.btn-primary { background: var(--color-cta); color: var(--color-brand-ink); border:1px solid #C99A12; box-shadow: 0 6px 14px -10px rgb(0 0 0 / .55); }
-.btn-primary:disabled { background: var(--color-cta); }
+.btn-primary { position:relative; overflow:hidden; isolation:isolate; background: var(--color-cta); color: var(--color-brand-ink); border:1px solid #C99A12; box-shadow: 0 6px 14px -10px rgb(0 0 0 / .55); }
 .btn-primary.is-hover { background: var(--color-cta-strong); }
 .btn-secondary { background: var(--color-panel); border:1px solid var(--color-line-strong); box-shadow:none; }
 .btn-secondary.is-hover { background: var(--color-panel); border-color: var(--color-brand); }
@@ -907,7 +875,7 @@ h2, h3 { font-stretch:108%; }
 .hero, .on-album {
   --surface-fill: var(--color-album);
   --color-chalk: var(--color-album-ink); --color-ink-soft: var(--color-album-soft);
-  --color-line: rgb(22 17 10 / .18); --color-line-strong: rgb(22 17 10 / .55);
+  --color-line: rgb(16 20 42 / .18); --color-line-strong: rgb(16 20 42 / .55);
   --color-panel: rgb(255 255 255 / .4); --color-brand: var(--color-album-ink); --color-focus: var(--color-album-ink);
   --color-success: #0B5A30; --color-danger: #8E2018; --color-warning: #5A3E00;
   --color-pos-gk: #6A3500; --color-pos-def: #0F3672; --color-pos-mid: #094D2D; --color-pos-atk: #7E2216;
@@ -916,10 +884,10 @@ h2, h3 { font-stretch:108%; }
 }
 .hero { background: var(--color-album); border-color: transparent; }
 .hero .btn-primary, .on-album .btn-primary { background: var(--color-album-ink); color: var(--color-album); border-color: var(--color-album-ink); }
-.hero .btn-secondary, .on-album .btn-secondary { background: transparent; color: var(--color-album-ink); border-color: rgb(22 17 10 / .55); }
+.hero .btn-secondary, .on-album .btn-secondary { background: transparent; color: var(--color-album-ink); border-color: rgb(16 20 42 / .55); }
 @media (hover:hover) and (pointer:fine) {
-  .hero .btn-primary:hover:not(:disabled), .on-album .btn-primary:hover:not(:disabled) { background: #2C2414; }
-  .hero .btn-secondary:hover:not(:disabled), .on-album .btn-secondary:hover:not(:disabled) { background: rgb(22 17 10 / .07); border-color: var(--color-album-ink); }
+  .hero .btn-primary:hover:not(:disabled), .on-album .btn-primary:hover:not(:disabled) { background: #1E2744; }
+  .hero .btn-secondary:hover:not(:disabled), .on-album .btn-secondary:hover:not(:disabled) { background: rgb(16 20 42 / .07); border-color: var(--color-album-ink); }
 }
 ::selection { background: var(--color-album); color: var(--color-album-ink); }
 
@@ -928,10 +896,10 @@ h2, h3 { font-stretch:108%; }
   --surface-fill: #FFFFFF; --color-panel: #FFFFFF; --color-raised: #FFFFFF; --color-night: #EEF0F5;
   --color-chalk: #11162A; --color-ink-soft: #4A5370; --color-line: #DADEE8; --color-line-strong: #7B849C;
   --color-brand: #8A6500; --color-focus: #8A5A00; --color-danger: #B8352A; --color-success: #11764A;
-  color: #11162A; background: #FFFFFF; border:0; border-radius: 1.25rem; box-shadow: 0 28px 56px -30px rgb(22 17 10 / .55);
+  color: #11162A; background: #FFFFFF; border:0; border-radius: 1.25rem; box-shadow: 0 28px 56px -30px rgb(16 20 42 / .55);
 }
 .paper .btn-primary { background: var(--color-album-ink); color: var(--color-album); border-color: var(--color-album-ink); }
-@media (hover:hover) and (pointer:fine) { .paper .btn-primary:hover:not(:disabled) { background: #2C2414; } }
+@media (hover:hover) and (pointer:fine) { .paper .btn-primary:hover:not(:disabled) { background: #1E2744; } }
 
 /* ===== Figurinha (carta do atleta) ===== */
 .fc-card { --fc-w: 13.5rem; width: var(--fc-w); flex:none; justify-self:center; margin:0; filter: drop-shadow(0 14px 16px rgb(0 0 0 / .28)); }
@@ -957,7 +925,6 @@ h2, h3 { font-stretch:108%; }
 .fc-sheet dd { font-weight:800; text-align:right; }
 .fc-tags { margin-top:.6rem; display:flex; flex-wrap:wrap; gap:.3rem; }
 .fc-tags span { padding:.12rem .5rem; border-radius:999px; font-size:.72rem; font-weight:800; background: rgb(255 255 255 / .35); color:var(--fc-ink); }
-.fc-card.tier-base .fc-tags span { background: color-mix(in oklab, var(--color-chalk) 10%, transparent); }
 .fc-hint { margin-top:.6rem; text-align:center; font-size:.75rem; font-weight:700; color:var(--color-ink-soft); }
 .fc-card.is-compact { --fc-w: 10.5rem; }
 .fc-card.is-compact .fc-ovr { font-size:2.1rem; }
@@ -965,7 +932,6 @@ h2, h3 { font-stretch:108%; }
 .fc-card.is-large { --fc-w: 16.5rem; }
 .fc-card.is-large .fc-ovr { font-size:3.1rem; }
 .fc-card.is-large .fc-photo { width:7.75rem; height:7.75rem; }
-.fc-card.is-large .fc-name { font-size:1.2rem; }
 .fc-card.is-large .fc-stats dd { font-size:1.25rem; }
 .fc-ovr { font-stretch:125%; font-weight:900; }
 .fc-name { font-stretch:115%; font-weight:850; text-transform:uppercase; letter-spacing:.01em; }
@@ -1023,26 +989,26 @@ h2, h3 { font-stretch:108%; }
 .pack-card .lm-o, .pack-card .lm-run { stroke: var(--color-album-ink); }
 .pack-card b { font-stretch:125%; font-weight:900; font-size:.85rem; letter-spacing:.06em; }
 .splash-text { font-stretch:118%; font-weight:800; font-size:.9rem; text-transform:uppercase; letter-spacing:.06em; }
-.splash-progress { width:min(14rem, 60vw); height:3px; border-radius:3px; background: rgb(22 17 10 / .18); overflow:hidden; }
+.splash-progress { width:min(14rem, 60vw); height:3px; border-radius:3px; background: rgb(16 20 42 / .18); overflow:hidden; }
 .splash-progress span { display:block; height:100%; background: var(--color-album-ink); transform-origin:left; animation: splash-fill 1.9s var(--ease-out) both; }
 #splash.is-done { animation: splash-out 650ms var(--ease-in-out) both; pointer-events:none; }
 @keyframes pack-drop { from { transform: translateY(-60%) rotate(-8deg) scale(.8); opacity:0; } }
 @keyframes pack-shake { from { transform: rotate(-3deg); } to { transform: rotate(3deg); } }
 @keyframes pack-tear { to { transform: translate(18%, -70%) rotate(24deg); opacity:0; } }
 @keyframes pack-sink { to { transform: translateY(22%); opacity:0; } }
-@keyframes card-rise { 0% { opacity:0; transform: translateY(30%) rotateY(0deg); } 35% { opacity:1; } 60% { transform: translateY(-14%) rotateY(180deg); } 100% { opacity:1; transform: translateY(-6%) rotateY(360deg); } }
+@keyframes card-rise { 0% { opacity:0; transform: translateY(30%) scale(.8) rotate(-8deg); } 35% { opacity:1; } 65% { transform: translateY(-18%) scale(1.1) rotate(4deg); } 100% { opacity:1; transform: translateY(-6%) scale(1) rotate(0deg); } }
 @keyframes card-float { to { transform: translateY(-11%) rotate(-2deg); } }
 @keyframes splash-fill { from { transform: scaleX(0); } }
 @keyframes splash-out { to { opacity:0; clip-path: inset(0 0 100% 0); } }
 .fc-name { font-stretch:100%; font-size:1rem; }
 .fc-card.is-large .fc-name { font-stretch:108%; font-size:1.15rem; }
 .cover-fan { padding-bottom: 2.25rem; }
-.cover-fan .fc-card:nth-child(2) { z-index:1; }
+.cover-fan .fc-card:nth-child(2) { z-index:0; } /* o espaço do visitante fica por trás: as notas das vizinhas aparecem inteiras */
 .profile-hero-info .profile-avatar { width:4.25rem; height:4.25rem; font-size:1.1rem; }
 .profile-hero-info .photo-edit { top:2.6rem; }
 .pack-stage { width: min(11.5rem, 42vw); height: auto; aspect-ratio: 120 / 170; }
 /* Raios de figurinha rara atrás da carta, no instante em que ela sai. */
-.pack-stage::before { content:""; position:absolute; left:50%; top:42%; width:240%; aspect-ratio:1; translate:-50% -50%; z-index:-1; border-radius:50%; background: repeating-conic-gradient(rgb(22 17 10 / .14) 0deg 9deg, transparent 9deg 22deg); -webkit-mask: radial-gradient(closest-side, #000 35%, transparent 100%); mask: radial-gradient(closest-side, #000 35%, transparent 100%); opacity:0; scale:.4; animation: rays-in .6s var(--ease-out) 1.7s both, rays-spin 14s linear 1.7s infinite; }
+.pack-stage::before { content:""; position:absolute; left:50%; top:42%; width:240%; aspect-ratio:1; translate:-50% -50%; z-index:-1; border-radius:50%; background: repeating-conic-gradient(rgb(16 20 42 / .14) 0deg 9deg, transparent 9deg 22deg); -webkit-mask: radial-gradient(closest-side, #000 35%, transparent 100%); mask: radial-gradient(closest-side, #000 35%, transparent 100%); opacity:0; scale:.4; animation: rays-in .6s var(--ease-out) 1.7s both, rays-spin 14s linear 1.7s infinite; }
 @keyframes rays-in { to { opacity:1; scale:1; } }
 @keyframes rays-spin { to { rotate: 360deg; } }
 /* Iniciais do avatar sobre o ouro: fundo de papel, tinta por cima. */
@@ -1050,3 +1016,109 @@ h2, h3 { font-stretch:108%; }
 /* Campo só de leitura (idade, categoria): sem esmaecer o texto abaixo de AA. */
 .field[readonly], .field:disabled { opacity:1; color: var(--color-ink-soft); }
 .enrolled-ribbon { color: var(--color-night); }
+
+/* ===== Capa viva: prancheta animada em tinta, fotos coladas e figurinhas que flutuam ===== */
+.album-cover { isolation:isolate; }
+.album-cover > :not(.tactic-board):not(.cover-photos):not(.cover-top) { position:relative; z-index:1; }
+.cover-top { z-index:2; }
+.tactic-board { position:absolute; inset:0; z-index:0; width:100%; height:100%; pointer-events:none; transform: translate(calc(var(--px, 0) * -14px), calc(var(--py, 0) * -10px)); transition: transform .6s var(--ease-out); }
+.tb-lines > * { fill:none; stroke: rgb(16 20 42 / .17); stroke-width:2.5; stroke-dasharray:1; stroke-dashoffset:1; animation: tb-draw 2.4s var(--ease-out) forwards; }
+.tb-lines > *:nth-child(2) { animation-delay:.2s } .tb-lines > *:nth-child(3) { animation-delay:.4s } .tb-lines > *:nth-child(n+4) { animation-delay:.6s }
+.tb-arrows path { fill:none; stroke: rgb(16 20 42 / .35); stroke-width:2.5; stroke-dasharray:.02 .02; stroke-linecap:round; animation: tb-fade 1s ease 1.6s both; }
+@keyframes tb-draw { to { stroke-dashoffset:0; } }
+.tb-player { animation: tb-pop 600ms var(--ease-out) both; animation-delay: calc(var(--d) + 1s); transform-box: fill-box; transform-origin:center; }
+.tb-player.pos-gk { --c:#7A3E00 } .tb-player.pos-def { --c:#123F86 } .tb-player.pos-mid { --c:#0B5A35 } .tb-player.pos-atk { --c:#8E2A1E }
+.tb-dot { fill: var(--c); stroke:#FFFFFF; stroke-width:3; }
+.tb-halo { fill:none; stroke: var(--c); stroke-opacity:.35; stroke-width:2; transform-box: fill-box; transform-origin:center; animation: tb-breathe 3.2s ease-in-out infinite; animation-delay: var(--d); }
+.tb-opp { fill:none; stroke: rgb(16 20 42 / .45); stroke-width:3; animation: tb-fade 800ms ease both, tb-drift 6s ease-in-out infinite alternate; animation-delay: calc(var(--d) + 1.2s), var(--d); transform-box: fill-box; transform-origin:center; }
+.tb-trail { stroke: var(--color-album-ink); stroke-width:3.5; stroke-linecap:round; stroke-opacity:.75; }
+.tb-shot { stroke:#FFFFFF; stroke-width:4.5; }
+.tb-ball-core { fill:#FFFFFF; stroke: var(--color-album-ink); stroke-width:2; }
+.tb-goal { fill:none; stroke: var(--color-album-ink); stroke-width:3.5; }
+@keyframes tb-pop { from { opacity:0; transform: scale(.2); } }
+@keyframes tb-breathe { 50% { transform: scale(1.25); stroke-opacity:.08; } }
+@keyframes tb-drift { to { transform: translate(-14px, 8px); } }
+
+/* Fotos coladas: batem na capa como figurinha, ficam com fita e flutuam devagar. */
+.cover-photos { position:relative; z-index:1; display:flex; justify-content:center; gap:0; margin: -.5rem 0 0; }
+.cover-photo { --w: 9.5rem; position:relative; flex:none; width:var(--w); margin:0 -.9rem; padding:6px 6px 22px; background:#FFFFFF; box-shadow: 0 18px 28px -18px rgb(16 20 42 / .7); transform: rotate(var(--r)) translate(calc(var(--px, 0) * var(--depth) * 6px), calc(var(--py, 0) * var(--depth) * 5px)); animation: photo-slap .7s var(--ease-out) both, photo-float 7s ease-in-out infinite alternate; animation-delay: calc(var(--d) + .5s), calc(var(--d) + 1.3s); }
+.cover-photo img { display:block; width:100%; aspect-ratio: 4 / 3; object-fit:cover; }
+.cover-photo:nth-child(3) { display:none; }
+@keyframes photo-slap { from { opacity:0; transform: rotate(calc(var(--r) * 3)) scale(1.35); } 60% { opacity:1; } }
+@keyframes photo-float { to { translate: 0 -8px; } }
+/* Figurinhas do leque também respiram, cada uma no seu tempo. */
+.cover-fan .fc-card { animation: fan-in .9s var(--ease-out) both, fan-float 5.5s ease-in-out infinite alternate; animation-delay: var(--d, 0s), calc(var(--d, 0s) + 1s); }
+@keyframes fan-float { to { translate: 0 -6px; } }
+.cover-fan { transform: translate(calc(var(--px, 0) * 18px), calc(var(--py, 0) * 12px)); transition: transform .6s var(--ease-out); }
+@media (max-width: 63.99rem) {
+  .album-cover { padding-top: 4.75rem; }
+  /* Faixa do campo atrás do leque: some em degradê em cima e embaixo, sem borda reta cruzando o título. */
+  .tactic-board { inset: auto 0 auto; top: clamp(19rem, 34vw, 24rem); height: max(70vw, 22rem); opacity:.6; -webkit-mask-image: linear-gradient(180deg, transparent 8%, #000 48%, #000 68%, transparent); mask-image: linear-gradient(180deg, transparent 8%, #000 48%, #000 68%, transparent); }
+  /* No celular fica só a jogada (jogadores, passes e bola); as linhas do campo cortadas pela faixa viravam riscos soltos. */
+  .tactic-board .tb-lines, .tactic-board .tb-arrows { display:none; }
+}
+@media (min-width: 64rem) {
+  .cover-photos { position:absolute; z-index:0; right: calc(27rem + clamp(2rem, 5vw, 5rem) + 1rem); top: 51%; bottom:auto; display:block; width: 17rem; height: 15rem; margin:0; }
+  .cover-photo { --w: 11.5rem; position:absolute; margin:0; }
+  .cover-photo:nth-child(1) { top:0; left:5.5rem; --w: 10.5rem; }
+  .cover-photo:nth-child(2) { top:5.5rem; left:0; --w: 10.5rem; }
+  .cover-photo:nth-child(3) { display:none; }
+}
+@media (min-width: 64rem) and (max-width: 82rem) { .cover-photos { opacity:0; visibility:hidden; } }
+
+/* Heros logados: a prancheta do campo em tinta bem leve atrás do ouro (não é só um fundo amarelo). */
+.hero { position:relative; overflow:hidden; isolation:isolate; }
+@keyframes hero-pitch { from { opacity:0; transform: translateX(24px); } }
+@media (max-width: 63.99rem) { .cover-intro { order:0; } .album-cover .login-card { order:1; } .cover-photos { order:2; margin-top:.5rem; } }
+
+/* Desktop: a jogada acontece à direita do título, atrás das fotos e do login; nenhum jogador em cima das letras. */
+@media (min-width: 64rem) { .album-cover > .tactic-board { left: 40%; width: 60%; -webkit-mask-image: linear-gradient(90deg, transparent, #000 22%); mask-image: linear-gradient(90deg, transparent, #000 22%); } }
+/* Início: a figurinha do atleta no hero e o campo desenhado com força suficiente para aparecer. */
+.hero-with-card > .fc-card { display:none; }
+@media (min-width: 48rem) {
+  .hero-with-card { padding-right: 13.5rem !important; }
+  .hero-with-card > .fc-card { display:block; position:absolute; right:1.75rem; top:50%; translate: 0 -50%; rotate: 5deg; animation: hero-card-in .9s var(--ease-out) .2s both; }
+}
+@keyframes hero-card-in { from { opacity:0; transform: translateY(1.5rem) rotate(-6deg) scale(.9); } }
+/* Figurinha sem nota: atributos aguardando avaliação em vez de uma grade de traços. */
+.fc-stats dd:empty::after { content:"—"; }
+/* Carta base (sem nota): papel branco do álbum em qualquer tema. */
+.fc-card.tier-base { --fc-bg: linear-gradient(165deg, #FFFFFF 0%, #E9ECF2 100%); --fc-ink:#10142A; --fc-soft:#4A5370; --fc-line: rgb(16 20 42 / .18); }
+.fc-card.tier-base .fc-inner { box-shadow: inset 0 0 0 1px rgb(16 20 42 / .18); }
+.tier-base .fc-up { color:#0B5A30; } .tier-base .fc-down { color:#8E2018; }
+.fc-card.tier-base .fc-tags span { background: rgb(16 20 42 / .08); }
+
+/* Rodada 2 da revisão. Leque: menos sobreposição, para cada nota e nome aparecerem inteiros. */
+.cover-fan { padding-left: 1.6rem; }
+.cover-fan .fc-card { margin-left: -1.6rem; }
+.fc-card.is-compact .fc-name { font-size:.85rem; }
+@media (max-width: 63.99rem) {
+  .cover-fan { padding-left: 1.2rem; }
+  .cover-fan .fc-card { --fc-w: 7.4rem; margin-left: -1.2rem; }
+  .cover-fan .fc-card .fc-photo { width:3.6rem; height:3.6rem; }
+  .cover-fan .fc-card .fc-ovr { font-size:1.6rem; }
+  .cover-fan .fc-card .fc-name { font-size:.72rem; }
+  .cover-fan .fc-card .fc-inner { padding:.7rem .6rem .6rem; }
+}
+/* Espaço da figurinha do visitante: contorno tracejado "cole aqui", como a página do álbum antes da figurinha. */
+.fc-slot { display:grid; place-content:center; justify-items:center; gap:.35rem; min-height: calc(var(--fc-w) * 1.05); text-align:center; color:#10142A; background: repeating-linear-gradient(135deg, #FFFFFF 0 10px, #F1F3F8 10px 20px); outline: 2px dashed rgb(16 20 42 / .45); outline-offset: -10px; }
+.fc-slot-plus { display:grid; place-items:center; width:2.6rem; height:2.6rem; border-radius:999px; background:#10142A; color:#F2C23A; }
+.fc-slot-title { font-stretch:115%; font-weight:900; text-transform:uppercase; font-size:.85rem; letter-spacing:.02em; }
+.fc-slot-hint { font-size:.72rem; font-weight:700; color:#4A5370; }
+.fc-card.is-slot { filter: drop-shadow(0 10px 12px rgb(16 20 42 / .22)); }
+/* Hero do início: o desenho do campo fica à direita, longe do texto, e some por baixo das letras. */
+.hero::before { content:""; position:absolute; inset:0; z-index:-1; pointer-events:none; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 400' preserveAspectRatio='xMidYMid slice'%3E%3Cg fill='none' stroke='%2310142A' stroke-opacity='.18' stroke-width='3'%3E%3Cpath d='M400 0v400'/%3E%3Ccircle cx='400' cy='200' r='90'/%3E%3Cpath d='M800 90h-120v220h120M800 150h-50v100h50'/%3E%3Cpath d='M680 160a50 50 0 0 0 0 80'/%3E%3C/g%3E%3Cpath d='M230 300C320 230 420 250 520 170' fill='none' stroke='%2310142A' stroke-opacity='.26' stroke-width='3' stroke-dasharray='2 12' stroke-linecap='round'/%3E%3C/svg%3E") right center / auto 100% no-repeat; -webkit-mask-image: linear-gradient(90deg, transparent 0%, transparent 48%, #000 72%); mask-image: linear-gradient(90deg, transparent 0%, transparent 48%, #000 72%); animation: hero-pitch 1.4s var(--ease-out) both; }
+/* No celular a figurinha do atleta também aparece no hero, menor, acima do cumprimento. */
+@media (max-width: 47.99rem) {
+  .hero-with-card > .fc-card { display:block; --fc-w: 8.4rem; margin: -.25rem 0 1rem auto; rotate: 4deg; animation: hero-card-in .9s var(--ease-out) .2s both; }
+  .hero-with-card > .fc-card .fc-photo { width:4rem; height:4rem; }
+  .hero-with-card > .fc-card .fc-ovr { font-size:1.7rem; }
+  .hero-with-card > .fc-card .fc-name { font-size:.75rem; }
+}
+@media (max-width: 63.99rem) { .cover-fan .fc-slot-title { font-size:.66rem; } .cover-fan .fc-slot-hint { font-size:.62rem; } .cover-fan .fc-slot-plus { width:2rem; height:2rem; } }
+/* O espaço do visitante tem a vizinha por cima à direita: o texto fica longe dessa borda e quebra em duas linhas. */
+.cover-fan .fc-slot { padding-inline: .9rem 1.9rem; }
+.fc-slot-hint { max-width: 7rem; text-wrap: balance; }
+@media (max-width: 63.99rem) { .cover-fan .fc-slot { padding-inline: .7rem 1.4rem; } }
+/* No celular a figurinha já é a imagem do hero: o desenho do campo sai para não cruzar o texto. */
+@media (max-width: 47.99rem) { .hero::before { display:none; } }
