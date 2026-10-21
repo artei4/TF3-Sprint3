@@ -167,15 +167,24 @@ create table if not exists public.scout_requests (
 );
 create unique index if not exists scout_requests_one_pending on public.scout_requests (scout_id, athlete_id) where status = 'pending';
 
+-- Perfis de exemplo (atletas fictícios da demonstração, sem conta) também recebem pedido, pelo número do exemplo:
+-- assim o fluxo inteiro funciona na apresentação. Cada pedido é de um atleta real OU de um perfil de exemplo.
+alter table public.scout_requests alter column athlete_id drop not null;
+alter table public.scout_requests add column if not exists demo_athlete smallint check (demo_athlete between 1 and 99);
+alter table public.scout_requests drop constraint if exists scout_requests_one_target;
+alter table public.scout_requests add constraint scout_requests_one_target check ((athlete_id is null) <> (demo_athlete is null));
+create unique index if not exists scout_requests_one_pending_demo on public.scout_requests (scout_id, demo_athlete) where status = 'pending' and demo_athlete is not null;
+
 alter table public.scout_requests enable row level security;
 revoke all on public.scout_requests from anon, authenticated;
-grant insert (athlete_id, message) on public.scout_requests to authenticated;
+grant insert (athlete_id, demo_athlete, message) on public.scout_requests to authenticated;
 grant select on public.scout_requests to authenticated;
 grant update (status, decided_at, decided_by) on public.scout_requests to authenticated;
 
 drop policy if exists scout_requests_insert on public.scout_requests;
 create policy scout_requests_insert on public.scout_requests for insert to authenticated
-  with check (scout_id = auth.uid() and public.is_scout() and public.in_showcase(athlete_id) and status = 'pending' and decided_at is null);
+  with check (scout_id = auth.uid() and public.is_scout() and status = 'pending' and decided_at is null
+              and (public.in_showcase(athlete_id) or (athlete_id is null and demo_athlete is not null)));
 
 drop policy if exists scout_requests_select on public.scout_requests;
 create policy scout_requests_select on public.scout_requests for select to authenticated

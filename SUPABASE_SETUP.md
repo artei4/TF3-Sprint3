@@ -40,7 +40,12 @@ em tempo real.
    tabela `audit_log` (consulta pelo Table Editor). A de equipe cria os convites de funcionário e o
    papel de administrador (veja abaixo); a de descrição adiciona o texto "Sobre a peneira"; a de responsável exige a autorização de um
    responsável legal para atletas com menos de 18 anos (veja abaixo); a de presença cria a chamada do dia
-   (só a equipe marca, a partir do dia da peneira; quem já teve a presença marcada não cancela a inscrição). Nenhuma delas apaga dados. Se rodar de novo
+   (só a equipe marca, a partir do dia da peneira; quem já teve a presença marcada não cancela a inscrição).
+   Depois, ainda na ordem: `20261025120000_avaliacao_peneira.sql` (liga a avaliação à peneira, para a peneira ao vivo),
+   `20261026120000_fale_conosco.sql` (mensagens do Fale conosco: qualquer pessoa envia, só a equipe lê),
+   `20261027120000_olheiros.sql` (conta de olheiro de clube por convite, vitrine para clubes e pedidos de contato) e
+   `20261028120000_avisos.sql` (avisos no servidor, criados por gatilhos do banco, para chegarem em qualquer aparelho).
+   Nenhuma delas apaga dados. Se rodar de novo
    uma migration antiga, rode as mais novas depois dela.
 7. Pronto. Abra o site normalmente (sem nada extra na URL) — ele detecta o Supabase sozinho.
 
