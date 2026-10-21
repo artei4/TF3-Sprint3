@@ -1241,7 +1241,7 @@ document.addEventListener('click', (event) => {
   const quick = event.target.closest('[data-quick-reply]')
   if (quick) {
     const field = document.querySelector('#message-input')
-    if (field) { field.value = quick.dataset.quickReply; field.focus() }
+    if (field) { field.value = quick.dataset.quickReply; field.dispatchEvent(new Event('input')); field.focus() }
   }
 })
 
@@ -3302,24 +3302,44 @@ function messagesPage() {
   activeThread = selected.id
   activeConversation = selected
   activeThreadKey = selected.key
+  const readUntil = state.lastRead[readKey(selected.key)] || 0
   if (!isMobileView() || mobileChatOpen) markRead(selected.key)
   const history = state.messages.filter((m) => m.thread === selected.key).sort((a, b) => messageTs(a) - messageTs(b))
 
   return shell(
     heading +
-    '<section class="chat-layout mt-6 grid min-h-[620px] overflow-hidden rounded-card surface md:grid-cols-[300px_1fr]" data-mobile-view="' + (mobileChatOpen ? 'chat' : 'list') + '">' +
+    '<section class="chat-layout mt-6 grid overflow-hidden rounded-card surface md:grid-cols-[300px_1fr]" data-mobile-view="' + (mobileChatOpen ? 'chat' : 'list') + '">' +
     '<aside class="chat-list border-b border-line bg-night/60 md:border-b-0 md:border-r"><div class="p-4"><label class="field-label">' + (staff ? t('Pesquisar atleta') : t('Pesquisar profissional')) + '<input id="conversation-search" class="field mt-2" placeholder="' + t('Digite um nome, posição ou cidade...') + '" autocomplete="off" /></label></div>' +
     '<div id="conversation-list" class="max-h-[520px] space-y-1 overflow-y-auto p-2">' + conversationItemsHtml(conversations, selected.id) + '</div></aside>' +
     '<div class="chat-pane flex min-w-0 flex-col"><header class="chat-header flex items-center justify-between gap-3 border-b border-line px-5 py-4"><div class="flex min-w-0 items-center gap-3">' +
     '<button type="button" class="chat-back icon-button" data-action="chat-back" aria-label="' + t('Voltar para as conversas') + '">' + icon('back') + '</button>' +
-    personAvatar(selected.person || { name: selected.avatar }) + '<div class="min-w-0"><p class="truncate font-bold">' + escapeHtml(selected.name) + '</p><p class="truncate text-xs text-ink-soft">' + escapeHtml(selected.subtitle) + '</p></div></div></header>' +
-    '<div id="chat-messages" class="chat-messages flex-1 overflow-y-auto p-5">' + renderHistory(history, role) + '</div>' +
-    '<form id="message-form" class="chat-input-bar border-t border-line p-3 sm:p-4"><div class="composer"><label for="message-input" class="sr-only">' + t('Mensagem para') + ' ' + escapeHtml(selected.name) + '</label><input id="message-input" class="composer-input" placeholder="' + t('Escreva uma mensagem') + '" autocomplete="off" maxlength="2000" required/><button class="btn-primary chat-send shrink-0" aria-label="' + t('Enviar mensagem') + '">' + icon('send', 'size-4') + '</button></div></form></div></section>',
+    personAvatar(selected.person || { name: selected.avatar }) + '<div class="min-w-0"><p class="truncate font-bold">' + escapeHtml(selected.name) + '</p><p class="truncate text-xs text-ink-soft">' + escapeHtml(selected.subtitle) + '</p></div></div>' + chatContext(selected, staff) + '</header>' +
+    '<button type="button" class="chat-jump" data-chat-jump hidden>' + icon('arrow', 'size-4') + '<span>' + t('Ir para a mais recente') + '</span></button><div id="chat-messages" class="chat-messages flex-1 overflow-y-auto p-5" role="log" tabindex="0" aria-label="' + t('Mensagens com') + ' ' + escapeHtml(selected.name) + '">' + renderHistory(history, role, readUntil) + '</div>' +
+    '<form id="message-form" class="chat-input-bar border-t border-line p-3 sm:p-4"><div class="composer"><label for="message-input" class="sr-only">' + t('Mensagem para') + ' ' + escapeHtml(selected.name) + '</label><textarea id="message-input" class="composer-input" rows="1" placeholder="' + t('Escreva uma mensagem') + '" maxlength="2000" aria-describedby="composer-hint" required></textarea><span id="composer-hint" class="sr-only">' + t('Enter envia; Shift+Enter quebra a linha.') + '</span><span class="composer-count" aria-live="polite" hidden></span><button class="btn-primary chat-send shrink-0" aria-label="' + t('Enviar mensagem') + '">' + icon('send', 'size-4') + '</button></div></form></div></section>',
     { active: 'messages', role },
   )
 }
 
-function renderHistory(history, role) {
+// Peneira aberta e compatível com o atleta (posição e categoria), em que ele ainda não está inscrito.
+function compatibleTryoutFor(a) {
+  const category = getCategoryFromAge(a.age)
+  return state.tryouts
+    .filter((tryout) => tryout.status !== 'cancelled' && enrollmentOpen(tryout) && !(tryout.enrolled || []).includes(a.email))
+    .filter((tryout) => (tryout.positions.includes(a.pos) || tryout.positions.includes(a.secondary)) && (!tryout.category || tryout.category === category))
+    .sort(byStart)[0] || null
+}
+function chatContext(selected, staff) {
+  const a = staff ? selected.person : null
+  if (!a) return ''
+  const rating = ratingOf(a)
+  return '<div class="chat-context">' +
+    '<span class="hidden sm:inline-flex items-center gap-1.5">' + posTag(a.pos) + tag(getCategoryFromAge(a.age), true) + (rating ? '<span class="tag ghost tabular">' + t('Nota') + ' ' + formatRating(rating) + '</span>' : '') + '</span>' +
+    '<button type="button" class="btn-ghost text-sm" data-chat-profile="' + a.id + '">' + icon('user', 'size-4') + '<span class="hidden sm:inline">' + t('Ver perfil') + '</span><span class="sr-only sm:hidden">' + t('Ver perfil') + '</span></button>' +
+    (compatibleTryoutFor(a) ? '<button type="button" class="btn-secondary text-sm" data-chat-invite="' + a.id + '">' + icon('calendar', 'size-4') + ' ' + t('Convidar') + '</button>' : '') +
+    '</div>'
+}
+
+function renderHistory(history, role, readUntil = null) {
   if (!history.length) {
     const staff = role === 'staff'
     const replies = staff
@@ -3329,6 +3349,7 @@ function renderHistory(history, role) {
       '<div class="mt-2 flex flex-wrap justify-center gap-2">' + replies.map((text) => '<button type="button" class="chip-btn" data-quick-reply="' + escapeHtml(text) + '">' + escapeHtml(text) + '</button>').join('') + '</div></div>'
   }
   let html = ''
+  let unreadShown = false
   history.forEach((message, i) => {
     const ts = messageTs(message)
     const prev = history[i - 1]
@@ -3337,6 +3358,10 @@ function renderHistory(history, role) {
     const joinsPrev = prev && sameDay(prev) && prev.senderRole === message.senderRole && ts - messageTs(prev) < GROUP_WINDOW
     const joinsNext = next && sameDay(next) && next.senderRole === message.senderRole && messageTs(next) - ts < GROUP_WINDOW
     if (!prev || !sameDay(prev)) html += '<div class="chat-day" role="separator"><span>' + escapeHtml(dayLabel(ts)) + '</span></div>'
+    if (readUntil !== null && !unreadShown && message.senderRole !== role && ts > readUntil && (i > 0 || readUntil > 0)) {
+      unreadShown = true
+      html += '<div class="chat-unread" role="separator" data-unread-mark><span>' + t('Novas mensagens') + '</span></div>'
+    }
     html += messageBubble(message, role, joinsPrev && joinsNext ? 'middle' : joinsPrev ? 'last' : joinsNext ? 'first' : 'single')
   })
   return html
@@ -4906,6 +4931,7 @@ function bind() {
     const text = field.value.trim()
     if (!text) return
     field.value = ''
+    field.dispatchEvent(new Event('input'))
     field.focus()
     const sent = await sendChatMessage(text)
     if (sent === false) {
@@ -4916,6 +4942,40 @@ function bind() {
       messageForm.classList.add('is-refused')
       messageForm.addEventListener('animationend', () => messageForm.classList.remove('is-refused'), { once: true })
     }
+  })
+  const composerField = document.querySelector('#message-input')
+  if (composerField) {
+    const count = document.querySelector('.composer-count')
+    composerField.addEventListener('input', () => {
+      composerField.style.height = 'auto'
+      composerField.style.height = Math.min(composerField.scrollHeight, 136) + 'px'
+      const left = 2000 - composerField.value.length
+      count.hidden = left > 200
+      count.textContent = composerField.value.length + '/2000'
+    })
+    composerField.dispatchEvent(new Event('input'))
+    composerField.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); messageForm.requestSubmit() }
+    })
+  }
+  const unreadMark = chat?.querySelector('[data-unread-mark]')
+  if (unreadMark) chat.scrollTop = unreadMark.offsetTop - 24
+  const jump = document.querySelector('[data-chat-jump]')
+  if (chat && jump) {
+    const sync = () => { jump.hidden = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 200 }
+    chat.addEventListener('scroll', sync, { passive: true })
+    sync()
+    jump.addEventListener('click', () => chat.scrollTo({ top: chat.scrollHeight, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }))
+  }
+  document.querySelector('[data-chat-profile]')?.addEventListener('click', (event) => openAthleteModal(Number(event.currentTarget.dataset.chatProfile)))
+  document.querySelector('[data-chat-invite]')?.addEventListener('click', (event) => {
+    const a = state.athletes.find((item) => item.id === Number(event.currentTarget.dataset.chatInvite))
+    const tryout = a && compatibleTryoutFor(a)
+    if (!tryout || !composerField) return
+    // O convite vai para o campo de texto: o funcionário revisa antes de enviar.
+    composerField.value = t('Olá') + ', ' + a.name.split(' ')[0] + '! ' + t('Tem uma peneira compatível com você:') + ' ' + tryout.title + ', ' + formatDate(tryout.date) + (validTime(tryout.time) ? ' ' + t('às') + ' ' + tryout.time : '') + ', ' + tryout.location + ' (' + tryout.city + '/' + tryout.state + '). ' + t('A inscrição é pela tela Peneiras.')
+    composerField.dispatchEvent(new Event('input'))
+    composerField.focus()
   })
 }
 
