@@ -341,17 +341,30 @@ export async function createScoutInvite(email, club) {
 }
 
 export async function fetchScoutRequests() {
-  const { data, error } = await client.from('scout_requests').select('id,scout_id,athlete_id,message,status,created_at,decided_at,scout:profiles!scout_requests_scout_id_fkey(name,email,data),athlete:profiles!scout_requests_athlete_id_fkey(athlete_num)').order('created_at', { ascending: false }).limit(200)
+  const { data, error } = await client.from('scout_requests').select('id,scout_id,athlete_id,demo_athlete,message,status,created_at,decided_at,scout:profiles!scout_requests_scout_id_fkey(name,email,data),athlete:profiles!scout_requests_athlete_id_fkey(athlete_num)').order('created_at', { ascending: false }).limit(200)
   if (error) throw error
   return data || []
 }
 
-export async function createScoutRequest(athleteId, message) {
-  const { error } = await client.from('scout_requests').insert({ athlete_id: athleteId, message })
+// Atleta real (athleteId = uuid) ou perfil de exemplo da demonstração (demoId = número do exemplo).
+export async function createScoutRequest(athleteId, message, demoId = null) {
+  const { error } = await client.from('scout_requests').insert(athleteId ? { athlete_id: athleteId, message } : { demo_athlete: demoId, message })
   return error
 }
 
 export async function decideScoutRequest(id, status, uid) {
   const { error } = await client.from('scout_requests').update({ status, decided_at: new Date().toISOString(), decided_by: uid }).eq('id', id)
+  return error
+}
+
+// ---------- Avisos (migration 20261028120000_avisos.sql): criados por gatilhos do banco ----------
+export async function fetchNotifications() {
+  const { data, error } = await client.from('notifications').select('id,title,body,created_at').order('created_at', { ascending: false }).limit(50)
+  if (error) throw error
+  return data || []
+}
+
+export async function clearNotifications(uid) {
+  const { error } = await client.from('notifications').delete().eq('recipient_id', uid)
   return error
 }

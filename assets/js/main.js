@@ -68,6 +68,8 @@ import {
   fetchScoutRequests,
   createScoutRequest,
   decideScoutRequest,
+  fetchNotifications,
+  clearNotifications,
 } from './remote.js'
 
 const app = document.querySelector('#app')
@@ -164,6 +166,7 @@ const state = {
   venues: readStorage('ap_venues', defaultVenues),
   invites: readStorage('ap_invites', []),
   scoutRequests: readStorage('ap_scout_requests', []),
+  serverNotices: [],
   contacts: readStorage('ap_contacts', []),
   guardians: {},
   reviews: readStorage('ap_reviews', {}),
@@ -254,6 +257,7 @@ function persist() {
 // Cria um aviso para um usuário específico (identificado pelo e-mail).
 function notify(to, title, text) {
   if (!to) return
+  if (remote.enabled && to !== state.user?.email) return // o banco avisa a outra pessoa (migration de avisos)
   state.notifications.unshift({ id: Date.now() * 1000 + (notificationSeq++ % 1000), to, title, text, time: 'Agora' })
 }
 
@@ -264,7 +268,15 @@ function notificationTime(n) {
 }
 
 function myNotifications() {
-  return state.notifications.filter((n) => n.to === state.user?.email)
+  const mine = state.notifications.filter((n) => n.to === state.user?.email)
+  return remote.enabled ? mine.concat(state.serverNotices).sort((a, b) => b.id - a.id) : mine
+}
+async function refreshRemoteNotifications() {
+  if (!remote.enabled || !state.user?.uid) return
+  try {
+    state.serverNotices = (await fetchNotifications()).map((row) => ({ id: Date.parse(row.created_at) * 1000 + (Number(row.id) % 1000), to: state.user.email, title: row.title, text: row.body, server: true }))
+    updateNotificationBadge()
+  } catch (error) { console.warn('[Supabase] avisos:', error) } // antes da migration, só os avisos locais
 }
 
 // Quem deve saber de mudanças numa peneira: quem a criou (ou todos os funcionários, nas peneiras de exemplo).
@@ -676,6 +688,7 @@ async function hydrateRemote(uid) {
   await refreshRemoteGuardians()
   if (own.profile.role === 'staff') await refreshRemoteContacts()
   if (['staff', 'scout'].includes(own.profile.role)) await refreshRemoteScoutRequests()
+  await refreshRemoteNotifications()
   state.tryoutsStatus = 'loading'
   const loadingSince = performance.now()
   refreshRemoteTryouts().then(() => {
@@ -782,6 +795,7 @@ async function clearRemoteSession({ navigate = false, signOut = true } = {}) {
   state.profile = null
   state.accounts = []
   state.messages = []
+  state.serverNotices = []
   activeThread = null
   activeConversation = null
   activeThreadKey = null
@@ -807,6 +821,9 @@ async function refreshRemote(force = false) {
     await refreshRemoteEvaluations()
     await refreshRemoteMessages()
     await refreshRemoteGuardians()
+    await refreshRemoteNotifications()
+    if (['staff', 'scout'].includes(state.user.role)) await refreshRemoteScoutRequests()
+    if (state.user.role === 'staff') await refreshRemoteContacts()
     updateMessageBadge()
     const tryoutsBefore = JSON.stringify(state.tryouts)
     await refreshRemoteTryouts()
@@ -2487,7 +2504,7 @@ function scoutRequestButton(a, big = false) {
 }
 const mapScoutRequest = (row) => ({
   id: row.id, scoutEmail: row.scout?.email || '', scoutName: row.scout?.name || t('Olheiro'), scoutOrg: row.scout?.data?.org || '',
-  athleteId: Number(row.athlete?.athlete_num) || null, message: row.message, status: row.status, createdAt: row.created_at, decidedAt: row.decided_at,
+  athleteId: row.athlete ? Number(row.athlete.athlete_num) : Number(row.demo_athlete) || null, message: row.message, status: row.status, createdAt: row.created_at, decidedAt: row.decided_at,
 })
 async function refreshRemoteScoutRequests() {
   try { state.scoutRequests = (await fetchScoutRequests()).map(mapScoutRequest) } catch (error) { console.warn('[Supabase] pedidos de olheiros:', error) } // antes da migration, a lista só fica vazia
@@ -2514,8 +2531,7 @@ function openScoutRequest(athleteId) {
     submit.setAttribute('aria-busy', 'true')
     try {
       if (remote.enabled) {
-        if (!athlete.profileId) throw new Error(t('Perfil de exemplo: não recebe pedidos de verdade.'))
-        const error = await createScoutRequest(athlete.profileId, message)
+        const error = await createScoutRequest(athlete.profileId || null, message, athlete.profileId ? null : athlete.id)
         if (error) throw error
         await refreshRemoteScoutRequests()
       } else {
@@ -4340,8 +4356,13 @@ function openNotifications() {
   document.body.appendChild(wrapper)
   wrapper.querySelector('[data-close]').addEventListener('click', () => wrapper.remove())
   wrapper.querySelector('[data-open-unread]')?.addEventListener('click', () => { wrapper.remove(); openUnreadConversation() })
-  wrapper.querySelector('[data-clear-notifications]').addEventListener('click', () => {
+  wrapper.querySelector('[data-clear-notifications]').addEventListener('click', async () => {
     const me = state.user?.email
+    if (remote.enabled && state.serverNotices.length) {
+      const error = await clearNotifications(state.user.uid)
+      if (error) return toast(describeError(error), 'error')
+      state.serverNotices = []
+    }
     state.notifications = state.notifications.filter((n) => n.to !== me)
     persist()
     wrapper.remove()
@@ -4355,7 +4376,9 @@ function openMobileMenu() {
   if (!root) return
   root.innerHTML =
     '<div class="fixed inset-0 z-[70] bg-black/70 p-4 backdrop-blur-sm" data-close-mobile><div class="ml-auto w-[min(86vw,340px)] rounded-card surface surface--raised p-4 shadow-2xl" role="dialog" aria-modal="true"><div class="flex items-center justify-between"><p class="font-bold">' + t('Navegação') + '</p><button type="button" class="icon-button" data-close-mobile aria-label="' + t('Fechar menu') + '">' + icon('close') + '</button></div><div class="mt-4 grid gap-2">' +
-    (state.user?.role === 'staff'
+    (state.user?.role === 'scout'
+      ? [['dashboard',t('Início')],['athletes',t('Vitrine')],['profile',t('Meu perfil')]]
+      : state.user?.role === 'staff'
       ? [['dashboard',t('Visão geral')],['athletes',t('Atletas')],['tryouts',t('Peneiras')],['messages',t('Conversas')],['profile',t('Perfil')]]
       : [['dashboard',t('Início')],['profile',t('Meu perfil')],['tryouts',t('Peneiras')],['messages',t('Conversas')]]
     ).map((item) => '<button type="button" class="nav-link justify-start" data-route="' + item[0] + '" data-close-mobile>' + item[1] + '</button>').join('') +
