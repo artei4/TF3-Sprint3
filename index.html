@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="TIER ZERO — plataforma de talentos do futebol de base, em parceria com a Pelé Academia." />
-    <meta name="theme-color" content="#0D1612" />
+    <meta name="theme-color" content="#0B0F1C" />
     <title>TIER ZERO | Pelé Academia</title>
     <script>
       // Tema antes da 1ª pintura (sem flash): preferência salva > preferência do sistema.
@@ -17,14 +17,25 @@
     <!-- Duas famílias variáveis: Bricolage Grotesque (títulos) + Instrument Sans (texto), display=swap -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..700&family=Instrument+Sans:wght@400..600&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&display=swap" />
     <link rel="stylesheet" href="./assets/js/styles.css" />
   </head>
   <body>
     <a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
     <div id="app"></div>
     <!-- Abertura: fica no mínimo ~1,5 s na primeira visita da sessão (clique ou Esc pulam). -->
-    <div id="splash" role="status" aria-live="polite"><div class="ball-loader"><div class="ball-stage" aria-hidden="true"><span class="ball-wrap"><svg viewBox="0 0 24 24" class="ball"><circle cx="12" cy="12" r="11" fill="#EEF1E8"/><path d="M12 7.2l4.1 3-1.6 4.8h-5l-1.6-4.8z" fill="#0D1612"/><path d="M12 7.2V2.5M16.1 10.2l4.4-1.6M14.5 15l2.8 3.9M9.5 15l-2.8 3.9M7.9 10.2 3.5 8.6" stroke="#0D1612" stroke-width="1.3" fill="none"/></svg></span><span class="ball-shadow"></span><span class="pitch-dash"></span></div><span class="text-sm text-ink-soft">Entrando em campo…</span></div><div class="splash-progress" aria-hidden="true"><span></span></div><span class="sr-only">Carregando a Pelé Academia</span></div>
+    <div id="splash" role="status" aria-live="polite">
+      <div class="pack-stage" aria-hidden="true">
+        <div class="pack-card"><svg viewBox="0 0 80 64"><path class="lm-o" d="M48.07 26.13A19 19 0 1 1 40.07 15.89" fill="none" stroke-width="5.5" stroke-linecap="round"/><path class="lm-run" d="M46.5 20.5C54 10 63 9.5 70 17.5" fill="none" stroke-width="3.2" stroke-linecap="round" stroke-dasharray="1 6.5"/><path class="lm-run" d="M70.13 10.68L70.99 18.63L63.22 16.72" fill="none" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg><b>TIER ZERO</b></div>
+        <svg class="pack" viewBox="0 0 120 170">
+          <g class="pack-body"><path d="M10 34H110V148l-5 8-5-8-5 8-5-8-5 8-5-8-5 8-5-8-5 8-5-8-5 8-5-8-5 8-5-8-5 8-5-8-5 8-5-8-5 8-5-8Z" fill="#16110A"/><path d="M10 40H110" stroke="#F2C23A" stroke-width="1.5" stroke-dasharray="3 3"/><circle cx="60" cy="92" r="26" fill="none" stroke="#F2C23A" stroke-width="5"/><path d="M68 70c8-10 17-10 24-2" fill="none" stroke="#F1F3F8" stroke-width="3" stroke-linecap="round" stroke-dasharray="1 6"/><text x="60" y="137" text-anchor="middle" fill="#F2C23A" font-family="Archivo, sans-serif" font-size="11" font-weight="900" letter-spacing="1">FIGURINHAS</text></g>
+          <g class="pack-top"><path d="M10 34V20l5-8 5 8 5-8 5 8 5-8 5 8 5-8 5 8 5-8 5 8 5-8 5 8 5-8 5 8 5-8 5 8 5-8 5 8 5-8 5 8V34Z" fill="#2C2414"/></g>
+        </svg>
+      </div>
+      <span class="splash-text">Abrindo o pacote…</span>
+      <div class="splash-progress" aria-hidden="true"><span></span></div>
+      <span class="sr-only">Carregando a Pelé Academia</span>
+    </div>
     <!-- Avisos (toasts): fora do #app para sobreviver à troca de telas; anunciados por leitores de tela -->
     <div id="toast-root" role="status" aria-live="polite" class="pointer-events-none fixed bottom-24 right-5 md:bottom-5 z-[120] flex w-[min(92vw,380px)] flex-col gap-2"></div>
     <script type="module" src="./assets/js/main.js"></script>

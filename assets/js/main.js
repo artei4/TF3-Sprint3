@@ -1093,7 +1093,7 @@ function posTag(pos) {
 const plural = (n, one, many) => n + ' ' + t(n === 1 ? one : many)
 
 // ---------- Loader de futebol: bola quicando sobre a linha do campo ----------
-const BALL_SVG = '<svg viewBox="0 0 24 24" class="ball" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#EEF1E8"/><path d="M12 7.2l4.1 3-1.6 4.8h-5l-1.6-4.8z" fill="#0D1612"/><path d="M12 7.2V2.5M16.1 10.2l4.4-1.6M14.5 15l2.8 3.9M9.5 15l-2.8 3.9M7.9 10.2 3.5 8.6" stroke="#0D1612" stroke-width="1.3" fill="none"/></svg>'
+const BALL_SVG = '<svg viewBox="0 0 24 24" class="ball" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#F1F3F8"/><path d="M12 7.2l4.1 3-1.6 4.8h-5l-1.6-4.8z" fill="#0B0F1C"/><path d="M12 7.2V2.5M16.1 10.2l4.4-1.6M14.5 15l2.8 3.9M9.5 15l-2.8 3.9M7.9 10.2 3.5 8.6" stroke="#0B0F1C" stroke-width="1.3" fill="none"/></svg>'
 function ballLoader(label = t('Carregando…')) {
   return '<div class="ball-loader" role="status"><div class="ball-stage" aria-hidden="true"><span class="ball-wrap">' + BALL_SVG + '</span><span class="ball-shadow"></span><span class="pitch-dash"></span></div><span class="text-sm text-ink-soft">' + escapeHtml(label) + '</span></div>'
 }
@@ -1156,7 +1156,7 @@ function themeButton(extra = '') {
 function applyTheme(theme, persistChoice = true) {
   const swap = () => {
     document.documentElement.dataset.theme = theme
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'light' ? '#F2F5EF' : '#0D1612')
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'light' ? '#EEF0F5' : '#0B0F1C')
     document.querySelectorAll('[data-action="toggle-theme"]').forEach((button) => button.setAttribute('aria-label', theme === 'light' ? t('Ativar tema escuro') : t('Ativar tema claro')))
   }
   if (persistChoice) { try { localStorage.setItem('ap_theme', theme) } catch {} }
@@ -1258,25 +1258,78 @@ function cardDelta(reviews) {
   const avg = (list) => list.reduce((sum, value) => sum + value, 0) / list.length
   return Math.round(avg(scores) * 10) - Math.round(avg(scores.slice(1)) * 10)
 }
-function playerCard(a, { reveal = false } = {}) {
+function playerCard(a, { reveal = false, size = '', flip = false } = {}) {
   const reviews = state.reviews[a.id] || []
   const ovr = Math.round(ratingOf(a) * 10) || 0
   const tier = cardTier(ovr)
   const { criteria, values } = attributeAverages(a.id, a.pos)
   const value = (c) => values[c.key] ? Math.round(values[c.key] * 10) : null
   const delta = cardDelta(reviews)
+  const age = a.age ?? getAgeFromProfile(a.birth)
+  const category = getCategoryFromAge(age)
+  const place = [a.city, a.state].filter(Boolean).join('/')
   const label = t('Carta de') + ' ' + a.name + ': ' + (ovr ? t('nota') + ' ' + ovr + ', ' + t(TIER_LABEL[tier]) : t('sem nota')) + ', ' + t(a.pos) + '. ' +
     criteria.map((c) => t(c.label) + ' ' + (value(c) ?? t('sem nota'))).join(', ') + '.'
   const foot = reviews.length
     ? plural(reviews.length, 'avaliação', 'avaliações') + (delta ? ' · <span class="' + (delta > 0 ? 'fc-up' : 'fc-down') + '">' + (delta > 0 ? '▲ +' + delta : '▼ ' + delta) + '</span> ' + t('desde a última') : '')
     : a.demo ? t('Nota de exemplo') : t('Sem avaliação ainda')
-  return '<figure class="fc-card tier-' + tier + '"' + (reveal ? ' data-card-reveal' : '') + ' role="img" aria-label="' + escapeHtml(label) + '"><div class="fc-inner" aria-hidden="true">' +
-    '<div class="fc-top"><div class="fc-head"><span class="fc-ovr num">' + (ovr || '—') + '</span><span class="fc-pos">' + t(POSITION_ABBR[a.pos] || '—') + '</span><span class="fc-cat">' + escapeHtml(getCategoryFromAge(a.age ?? getAgeFromProfile(a.birth))) + '</span></div>' +
+  const front = '<div class="fc-face fc-front"><div class="fc-inner">' +
+    '<div class="fc-top"><div class="fc-head"><span class="fc-ovr num">' + (ovr || '—') + '</span><span class="fc-pos">' + t(POSITION_ABBR[a.pos] || '—') + '</span><span class="fc-cat">' + escapeHtml(category) + '</span></div>' +
     personAvatar(a, 'fc-photo') + '</div>' +
-    '<p class="fc-name">' + escapeHtml(a.name) + '</p>' +
-    '<dl class="fc-stats">' + criteria.map((c) => '<div><dt>' + t(CARD_ABBR[c.key]) + '</dt><dd class="num">' + (value(c) ?? '—') + '</dd></div>').join('') + '</dl>' +
-    '<p class="fc-foot"><span class="fc-tier">' + t(TIER_LABEL[tier]) + '</span> · ' + foot + '</p></div></figure>'
+    '<p class="fc-name">' + escapeHtml(size === 'compact' ? String(a.name).split(' ')[0] : a.name) + '</p>' +
+    (size === 'compact' ? '' :
+      (a.foot || place ? '<p class="fc-meta">' + (a.foot ? '<span>' + escapeHtml(t(a.foot)) + '</span>' : '') + (place ? '<span>' + escapeHtml(place) + '</span>' : '') + '</p>' : '') +
+      '<dl class="fc-stats">' + criteria.map((c) => '<div><dt>' + t(CARD_ABBR[c.key]) + '</dt><dd class="num">' + (value(c) ?? '—') + '</dd></div>').join('') + '</dl>' +
+      '<p class="fc-foot"><span class="fc-tier">' + t(TIER_LABEL[tier]) + '</span> · ' + foot + '</p>') +
+    '</div></div>'
+  const cls = 'fc-card tier-' + tier + (size ? ' is-' + size : '')
+  if (!flip) return '<figure class="' + cls + '"' + (reveal ? ' data-card-reveal' : '') + ' role="img" aria-label="' + escapeHtml(label) + '"><div class="fc-tilt" aria-hidden="true"><div class="fc-faces">' + front + '</div></div></figure>'
+  // Verso: a ficha do atleta, só com dados que existem.
+  const presences = a.email ? state.tryouts.filter((tryout) => checkinsOf(tryout)[a.email]).length : 0
+  const sheet = [
+    [t('Posição'), t(a.pos || '—')],
+    [t('Secundária'), a.secondary && a.secondary !== '—' ? t(a.secondary) : t('nenhuma')],
+    [t('Perna'), a.foot ? t(a.foot) : '—'],
+    [t('Idade'), age ? age + ' ' + t('anos') + ' · ' + category : '—'],
+    [t('Cidade'), place || '—'],
+    [t('Presenças em peneiras'), String(presences)],
+    [t('Última avaliação'), reviews[0]?.date || '—'],
+  ]
+  const strengths = strengthsOf(a)
+  const back = '<div class="fc-face fc-back"><div class="fc-inner"><p class="fc-back-title">' + t('Ficha') + '</p>' +
+    '<dl class="fc-sheet">' + sheet.map(([k, v]) => '<div><dt>' + k + '</dt><dd>' + escapeHtml(v) + '</dd></div>').join('') + '</dl>' +
+    (strengths.length ? '<div class="fc-tags">' + strengths.map((item) => '<span>' + escapeHtml(item) + '</span>').join('') + '</div>' : '') + '</div></div>'
+  const sheetText = sheet.map(([k, v]) => k + ': ' + v).join('; ') + (strengths.length ? '; ' + t('Destaques:') + ' ' + strengths.join(', ') : '')
+  return '<figure class="' + cls + '"' + (reveal ? ' data-card-reveal' : '') + '>' +
+    '<div class="fc-flip" role="button" tabindex="0" aria-pressed="false" aria-label="' + escapeHtml(label + ' ' + t('Virar a carta para ver a ficha.')) + '"><div class="fc-tilt" aria-hidden="true"><div class="fc-faces">' + front + back + '</div></div></div>' +
+    '<figcaption class="fc-hint">' + t('Toque na carta para ver a ficha') + '<span class="sr-only">. ' + escapeHtml(t('Ficha') + ': ' + sheetText) + '</span></figcaption></figure>'
 }
+// Toque (ou Enter/Espaço) vira a figurinha; com mouse, ela inclina e o brilho acompanha o ponteiro.
+const finePointer = window.matchMedia('(hover: hover) and (pointer: fine)')
+const calmMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
+document.addEventListener('click', (event) => {
+  const flip = event.target.closest?.('.fc-flip')
+  if (!flip) return
+  flip.setAttribute('aria-pressed', String(flip.closest('.fc-card').classList.toggle('is-flipped')))
+})
+document.addEventListener('keydown', (event) => {
+  if ((event.key === 'Enter' || event.key === ' ') && event.target.matches?.('.fc-flip')) { event.preventDefault(); event.target.click() }
+})
+document.addEventListener('pointermove', (event) => {
+  if (!finePointer.matches || calmMotion.matches) return
+  const card = event.target.closest?.('.fc-card')
+  if (!card) return
+  const box = card.getBoundingClientRect()
+  const x = (event.clientX - box.left) / box.width, y = (event.clientY - box.top) / box.height
+  card.style.setProperty('--ry', ((x - 0.5) * 14).toFixed(1) + 'deg')
+  card.style.setProperty('--rx', ((0.5 - y) * 12).toFixed(1) + 'deg')
+  card.style.setProperty('--mx', Math.round(x * 100) + '%')
+  card.style.setProperty('--foil', '1')
+}, { passive: true })
+document.addEventListener('pointerout', (event) => {
+  const card = event.target.closest?.('.fc-card')
+  if (card && !card.contains(event.relatedTarget)) ['--rx', '--ry', '--foil'].forEach((key) => card.style.removeProperty(key))
+})
 
 // ---------- Avatares e fotos de perfil ----------
 // Foto enviada > avatar ilustrado (perfis de exemplo) > iniciais.
@@ -1429,16 +1482,17 @@ function profilePage() {
   const cardOwner = me || { ...p, id: 'me' }
   const reveal = (state.reviews[cardOwner.id] || []).length > seen
   return shell(
-    '<section class="hero surface rounded-card p-6 sm:p-8 pos-' + positionGroup(p.pos) + '"><div class="profile-hero-grid"><div class="min-w-0">' +
-    '<div class="flex flex-wrap items-center gap-5">' + photoUploader({ name: p.name, photo: p.photo }) + '<div class="min-w-0 flex-[1_1_15rem]"><h1 class="page-title !mt-0">' + escapeHtml(p.name) + '</h1>' +
-    '<p class="mt-2 text-ink-soft">' + escapeHtml(describeAthlete(p)) + ' ' + age + ' ' + t('anos') + ', ' + escapeHtml(category) + ', ' + escapeHtml(p.city || '') + '.</p>' +
-    '<div class="mt-3 flex flex-wrap gap-1.5">' + posTag(p.pos) + posTag(p.secondary) + tag(category, true) + '</div></div>' +
-    '<button type="button" class="btn-secondary self-start" data-action="logout">' + icon('logout', 'size-4') + ' ' + t('Sair') + '</button></div>' +
-    '<dl class="profile-stats mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">' +
+    '<section class="hero surface rounded-card p-6 sm:p-8 pos-' + positionGroup(p.pos) + '"><div class="profile-hero-grid"><div class="profile-hero-info">' +
+    photoUploader({ name: p.name, photo: p.photo }) + '<h1 class="page-title">' + escapeHtml(p.name) + '</h1>' +
+    '<p class="text-ink-soft">' + escapeHtml(describeAthlete(p)) + ' ' + age + ' ' + t('anos') + ', ' + escapeHtml(category) + ', ' + escapeHtml(p.city || '') + '.</p>' +
+    '<div class="flex flex-wrap justify-center gap-1.5 lg:justify-start">' + posTag(p.pos) + posTag(p.secondary) + tag(category, true) + '</div>' +
+    '<button type="button" class="btn-secondary" data-action="logout">' + icon('logout', 'size-4') + ' ' + t('Sair') + '</button></div>' +
+    playerCard(cardOwner, { reveal, size: 'large', flip: true }) +
+    '<dl class="profile-stats profile-hero-stats grid grid-cols-2 gap-3">' +
     '<div><dt>' + t('Nota média') + '</dt><dd class="num ' + rateClass(avg) + '">' + escapeHtml(String(avg)) + '</dd></div>' +
     '<div><dt>' + t('Peneiras inscritas') + '</dt><dd class="num">' + enrolledCount + '</dd></div>' +
     '<div><dt>' + t('Avaliações recebidas') + '</dt><dd class="num">' + getPlayerReviewCount() + '</dd></div>' +
-    '<div><dt>' + t('Notificações') + '</dt><dd class="num">' + myNotifications().length + '</dd></div></dl></div>' + playerCard(cardOwner, { reveal }) + '</div></section>' +
+    '<div><dt>' + t('Notificações') + '</dt><dd class="num">' + myNotifications().length + '</dd></div></dl></div></section>' +
     '<section class="mt-6 grid gap-5 xl:grid-cols-[.8fr_1.2fr]">' +
     '<aside class="reveal panel h-max"><h2 class="section-title !mt-0">' + t('Atributos') + '</h2><p class="mt-1 text-sm text-ink-soft">' + t('Média das notas dos olheiros, de 0 a 10, nas características da sua posição.') + '</p>' +
     (Object.keys(attrs.values).length
@@ -2639,24 +2693,27 @@ function renderHistory(history, role) {
   return html
 }
 
-// Prancheta tática do fundo do login: a jogada (volante → meia → ponta → atacante → gol) é SMIL nativo do SVG.
-const TACTIC_BOARD = '<svg class="tactic-board" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><g class="tb-lines"><rect x="40" y="40" width="1520" height="820" rx="6" pathLength="1"/><path d="M800 40v820" pathLength="1"/><circle cx="800" cy="450" r="120" pathLength="1"/><path d="M40 230h230v440H40M1560 230h-230v440h230" pathLength="1"/><path d="M40 350h80v200H40M1560 350h-80v200h80" pathLength="1"/><path d="M270 360a120 120 0 0 1 0 180M1330 360a120 120 0 0 0 0 180" pathLength="1"/></g><g class="tb-arrows"><path d="M300 170 C 400 110, 520 120, 620 200" pathLength="1"/><path d="M860 770 C 980 810, 1100 770, 1180 690" pathLength="1"/></g><circle cx="1250" cy="400" r="13" class="tb-opp" style="--d:0.60s"/><circle cx="1300" cy="560" r="13" class="tb-opp" style="--d:0.70s"/><circle cx="1180" cy="300" r="13" class="tb-opp" style="--d:0.80s"/><circle cx="1150" cy="690" r="13" class="tb-opp" style="--d:0.90s"/><circle cx="940" cy="520" r="13" class="tb-opp" style="--d:1.00s"/><circle cx="880" cy="280" r="13" class="tb-opp" style="--d:1.10s"/><circle cx="1520" cy="450" r="13" class="tb-opp" style="--d:1.20s"/><g class="tb-player pos-gk" style="--d:0.00s"><circle cx="110" cy="450" r="15" class="tb-dot"/><circle cx="110" cy="450" r="26" class="tb-halo"/></g><g class="tb-player pos-def" style="--d:0.12s"><circle cx="300" cy="170" r="15" class="tb-dot"/><circle cx="300" cy="170" r="26" class="tb-halo"/></g><g class="tb-player pos-def" style="--d:0.24s"><circle cx="300" cy="740" r="15" class="tb-dot"/><circle cx="300" cy="740" r="26" class="tb-halo"/></g><g class="tb-player pos-def" style="--d:0.36s"><circle cx="470" cy="90" r="15" class="tb-dot"/><circle cx="470" cy="90" r="26" class="tb-halo"/></g><g class="tb-player pos-mid" style="--d:0.48s"><circle cx="560" cy="640" r="15" class="tb-dot"/><circle cx="560" cy="640" r="26" class="tb-halo"/></g><g class="tb-player pos-mid" style="--d:0.60s"><circle cx="760" cy="420" r="15" class="tb-dot"/><circle cx="760" cy="420" r="26" class="tb-halo"/></g><g class="tb-player pos-atk" style="--d:0.72s"><circle cx="1000" cy="200" r="15" class="tb-dot"/><circle cx="1000" cy="200" r="26" class="tb-halo"/></g><g class="tb-player pos-atk" style="--d:0.84s"><circle cx="1100" cy="560" r="15" class="tb-dot"/><circle cx="1100" cy="560" r="26" class="tb-halo"/></g><g class="tb-player pos-mid" style="--d:0.96s"><circle cx="860" cy="770" r="15" class="tb-dot"/><circle cx="860" cy="770" r="26" class="tb-halo"/></g><g class="tb-trails"><line x1="560" y1="640" x2="760" y2="420" class="tb-trail" stroke-dasharray="297.3" stroke-dashoffset="297.3"><animate attributeName="stroke-dashoffset" dur="9s" repeatCount="indefinite" values="297.3;297.3;0;0;297.3" keyTimes="0;0.0000;0.1111;0.92;1"/><animate attributeName="opacity" dur="9s" repeatCount="indefinite" values="1;1;0" keyTimes="0;0.9;1"/></line><line x1="760" y1="420" x2="1000" y2="200" class="tb-trail" stroke-dasharray="325.6" stroke-dashoffset="325.6"><animate attributeName="stroke-dashoffset" dur="9s" repeatCount="indefinite" values="325.6;325.6;0;0;325.6" keyTimes="0;0.1556;0.2778;0.92;1"/><animate attributeName="opacity" dur="9s" repeatCount="indefinite" values="1;1;0" keyTimes="0;0.9;1"/></line><line x1="1000" y1="200" x2="1100" y2="560" class="tb-trail" stroke-dasharray="373.6" stroke-dashoffset="373.6"><animate attributeName="stroke-dashoffset" dur="9s" repeatCount="indefinite" values="373.6;373.6;0;0;373.6" keyTimes="0;0.3222;0.4444;0.92;1"/><animate attributeName="opacity" dur="9s" repeatCount="indefinite" values="1;1;0" keyTimes="0;0.9;1"/></line><line x1="1100" y1="560" x2="1556" y2="450" class="tb-trail tb-shot" stroke-dasharray="469.1" stroke-dashoffset="469.1"><animate attributeName="stroke-dashoffset" dur="9s" repeatCount="indefinite" values="469.1;469.1;0;0;469.1" keyTimes="0;0.4778;0.5333;0.92;1"/><animate attributeName="opacity" dur="9s" repeatCount="indefinite" values="1;1;0" keyTimes="0;0.9;1"/></line></g><circle cx="1556" cy="450" r="10" class="tb-goal"><animate attributeName="r" dur="9s" repeatCount="indefinite" values="10;10;90;90" keyTimes="0;0.5333;0.6333;1"/><animate attributeName="opacity" dur="9s" repeatCount="indefinite" values="0;.9;0;0" keyTimes="0;0.5333;0.6333;1"/></circle><g class="tb-ball"><circle r="9" class="tb-ball-core"/><animateMotion dur="9s" repeatCount="indefinite" path="M560 640 L760 420 L1000 200 L1100 560 L1556 450" keyPoints="0.0000;0.2029;0.2029;0.4250;0.4250;0.6799;0.6799;1.0000;1.0000" keyTimes="0.0000;0.1111;0.1556;0.2778;0.3222;0.4444;0.4778;0.5333;1.0000" calcMode="linear"/></g></svg>'
-
+// Capa do álbum: o ouro a tela toda, a lombada, o título e três figurinhas de exemplo em leque.
 function loginPage() {
-  return '<main id="conteudo" tabindex="-1" class="login-stage outline-none text-chalk">' + TACTIC_BOARD +
-    '<header class="login-brand">' + brandLockup(40) + '</header>' +
-    '<div class="login-layout"><section class="login-intro">' +
-    '<h1 class="login-title">' + t('Seu próximo jogo começa aqui.') + '</h1><p class="mt-4 max-w-md text-lg">' + t('Peneiras da Pelé Academia para atletas de 7 a 20 anos, da Sub-7 à Sub-20.') + '</p>' +
-    '<div class="mt-8">' + partnerSeal() + '</div></section>' +
-    '<div class="login-card surface surface--raised"><h2 class="text-3xl font-bold">' + t('Entrar') + '</h2><p class="mt-2 text-sm text-ink-soft">' + t('Escolha o tipo de conta antes de entrar.') + '</p>' +
+  const fan = [[2, '-9deg', '1.2rem', '.15s'], [1, '0deg', '0', '.3s'], [5, '8deg', '1.4rem', '.45s']]
+    .map(([id, r, y, d]) => defaultAthletes.find((a) => a.id === id)).filter(Boolean)
+  const tilt = [['-9deg', '1.1rem', '.15s'], ['0deg', '0', '.3s'], ['8deg', '1.3rem', '.45s']]
+  return '<main id="conteudo" tabindex="-1" class="album-cover on-album outline-none">' +
+    '<header class="cover-top">' + brandLockup(40) + '</header>' +
+    '<p class="cover-spine" aria-hidden="true">' + t('Peneiras · Sub-7 a Sub-20') + '</p>' +
+    '<section class="cover-intro"><h1 class="login-title">' + t('Seu próximo jogo começa aqui.') + '</h1><p class="cover-lead">' + t('Peneiras da Pelé Academia para atletas de 7 a 20 anos, da Sub-7 à Sub-20.') + '</p>' +
+    '<div class="cover-fan">' + fan.map((a, i) => playerCard(a, { size: 'compact' }).replace('<figure class="', '<figure style="--r:' + tilt[i][0] + ';--y:' + tilt[i][1] + ';--d:' + tilt[i][2] + '" class="')).join('') + '</div>' +
+    '<p class="cover-note">' + t('Figurinhas de exemplo. A sua nasce no cadastro e a nota vem das avaliações dos olheiros.') + '</p>' +
+    '<div class="cover-foot">' + partnerSeal() + '</div></section>' +
+    '<div class="login-card paper"><h2 class="text-3xl font-bold">' + t('Entrar') + '</h2><p class="mt-2 text-sm text-ink-soft">' + t('Escolha o tipo de conta antes de entrar.') + '</p>' +
     '<div class="segmented mt-6" role="group" aria-label="' + t('Tipo de conta') + '" data-active="0"><span class="seg-pill" aria-hidden="true"></span><button type="button" class="role-tab active" data-role="player" aria-pressed="true">' + icon('user', 'size-4 seg-icon') + t('Jogador') + '</button><button type="button" class="role-tab" data-role="staff" aria-pressed="false">' + icon('clipboard', 'size-4 seg-icon') + t('Funcionário') + '</button></div>' +
     '<form id="login-form" class="mt-6 space-y-4">' + input(t('E-mail'), 'login-email', '', 'email', true) + input(t('Senha'), 'login-password', '', 'password', true) + '<p id="login-error" class="hidden rounded-xl border border-danger/40 bg-danger/10 px-3 py-2 text-xs font-semibold text-danger"></p><button class="btn-primary w-full" type="submit">' + t('Entrar') + ' ' + icon('arrow', 'size-4') + '</button></form>' +
     '<button type="button" class="mt-3 w-full text-center text-xs text-brand hover:text-brand-strong" data-action="forgot-password">' + t('Esqueci minha senha') + '</button>' +
     '<div class="my-6 flex items-center gap-3"><span class="h-px flex-1 bg-line"></span><span class="text-xs text-ink-soft">' + t('ou') + '</span><span class="h-px flex-1 bg-line"></span></div>' +
     '<button type="button" class="btn-secondary w-full" data-route="register">' + t('Criar conta de jogador') + '</button><button type="button" class="mt-3 w-full text-center text-xs text-ink-soft hover:text-chalk" data-action="demo">' + t('Entrar com conta demo') + '</button>' +
-    '<button type="button" class="mt-4 inline-flex w-full items-center justify-center gap-1.5 text-xs text-ink-soft hover:text-chalk" data-action="change-lang">' + icon('globe', 'size-3.5') + ' ' + LANGS.find((l) => l.code !== getLang())?.label + '</button><div class="mt-3 flex justify-center">' + themeButton() + '</div>' +
+    '<div class="mt-4 flex items-center justify-center gap-2"><button type="button" class="btn-ghost text-xs" data-action="change-lang">' + icon('globe', 'size-3.5') + ' ' + LANGS.find((l) => l.code !== getLang())?.label + '</button>' + themeButton() + '</div>' +
     '<p class="mt-4 text-center text-xs"><a class="text-ink-soft underline underline-offset-4 hover:text-chalk" href="#/privacidade">' + t('Como usamos seus dados') + '</a></p>' +
-    '<p class="mt-3 text-center text-xs leading-5 text-ink-soft">' + t('Funcionário (teste)') + ': funcionario@academiapele.com / Academia123!<br/>' + t('Jogador (teste)') + ': gabriel@academiapele.com / Demo123!</p></div></div></main>'
+    '<p class="mt-3 text-center text-xs leading-5 text-ink-soft">' + t('Funcionário (teste)') + ': funcionario@academiapele.com / Academia123!<br/>' + t('Jogador (teste)') + ': gabriel@academiapele.com / Demo123!</p></div></main>'
 }
 
 function passwordRecoveryPage() {
@@ -2705,12 +2762,12 @@ const REG_STEPS = [
 function registerPage() {
   regPhoto = null
   const step = (n, body) => '<fieldset class="reg-step" data-step="' + n + '"' + (n ? ' hidden' : '') + '><legend class="sr-only">' + t(REG_STEPS[n].title) + '</legend><h2 class="reg-step-title" tabindex="-1">' + t(REG_STEPS[n].title) + '</h2><p class="mt-1 text-sm text-ink-soft">' + t(REG_STEPS[n].hint) + '</p><div class="mt-5 grid gap-4 sm:grid-cols-2">' + body + '</div></fieldset>'
-  return '<main id="conteudo" tabindex="-1" class="register-stage outline-none text-chalk">' +
+  return '<main id="conteudo" tabindex="-1" class="register-stage on-album outline-none">' +
     '<aside class="register-aside"><button type="button" class="self-start" data-route="login" aria-label="' + t('Voltar para o login') + '">' + brandLockup(36) + '</button>' +
     '<div><h1 class="register-title">' + t('Criar conta de jogador') + '</h1><p class="mt-3 max-w-sm text-ink-soft">' + t('Três etapas curtas (quatro para menores de 18). A idade e a categoria saem da data de nascimento.') + '</p></div>' +
     '<ol class="stepper" aria-label="' + t('Etapas do cadastro') + '">' + REG_STEPS.map((item, i) => '<li data-stepper="' + i + '"' + (i ? '' : ' aria-current="step"') + (item.minorOnly ? ' hidden' : '') + '><span class="stepper-dot">' + (i + 1) + '</span><span><strong>' + t(item.title) + '</strong><small>' + t(item.hint) + '</small></span></li>').join('') + '</ol>' +
     '<div class="register-foot">' + partnerSeal() + '<p class="text-sm text-ink-soft">' + t('Já tem conta?') + ' <button type="button" class="font-semibold text-brand underline underline-offset-4" data-route="login">' + t('Entrar') + '</button></p></div></aside>' +
-    '<section class="register-card surface surface--raised"><div class="reg-progress" aria-hidden="true"><span style="width:33.3%"></span></div><p class="mt-3 text-xs font-semibold text-ink-soft" data-step-label aria-live="polite">' + t('Etapa') + ' 1 ' + t('de') + ' 3</p>' +
+    '<section class="register-card paper"><div class="reg-progress" aria-hidden="true"><span></span></div><p class="mt-3 text-xs font-semibold text-ink-soft" data-step-label aria-live="polite">' + t('Etapa') + ' 1 ' + t('de') + ' 3</p>' +
     '<form id="register-form" class="mt-4" novalidate>' +
     step(0,
       '<div class="sm:col-span-2 flex items-center gap-4">' + photoUploader({ name: 'Atleta' }, 'reg-photo-input') + '<p class="text-sm text-ink-soft">' + t('Foto de perfil (opcional). Ajuda os olheiros a lembrarem de você.') + '</p></div>' +
@@ -2812,7 +2869,7 @@ function initRegisterSteps() {
     form.querySelector('[data-reg-back]').hidden = position === 0
     form.querySelector('[data-reg-next]').hidden = last
     form.querySelector('[type="submit"]').hidden = !last
-    document.querySelector('.reg-progress span').style.width = ((position + 1) / steps.length * 100) + '%'
+    document.querySelector('.reg-progress span').style.setProperty('--p', String((position + 1) / steps.length))
     document.querySelector('[data-step-label]').textContent = t('Etapa') + ' ' + (position + 1) + ' ' + t('de') + ' ' + steps.length
     if (n === 2) {
       const name = (document.querySelector('#reg-name')?.value || '').trim().split(' ')[0]
@@ -2928,7 +2985,7 @@ function openAthleteModal(athleteId) {
   wrapper.innerHTML =
     '<div class="athlete-modal pos-' + positionGroup(athlete.pos) + ' max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-card surface surface--raised shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="athlete-modal-title" data-lenis-prevent>' +
     '<header class="athlete-modal-hero"><button type="button" class="icon-button athlete-modal-close" data-close-modal aria-label="' + t('Fechar') + '">' + icon('close') + '</button>' +
-    '<div class="flex flex-wrap items-end gap-5">' + playerCard(athlete) +
+    '<div class="flex flex-wrap items-end gap-5">' + playerCard(athlete, { flip: true }) +
     '<div class="min-w-0 flex-1"><h2 id="athlete-modal-title" class="text-3xl font-semibold leading-tight">' + escapeHtml(athlete.name) + '</h2>' +
     '<p class="mt-1 text-ink-soft">' + athlete.age + ' ' + t('anos') + ' · ' + escapeHtml(athlete.city) + '/' + escapeHtml(athlete.state) + (athlete.demo ? ' · ' + t('perfil de exemplo') : '') + '</p>' +
     '<div class="mt-3 flex flex-wrap gap-1.5">' + posTag(athlete.pos) + posTag(athlete.secondary) + tag(getCategoryFromAge(athlete.age), true) + (athlete.gender ? tag(athlete.gender, true) : '') + '</div></div>' +
@@ -3377,7 +3434,7 @@ function openEnrolledModal(tryoutId) {
     if (!count) return
     const present = profiles.filter((profile) => checkinsOf(tryout)[profile.email]).length
     count.innerHTML = '<strong class="num text-2xl text-chalk">' + present + '</strong> <span class="text-ink-soft">' + t('de') + ' ' + profiles.length + ' ' + t('presentes') + (present < profiles.length ? ' · ' + (profiles.length - present) + ' ' + t('faltando') : '') + '</span>'
-    wrapper.querySelector('[data-checkin-fill]').style.width = (present / profiles.length * 100) + '%'
+    wrapper.querySelector('[data-checkin-fill]').style.setProperty('--p', String(present / profiles.length))
   }
   updateCount()
   document.body.appendChild(wrapper)
@@ -4246,9 +4303,9 @@ document.querySelector('.skip-link')?.addEventListener('click', (event) => {
 
 initSmoothScroll()
 
-// Abertura: na primeira visita da sessão fica no mínimo 1,5 s (a interface já monta por baixo);
+// Abertura: na primeira visita da sessão fica no mínimo 2,3 s (a interface já monta por baixo);
 // depois disso, ou com "reduzir movimento", sai assim que o app estiver pronto. Clique ou Esc pulam.
-const SPLASH_MIN = 1500
+const SPLASH_MIN = 2300 // o pacote rasga e a carta sai girando por volta de 2 s
 function finishSplash() {
   const splash = document.querySelector('#splash')
   if (!splash) return
@@ -4274,7 +4331,7 @@ function finishSplash() {
 async function boot() {
   // O index.html vem em português; o que ele mostra antes do app é traduzido aqui.
   document.querySelector('.skip-link')?.replaceChildren(t('Pular para o conteúdo'))
-  document.querySelector('#splash .ball-loader > span')?.replaceChildren(t('Entrando em campo…'))
+  document.querySelector('#splash .splash-text')?.replaceChildren(t('Abrindo o pacote…'))
   document.querySelector('#splash .sr-only')?.replaceChildren(t('Carregando a Pelé Academia'))
   app.innerHTML = '<div class="grid min-h-screen place-items-center text-sm text-ink-soft">' + t('Carregando…') + '</div>'
   if (await initRemote()) {

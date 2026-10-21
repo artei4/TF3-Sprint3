@@ -977,4 +977,16 @@ const ES = {
   "FIN": "DEF",
   "DEF": "ATJ",
   "SAÍ": "SAL",
+  // Álbum de figurinhas
+  "Posição": "Posición",
+  "Secundária": "Secundaria",
+  "Perna": "Pierna",
+  "Presenças em peneiras": "Asistencias a pruebas",
+  "Ficha": "Ficha",
+  "Virar a carta para ver a ficha.": "Gira la carta para ver la ficha.",
+  "Toque na carta para ver a ficha": "Toca la carta para ver la ficha",
+  "Peneiras · Sub-7 a Sub-20 · Pelé Academia": "Pruebas · Sub-7 a Sub-20 · Pelé Academia",
+  "Figurinhas de exemplo. A sua nasce no cadastro e a nota vem das avaliações dos olheiros.": "Cromos de ejemplo. El tuyo nace en el registro y la nota sale de las evaluaciones de los ojeadores.",
+  "Abrindo o pacote…": "Abriendo el sobre…",
+  "Peneiras · Sub-7 a Sub-20": "Pruebas · Sub-7 a Sub-20",
 }
