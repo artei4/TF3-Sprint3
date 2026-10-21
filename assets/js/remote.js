@@ -154,7 +154,7 @@ export async function updateOwnProfile(uid, { name, data, privateData }) {
 export async function fetchEvaluations() {
   const { data, error } = await client
     .from('evaluations')
-    .select('id,athlete_id,evaluator_id,position,ratings,rating,base_rating,adjustment,stats,strengths,comment,created_at')
+    .select('id,athlete_id,evaluator_id,position,ratings,rating,base_rating,adjustment,stats,strengths,comment,tryout_id,created_at')
     .order('created_at', { ascending: false })
     .limit(2000)
   if (error) throw error
@@ -166,7 +166,7 @@ export async function fetchEvaluations() {
   return (data || []).map((row) => ({ ...row, evaluator: byId.get(row.evaluator_id) || null }))
 }
 
-export async function createEvaluation({ athleteId, position, ratings, rating, baseRating, adjustment, stats, strengths, comment }) {
+export async function createEvaluation({ athleteId, position, ratings, rating, baseRating, adjustment, stats, strengths, comment, tryoutId = null }) {
   const { data, error } = await client
     .from('evaluations')
     .insert({
@@ -179,8 +179,9 @@ export async function createEvaluation({ athleteId, position, ratings, rating, b
       stats,
       strengths,
       comment,
+      tryout_id: tryoutId,
     })
-    .select('id,athlete_id,evaluator_id,position,ratings,rating,base_rating,adjustment,stats,strengths,comment,created_at')
+    .select('id,athlete_id,evaluator_id,position,ratings,rating,base_rating,adjustment,stats,strengths,comment,tryout_id,created_at')
     .single()
   return { row: data || null, error }
 }
