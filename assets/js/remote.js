@@ -4,7 +4,7 @@
 import { SUPABASE_URL, SUPABASE_KEY } from './config.js'
 import { t } from './i18n.js'
 
-const SUPABASE_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
+const SUPABASE_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm'
 const LOAD_TIMEOUT_MS = 8000
 
 export const remote = { enabled: false }
@@ -42,6 +42,26 @@ export async function initRemote() {
 export function describeError(error) {
   const text = String(error?.message || error || '').toLowerCase()
   const code = String(error?.code || '').toLowerCase()
+  if (text.includes('tryout_full')) return t('As vagas desta peneira acabaram.')
+  if (text.includes('tryout_past')) return t('As inscrições fecharam no horário de início da peneira.')
+  if (text.includes('tryout_closed')) return t('Esta peneira já foi encerrada.')
+  if (text.includes('venues_name_city_key')) return t('Já existe um local com esse nome nesta cidade.')
+  if (text.includes('venue_inactive')) return t('Este local foi desativado. Escolha outro.')
+  if (text.includes('not_player')) return t('Só atletas podem se inscrever em peneiras.')
+  if (text.includes('not_admin')) return t('Só administradores podem fazer isso.')
+  if (text.includes('invite_email_taken')) return t('Este e-mail já tem uma conta na plataforma.')
+  if (text.includes('invalid_email')) return t('Informe um e-mail válido.')
+  if (text.includes('invite_not_pending')) return t('Este convite já foi usado ou cancelado.')
+  if (text.includes('cannot_change_self')) return t('Você não pode alterar a própria conta. Peça a outro administrador.')
+  if (text.includes('checkin_not_open')) return t('A chamada abre no dia da peneira.')
+  if (text.includes('not_enrolled')) return t('Este atleta não está inscrito nesta peneira.')
+  if (text.includes('not_staff')) return t('Esta conta não é de funcionário.')
+  if (text.includes('guardian_required')) return t('Falta a autorização do responsável. Registre no seu perfil.')
+  if (text.includes('consent_required')) return t('A autorização do responsável é obrigatória para menores de 18 anos.')
+  if (text.includes('no_consent')) return t('Não há autorização ativa para revogar.')
+  if (text.includes('birth_locked')) return t('A data de nascimento não muda depois do cadastro. Fale com a equipe para corrigir.')
+  if (text.includes('account_disabled')) return t('Esta conta de funcionário foi desativada. Fale com um administrador.')
+  if (text.includes('message_rate_limit')) return t('Você enviou muitas mensagens seguidas. Aguarde um minuto.')
   if (text.includes('invalid login credentials')) return t('E-mail ou senha incorretos.')
   if (text.includes('already registered') || code === 'user_already_exists') return t('Já existe uma conta com esse e-mail.')
   if (text.includes('email not confirmed')) return t('Confirme seu e-mail antes de entrar (veja sua caixa de entrada).')
@@ -64,11 +84,13 @@ export async function getSessionUser() {
 // `publicData` fica visível para a equipe (posição, cidade...). `privateData` só o próprio usuário enxerga (CPF, endereço).
 // O perfil é criado no banco por um gatilho (trigger) a partir destes metadados; o papel (jogador/funcionário) é definido
 // no servidor e não pode ser escolhido pelo navegador.
-export async function signUp({ email, password, name, publicData = {}, privateData = {} }) {
+// `invite` é o código do link de convite: o servidor confere e, se valer, cria a conta como funcionário.
+// `guardian` (menores de 18): responsável e autorização; sem isso o servidor recusa a conta do menor.
+export async function signUp({ email, password, name, publicData = {}, privateData = {}, invite = '', guardian = null }) {
   const { data, error } = await client.auth.signUp({
     email,
     password,
-    options: { data: { name, public: publicData, private: privateData } },
+    options: { data: { name, public: publicData, private: privateData, invite, guardian } },
   })
   return { error, session: data?.session || null }
 }
@@ -103,7 +125,8 @@ export function onSignedOut(callback) {
 const PROFILE_COLUMNS = 'id,email,role,athlete_num,name,data'
 
 export async function fetchOwnProfile(uid) {
-  const own = await client.from('profiles').select(PROFILE_COLUMNS).eq('id', uid).maybeSingle()
+  // '*' traz is_admin/active quando a migration de equipe já rodou, sem quebrar o login antes dela.
+  const own = await client.from('profiles').select('*').eq('id', uid).maybeSingle()
   if (own.error) throw own.error
   const priv = await client.from('profile_private').select('data').eq('id', uid).maybeSingle()
   if (priv.error) throw priv.error
@@ -112,7 +135,8 @@ export async function fetchOwnProfile(uid) {
 
 // Jogadores enxergam a lista de funcionários; funcionários enxergam a lista de jogadores.
 export async function listDirectory(role) {
-  const { data, error } = await client.from('profiles').select(PROFILE_COLUMNS).eq('role', role === 'staff' ? 'player' : 'staff')
+  // Atleta vê a equipe; equipe e olheiros veem atletas (para o olheiro, o banco filtra a vitrine).
+  const { data, error } = await client.from('profiles').select(PROFILE_COLUMNS).eq('role', role === 'player' ? 'staff' : 'player')
   if (error) throw error
   return data || []
 }
@@ -130,7 +154,7 @@ export async function updateOwnProfile(uid, { name, data, privateData }) {
 export async function fetchEvaluations() {
   const { data, error } = await client
     .from('evaluations')
-    .select('id,athlete_id,evaluator_id,position,ratings,rating,base_rating,adjustment,stats,strengths,comment,created_at')
+    .select('id,athlete_id,evaluator_id,position,ratings,rating,base_rating,adjustment,stats,strengths,comment,tryout_id,created_at')
     .order('created_at', { ascending: false })
     .limit(2000)
   if (error) throw error
@@ -142,7 +166,7 @@ export async function fetchEvaluations() {
   return (data || []).map((row) => ({ ...row, evaluator: byId.get(row.evaluator_id) || null }))
 }
 
-export async function createEvaluation({ athleteId, position, ratings, rating, baseRating, adjustment, stats, strengths, comment }) {
+export async function createEvaluation({ athleteId, position, ratings, rating, baseRating, adjustment, stats, strengths, comment, tryoutId = null }) {
   const { data, error } = await client
     .from('evaluations')
     .insert({
@@ -155,8 +179,9 @@ export async function createEvaluation({ athleteId, position, ratings, rating, b
       stats,
       strengths,
       comment,
+      tryout_id: tryoutId,
     })
-    .select('id,athlete_id,evaluator_id,position,ratings,rating,base_rating,adjustment,stats,strengths,comment,created_at')
+    .select('id,athlete_id,evaluator_id,position,ratings,rating,base_rating,adjustment,stats,strengths,comment,tryout_id,created_at')
     .single()
   return { row: data || null, error }
 }
@@ -164,4 +189,169 @@ export async function createEvaluation({ athleteId, position, ratings, rating, b
 export async function removeEvaluation(id) {
   const { error } = await client.from('evaluations').delete().eq('id', id)
   return error || null
+}
+
+// ---------- Peneiras (migration 20261016120000_peneiras.sql) ----------
+export async function fetchTryouts() {
+  const { data, error } = await client.rpc('list_tryouts')
+  if (error) throw error
+  return data || []
+}
+
+// O servidor copia nome, cidade e UF do local (venue_id); os campos de texto vão só porque são obrigatórios.
+export async function createTryout({ title, date, time, location, city, state, category, positions, seats, venueId, description = '' }) {
+  const { error } = await client.from('tryouts').insert({ title, date, time, location, city, state, category, positions, seats, venue_id: venueId, description })
+  return error || null
+}
+
+export async function cancelTryout(id, reason) {
+  const { error } = await client.from('tryouts').update({ status: 'cancelled', cancel_reason: reason }).eq('id', id)
+  return error || null
+}
+
+export async function enrollTryout(id) {
+  // Pela função do servidor: ela trava a última vaga e confere data e status.
+  const { error } = await client.rpc('enroll_tryout', { p_tryout: id })
+  return error || null
+}
+
+export async function withdrawTryout(id, uid) {
+  const { error } = await client.from('tryout_enrollments').delete().eq('tryout_id', id).eq('athlete_id', uid)
+  return error || null
+}
+
+// Presença no dia (migration 20261024120000_presenca.sql). Devolve a hora da chegada (ou null ao desfazer).
+export async function setAttendance(id, email, present) {
+  const { data, error } = await client.rpc('set_attendance', { p_tryout: id, p_email: email, p_present: present })
+  return { error: error || null, at: data || null }
+}
+
+// ---------- Locais de peneira ----------
+const VENUE_COLUMNS = 'id,name,address,district,city,state,zip,reference,active,updated_by,updated_at'
+
+export async function fetchVenues() {
+  const { data, error } = await client.from('venues').select(VENUE_COLUMNS).order('name')
+  if (error) throw error
+  return data || []
+}
+
+// Sem id cria; com id edita (inclusive ativar/desativar). Apagar não existe: só desativar.
+export async function saveVenue(id, fields) {
+  const query = id ? client.from('venues').update(fields).eq('id', id) : client.from('venues').insert(fields)
+  const { data, error } = await query.select(VENUE_COLUMNS).single()
+  return { row: data || null, error }
+}
+
+// ---------- Conversas ----------
+const MESSAGE_COLUMNS = 'id,athlete_id,staff_id,sender_id,body,created_at'
+
+export async function fetchMessages() {
+  const { data, error } = await client.from('messages').select(MESSAGE_COLUMNS).order('created_at', { ascending: true }).limit(2000)
+  if (error) throw error
+  return data || []
+}
+
+export async function sendMessage({ athleteId, staffId, senderId, body }) {
+  const { data, error } = await client
+    .from('messages')
+    .insert({ athlete_id: athleteId, staff_id: staffId, sender_id: senderId, body })
+    .select(MESSAGE_COLUMNS)
+    .single()
+  return { row: data || null, error }
+}
+
+// ---------- Equipe (migration 20261021120000_equipe.sql) ----------
+// Convites, administradores e histórico. O banco confere se quem pede é administrador.
+export async function fetchTeam() {
+  const [staff, invites, log] = await Promise.all([
+    client.from('profiles').select(PROFILE_COLUMNS + ',is_admin,active').in('role', ['staff', 'scout']).order('name'),
+    client.from('staff_invites').select('id,email,is_admin,role,club,created_by,created_at,expires_at,used_by,used_at,revoked_at').order('created_at', { ascending: false }).limit(50),
+    client.from('audit_log').select('id,actor_id,action,entity,entity_id,details,created_at').in('entity', ['staff', 'staff_invite']).order('created_at', { ascending: false }).limit(20),
+  ])
+  const error = staff.error || invites.error || log.error
+  if (error) throw error
+  return { staff: staff.data || [], invites: invites.data || [], log: log.data || [] }
+}
+
+export async function createStaffInvite(email, admin) {
+  const { data, error } = await client.rpc('create_staff_invite', { p_email: email, p_admin: admin })
+  return { invite: data?.[0] || null, error }
+}
+
+export async function revokeStaffInvite(id) {
+  const { error } = await client.rpc('revoke_staff_invite', { p_id: id })
+  return error || null
+}
+
+export async function updateStaff(id, active, admin) {
+  const { error } = await client.rpc('update_staff', { p_profile: id, p_active: active, p_admin: admin })
+  return error || null
+}
+
+// Funciona sem login (é a primeira tela de quem recebeu o link).
+export async function checkStaffInvite(code) {
+  const { data, error } = await client.rpc('check_invite', { p_code: code })
+  if (error) throw error
+  return data?.[0] || null
+}
+
+// ---------- Responsável legal (migration 20261023120000_responsavel.sql) ----------
+// O atleta vê o próprio; a equipe vê todos. Só as funções do servidor gravam.
+export async function fetchGuardians() {
+  const { data, error } = await client.from('guardians').select('athlete_id,name,relationship,email,phone,consent_at,consent_version,revoked_at')
+  if (error) throw error
+  return data || []
+}
+
+export async function saveGuardian({ name, relationship, email, phone, consent }) {
+  const { error } = await client.rpc('save_guardian', { p_name: name, p_relationship: relationship, p_email: email, p_phone: phone, p_consent: consent })
+  return error || null
+}
+
+export async function revokeGuardianConsent() {
+  const { error } = await client.rpc('revoke_guardian_consent')
+  return error || null
+}
+
+// Fale conosco: qualquer pessoa envia (sem ler de volta: só a equipe lê a tabela).
+export async function sendContactMessage({ name, email, topic, body }) {
+  const { error } = await client.from('contact_messages').insert({ name, email, topic, body })
+  return error
+}
+
+export async function fetchContactMessages() {
+  const { data, error } = await client
+    .from('contact_messages')
+    .select('id,name,email,topic,body,created_at,handled_at')
+    .order('created_at', { ascending: false })
+    .limit(200)
+  if (error) throw error
+  return data || []
+}
+
+export async function markContactHandled(id, uid) {
+  const { error } = await client.from('contact_messages').update({ handled_at: new Date().toISOString(), handled_by: uid }).eq('id', id)
+  return error
+}
+
+// ---------- Olheiros de clubes (migration 20261027120000_olheiros.sql) ----------
+export async function createScoutInvite(email, club) {
+  const { data, error } = await client.rpc('create_scout_invite', { p_email: email, p_club: club })
+  return { invite: data?.[0] || null, error }
+}
+
+export async function fetchScoutRequests() {
+  const { data, error } = await client.from('scout_requests').select('id,scout_id,athlete_id,message,status,created_at,decided_at,scout:profiles!scout_requests_scout_id_fkey(name,email,data),athlete:profiles!scout_requests_athlete_id_fkey(athlete_num)').order('created_at', { ascending: false }).limit(200)
+  if (error) throw error
+  return data || []
+}
+
+export async function createScoutRequest(athleteId, message) {
+  const { error } = await client.from('scout_requests').insert({ athlete_id: athleteId, message })
+  return error
+}
+
+export async function decideScoutRequest(id, status, uid) {
+  const { error } = await client.from('scout_requests').update({ status, decided_at: new Date().toISOString(), decided_by: uid }).eq('id', id)
+  return error
 }
