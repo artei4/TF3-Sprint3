@@ -135,7 +135,8 @@ export async function fetchOwnProfile(uid) {
 
 // Jogadores enxergam a lista de funcionários; funcionários enxergam a lista de jogadores.
 export async function listDirectory(role) {
-  const { data, error } = await client.from('profiles').select(PROFILE_COLUMNS).eq('role', role === 'staff' ? 'player' : 'staff')
+  // Atleta vê a equipe; equipe e olheiros veem atletas (para o olheiro, o banco filtra a vitrine).
+  const { data, error } = await client.from('profiles').select(PROFILE_COLUMNS).eq('role', role === 'player' ? 'staff' : 'player')
   if (error) throw error
   return data || []
 }
@@ -262,8 +263,8 @@ export async function sendMessage({ athleteId, staffId, senderId, body }) {
 // Convites, administradores e histórico. O banco confere se quem pede é administrador.
 export async function fetchTeam() {
   const [staff, invites, log] = await Promise.all([
-    client.from('profiles').select(PROFILE_COLUMNS + ',is_admin,active').eq('role', 'staff').order('name'),
-    client.from('staff_invites').select('id,email,is_admin,created_by,created_at,expires_at,used_by,used_at,revoked_at').order('created_at', { ascending: false }).limit(50),
+    client.from('profiles').select(PROFILE_COLUMNS + ',is_admin,active').in('role', ['staff', 'scout']).order('name'),
+    client.from('staff_invites').select('id,email,is_admin,role,club,created_by,created_at,expires_at,used_by,used_at,revoked_at').order('created_at', { ascending: false }).limit(50),
     client.from('audit_log').select('id,actor_id,action,entity,entity_id,details,created_at').in('entity', ['staff', 'staff_invite']).order('created_at', { ascending: false }).limit(20),
   ])
   const error = staff.error || invites.error || log.error
@@ -288,7 +289,7 @@ export async function updateStaff(id, active, admin) {
 
 // Funciona sem login (é a primeira tela de quem recebeu o link).
 export async function checkStaffInvite(code) {
-  const { data, error } = await client.rpc('check_staff_invite', { p_code: code })
+  const { data, error } = await client.rpc('check_invite', { p_code: code })
   if (error) throw error
   return data?.[0] || null
 }
@@ -329,5 +330,27 @@ export async function fetchContactMessages() {
 
 export async function markContactHandled(id, uid) {
   const { error } = await client.from('contact_messages').update({ handled_at: new Date().toISOString(), handled_by: uid }).eq('id', id)
+  return error
+}
+
+// ---------- Olheiros de clubes (migration 20261027120000_olheiros.sql) ----------
+export async function createScoutInvite(email, club) {
+  const { data, error } = await client.rpc('create_scout_invite', { p_email: email, p_club: club })
+  return { invite: data?.[0] || null, error }
+}
+
+export async function fetchScoutRequests() {
+  const { data, error } = await client.from('scout_requests').select('id,scout_id,athlete_id,message,status,created_at,decided_at,scout:profiles!scout_requests_scout_id_fkey(name,email,data),athlete:profiles!scout_requests_athlete_id_fkey(athlete_num)').order('created_at', { ascending: false }).limit(200)
+  if (error) throw error
+  return data || []
+}
+
+export async function createScoutRequest(athleteId, message) {
+  const { error } = await client.from('scout_requests').insert({ athlete_id: athleteId, message })
+  return error
+}
+
+export async function decideScoutRequest(id, status, uid) {
+  const { error } = await client.from('scout_requests').update({ status, decided_at: new Date().toISOString(), decided_by: uid }).eq('id', id)
   return error
 }

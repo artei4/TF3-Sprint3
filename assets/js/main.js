@@ -64,6 +64,10 @@ import {
   sendContactMessage,
   fetchContactMessages,
   markContactHandled,
+  createScoutInvite,
+  fetchScoutRequests,
+  createScoutRequest,
+  decideScoutRequest,
 } from './remote.js'
 
 const app = document.querySelector('#app')
@@ -75,6 +79,15 @@ const AVATAR_COLORS = [
   'from-emerald-400 to-lime-200', 'from-orange-400 to-amber-200', 'from-rose-400 to-pink-200',
 ]
 const LEGACY_EMAIL_DOMAIN = 'academiapelé.com'
+// Olheiro de clube de exemplo: entra por convite, vê só a vitrine e pede contato pela academia.
+const DEMO_SCOUTS = [
+  { email: 'olheiro@clube-exemplo.com', name: 'Carlos Mendes', phone: '(11) 99999-2222', pro: {
+    position: 'Olheiro', org: 'Esporte Clube Exemplo', team: 'Captação · Sub-17 e Sub-20', since: 2019,
+    bio: 'Observa atletas de base para o time sub-20 do clube. Procura principalmente pontas e atacantes rápidos, com coragem para o um contra um.',
+    specialties: ['Ponta', 'Atacante', 'Meia'], categories: ['Sub-17', 'Sub-20'],
+    experience: [{ role: 'Olheiro', org: 'Esporte Clube Exemplo', start: '2019', end: '' }, { role: 'Treinador de base', org: 'Escolinha de futebol (Santos/SP)', start: '2014', end: '2019' }],
+    credentials: ['Curso de observação técnica no futebol'], linkedin: '' } },
+]
 const DEMO_STAFF = [
   { email: 'funcionario@academiapele.com', name: 'Marina Lopes', position: 'Olheira', phone: '(11) 99999-0000', admin: true, pro: {
     org: 'Pelé Academia', team: 'Captação · Sub-15 a Sub-20', since: 2021,
@@ -91,6 +104,7 @@ const DEMO_STAFF = [
 ]
 
 const defaultProfile = {
+  showcase: true,
   name: 'Gabriel Martins',
   cpf: '',
   birth: '2008-03-14',
@@ -109,12 +123,12 @@ const defaultProfile = {
 }
 
 const defaultAthletes = [
-  { demo: true, id: 1, foot: 'Destro', email: 'gabriel@academiapele.com', name: 'Gabriel Martins', age: 18, birth: '2008-03-14', gender: 'Masculino', city: 'São Paulo', state: 'SP', pos: 'Atacante', secondary: 'Ponta', rating: 8.8, status: 'Em observação', color: 'from-amber-400 to-yellow-200', tags: ['Finalização', 'Velocidade', 'Drible'] },
-  { demo: true, id: 2, foot: 'Canhoto', name: 'Lucas Ferreira', age: 19, birth: '2007-07-20', gender: 'Masculino', city: 'Osasco', state: 'SP', pos: 'Meia', secondary: 'Volante', rating: 8.4, status: 'Disponível', color: 'from-sky-400 to-cyan-200', tags: ['Passe', 'Visão de jogo', 'Resistência'] },
+  { demo: true, id: 1, showcase: true, foot: 'Destro', email: 'gabriel@academiapele.com', name: 'Gabriel Martins', age: 18, birth: '2008-03-14', gender: 'Masculino', city: 'São Paulo', state: 'SP', pos: 'Atacante', secondary: 'Ponta', rating: 8.8, status: 'Em observação', color: 'from-amber-400 to-yellow-200', tags: ['Finalização', 'Velocidade', 'Drible'] },
+  { demo: true, id: 2, showcase: true, foot: 'Canhoto', name: 'Lucas Ferreira', age: 19, birth: '2007-07-20', gender: 'Masculino', city: 'Osasco', state: 'SP', pos: 'Meia', secondary: 'Volante', rating: 8.4, status: 'Disponível', color: 'from-sky-400 to-cyan-200', tags: ['Passe', 'Visão de jogo', 'Resistência'] },
   { demo: true, id: 3, foot: 'Destro', name: 'Rafael Souza', age: 17, birth: '2009-01-22', gender: 'Masculino', city: 'Guarulhos', state: 'SP', pos: 'Zagueiro', secondary: 'Lateral', rating: 8.1, status: 'Em avaliação', color: 'from-violet-400 to-fuchsia-200', tags: ['Marcação', 'Força', 'Cabeceio'] },
-  { demo: true, id: 4, foot: 'Destro', name: 'João Vitor', age: 18, birth: '2008-10-11', gender: 'Masculino', city: 'Campinas', state: 'SP', pos: 'Volante', secondary: 'Meia', rating: 8.6, status: 'Destaque', color: 'from-emerald-400 to-lime-200', tags: ['Desarme', 'Passe', 'Leitura'] },
+  { demo: true, id: 4, showcase: true, foot: 'Destro', name: 'João Vitor', age: 18, birth: '2008-10-11', gender: 'Masculino', city: 'Campinas', state: 'SP', pos: 'Volante', secondary: 'Meia', rating: 8.6, status: 'Destaque', color: 'from-emerald-400 to-lime-200', tags: ['Desarme', 'Passe', 'Leitura'] },
   { demo: true, id: 5, foot: 'Destro', name: 'Pedro Henrique', age: 20, birth: '2006-05-05', gender: 'Masculino', city: 'Santos', state: 'SP', pos: 'Goleiro', secondary: '—', rating: 8.0, status: 'Disponível', color: 'from-slate-300 to-slate-100', tags: ['Reflexo', 'Posicionamento', 'Saída'] },
-  { demo: true, id: 6, foot: 'Canhoto', name: 'Matheus Alves', age: 18, birth: '2008-12-02', gender: 'Masculino', city: 'Sorocaba', state: 'SP', pos: 'Ponta', secondary: 'Atacante', rating: 8.7, status: 'Destaque', color: 'from-orange-400 to-amber-200', tags: ['Velocidade', 'Drible', 'Cruzamento'] },
+  { demo: true, id: 6, showcase: true, foot: 'Canhoto', name: 'Matheus Alves', age: 18, birth: '2008-12-02', gender: 'Masculino', city: 'Sorocaba', state: 'SP', pos: 'Ponta', secondary: 'Atacante', rating: 8.7, status: 'Destaque', color: 'from-orange-400 to-amber-200', tags: ['Velocidade', 'Drible', 'Cruzamento'] },
 ]
 
 // Peneiras de exemplo organizadas pelas contas de exemplo da equipe (o atleta vê quem organiza e abre o perfil).
@@ -149,6 +163,7 @@ const state = {
   tryouts: readStorage('ap_tryouts', defaultTryouts),
   venues: readStorage('ap_venues', defaultVenues),
   invites: readStorage('ap_invites', []),
+  scoutRequests: readStorage('ap_scout_requests', []),
   contacts: readStorage('ap_contacts', []),
   guardians: {},
   reviews: readStorage('ap_reviews', {}),
@@ -229,6 +244,7 @@ function persist() {
     localStorage.setItem('ap_venues', JSON.stringify(state.venues))
     localStorage.setItem('ap_invites', JSON.stringify(state.invites))
     localStorage.setItem('ap_contacts', JSON.stringify(state.contacts))
+    localStorage.setItem('ap_scout_requests', JSON.stringify(state.scoutRequests))
   }
   localStorage.setItem('ap_favorites', JSON.stringify(state.favorites))
   localStorage.setItem('ap_reviews', JSON.stringify(state.reviews))
@@ -283,6 +299,11 @@ function seedDemoAccounts() {
     if (account?.profile && account.profile.org === undefined) Object.assign(account.profile, demo.pro)
     if (account && account.admin === undefined) account.admin = !!demo.admin
   })
+  DEMO_SCOUTS.forEach((demo) => {
+    if (!state.accounts.some((account) => account.email === demo.email)) {
+      state.accounts.push({ email: demo.email, password: 'Olheiro123!', role: 'scout', active: true, profile: { name: demo.name, email: demo.email, phone: demo.phone, city: 'Santos', state: 'SP', demo: true, ...demo.pro } })
+    }
+  })
   if (!state.accounts.some((account) => account.email === 'gabriel@academiapele.com')) {
     const profile = { ...defaultProfile, email: 'gabriel@academiapele.com', cpf: '11144477735' }
     state.accounts.push({ email: profile.email, password: 'Demo123!', role: 'player', cpf: profile.cpf, athleteId: 1, profile })
@@ -305,6 +326,7 @@ function athleteFieldsFromProfile(profile = {}) {
     secondary: profile.secondary || '—',
     age: Number.isFinite(age) ? age : 0,
     photo: profile.photo || null,
+    showcase: !!profile.showcase,
   }
 }
 
@@ -653,6 +675,7 @@ async function hydrateRemote(uid) {
   }
   await refreshRemoteGuardians()
   if (own.profile.role === 'staff') await refreshRemoteContacts()
+  if (['staff', 'scout'].includes(own.profile.role)) await refreshRemoteScoutRequests()
   state.tryoutsStatus = 'loading'
   const loadingSince = performance.now()
   refreshRemoteTryouts().then(() => {
@@ -921,11 +944,15 @@ function toast(message, type = 'success', action = null) {
 function shell(content, options = {}) {
   const role = options.role || 'player'
   const active = options.active || 'dashboard'
-  const nav = role === 'staff'
+  const nav = role === 'scout'
+    ? [['dashboard', t('Início'), 'home'], ['athletes', t('Vitrine'), 'search'], ['profile', t('Meu perfil'), 'user']]
+    : role === 'staff'
     ? [['dashboard', t('Visão geral'), 'home'], ['athletes', t('Atletas'), 'search'], ['tryouts', t('Peneiras'), 'calendar'], ['messages', t('Conversas'), 'message']]
     : [['dashboard', t('Início'), 'home'], ['profile', t('Meu perfil'), 'user'], ['tryouts', t('Peneiras'), 'calendar'], ['messages', t('Conversas'), 'message']]
   const navButton = (item, extra = '') => '<button type="button" data-route="' + item[0] + '" class="nav-link ' + extra + (active === item[0] ? ' active" aria-current="page' : '') + '"' + (item[0] === 'messages' ? ' data-badge-host aria-label="' + item[1] + '"' : '') + '>' + icon(item[2], 'size-[1.1rem]') + '<span>' + item[1] + '</span>' + (item[0] === 'messages' ? '<span class="count-badge nav-badge" data-msg-badge aria-hidden="true" hidden></span>' : '') + (active === item[0] ? '<span class="nav-indicator" aria-hidden="true"></span>' : '') + '</button>'
-  const cta = role === 'staff'
+  const cta = role === 'scout'
+    ? '<button type="button" class="btn-primary w-full" data-route="athletes">' + icon('search', 'size-4') + ' ' + t('Ver a vitrine') + '</button>'
+    : role === 'staff'
     ? '<button type="button" class="btn-primary w-full" data-action="openTryout">' + icon('plus', 'size-4') + ' ' + t('Criar peneira') + '</button>'
     : '<button type="button" class="btn-primary w-full" data-route="tryouts">' + icon('calendar', 'size-4') + ' ' + t('Ver peneiras') + '</button>'
   const notifCount = myNotifications().length
@@ -936,7 +963,7 @@ function shell(content, options = {}) {
     '<nav class="sidebar-nav" aria-label="' + t('Navegação principal') + '">' + nav.map((item) => navButton(item, 'nav-side')).join('') + '</nav>' +
     '<div class="sidebar-cta">' + cta + '</div>' +
     '<div class="sidebar-foot">' + partnerSeal() +
-    '<button type="button" class="profile-row" data-route="profile">' + personAvatar(mePerson()) + '<span class="min-w-0 text-left"><span class="block truncate text-sm font-semibold">' + escapeHtml(state.user?.name || 'Atleta') + '</span><span class="block text-xs text-ink-soft">' + (role === 'staff' ? t('Funcionário') : t('Atleta')) + '</span></span></button></div></aside>' +
+    '<button type="button" class="profile-row" data-route="profile">' + personAvatar(mePerson()) + '<span class="min-w-0 text-left"><span class="block truncate text-sm font-semibold">' + escapeHtml(state.user?.name || 'Atleta') + '</span><span class="block text-xs text-ink-soft">' + (role === 'staff' ? t('Funcionário') : role === 'scout' ? t('Olheiro de clube') : t('Atleta')) + '</span></span></button></div></aside>' +
     // Coluna principal
     '<div class="app-main">' +
     '<header class="topbar site-header"><button type="button" class="topbar-brand" data-action="home" aria-label="' + t('TIER ZERO, ir para o início') + '">' + brandLockup(34) + '</button>' +
@@ -967,7 +994,7 @@ function activity(title, sub, time) {
 }
 
 function dashboard(role = 'player') {
-  return role === 'staff' ? staffDashboard() : playerDashboard()
+  return role === 'scout' ? scoutDashboard() : role === 'staff' ? staffDashboard() : playerDashboard()
 }
 
 // Painel do atleta: uma próxima ação clara, a próxima peneira com contagem regressiva e um
@@ -1082,6 +1109,7 @@ function staffDashboard() {
     '<div><dt>' + t('Atletas sem avaliação') + '</dt><dd class="num">' + unreviewed + '</dd></div>' +
     '<div><dt>' + t('Na sua lista de observação') + '</dt><dd class="num">' + watching + '</dd></div>' +
     '<div><dt>' + t('Mensagens não lidas') + '</dt><dd class="num">' + unreadSummary().total + '</dd></div></dl></section>' +
+    scoutRequestsPanel() +
     contactInbox() +
     '<section class="reveal mt-8 panel"><div class="flex flex-wrap items-end justify-between gap-3"><div><h2 class="section-title !mt-0">' + t('Elenco em campo') + '</h2><p class="mt-1 max-w-[60ch] text-sm text-ink-soft">' + t('Cada ponto é um atleta do banco, na posição principal. Clique para abrir o perfil.') + '</p></div></div>' +
     '<div class="mt-5">' + pitchFormation(state.athletes) + '</div>' + squadLegend(state.athletes) + '</section>' +
@@ -1378,10 +1406,15 @@ document.addEventListener('pointerout', (event) => {
 })
 
 // ---------- Avatares e fotos de perfil ----------
-// Foto enviada > avatar ilustrado (perfis de exemplo) > iniciais.
+// Foto enviada > foto real do perfil de exemplo > avatar ilustrado > iniciais.
+// Fotos do Unsplash (licença Unsplash; origem em assets/photos/pessoas/*.json). Os nomes são fictícios: quem aparece
+// na foto não é o atleta nem o profissional do exemplo.
+const DEMO_PHOTOS = { 1: 'gabriel', 2: 'lucas', 3: 'rafael', 4: 'joao', 5: 'pedro', 6: 'matheus', 'funcionario@academiapele.com': 'marina', 'treinador@academiapele.com': 'bruno', 'olheiro@clube-exemplo.com': 'carlos' }
 function personAvatar(person, cls = 'avatar') {
   const name = person?.name || 'Atleta'
   if (person?.photo) return '<span class="' + cls + ' avatar-photo"><img src="' + escapeHtml(person.photo) + '" alt="" width="88" height="88" decoding="async" /></span>'
+  const demoPhoto = person?.demo && DEMO_PHOTOS[person.id]
+  if (demoPhoto) return '<span class="' + cls + ' avatar-photo"><img src="./assets/photos/pessoas/' + demoPhoto + '.webp" alt="" width="160" height="160" decoding="async" /></span>'
   if (person?.demo) return '<span class="' + cls + ' avatar-photo">' + illustratedAvatar(person.id || name, person.group || positionGroup(person.pos)) + '</span>'
   return '<span class="' + cls + '">' + avatar(name) + '</span>'
 }
@@ -1391,7 +1424,7 @@ function mePerson() {
   return {
     name: state.user?.name, photo: state.profile?.photo || account?.profile?.photo || null,
     demo: !!(account?.profile?.demo || athlete?.demo), id: athlete?.id ?? state.user?.email, pos: athlete?.pos,
-    group: state.user?.role === 'staff' ? 'staff' : undefined,
+    group: ['staff', 'scout'].includes(state.user?.role) ? 'staff' : undefined,
   }
 }
 function photoUploader(person, inputId = 'photo-input') {
@@ -1461,7 +1494,7 @@ function athleteCard(a, staff = false) {
     (strengths.length ? '<p class="scout-strengths athlete-tile-tags">' + strengths.map((item) => '<span>' + escapeHtml(item) + '</span>').join('') + '</p>' : '') +
     '<p class="athlete-tile-count">' + (reviewCount ? '<span class="tabular">' + plural(reviewCount, 'avaliação', 'avaliações') + '</span>' : t('ainda sem avaliação')) + (a.demo ? ' · ' + t('perfil de exemplo') : '') + '</p>' +
     '<div class="athlete-tile-actions">' +
-    (staff ? '<button type="button" class="btn-secondary" data-message-athlete="' + a.id + '">' + icon('message', 'size-4') + ' ' + t('Mensagem') + '</button>' : '') +
+    (staff === 'scout' ? scoutRequestButton(a) : staff ? '<button type="button" class="btn-secondary" data-message-athlete="' + a.id + '">' + icon('message', 'size-4') + ' ' + t('Mensagem') + '</button>' : '') +
     '<button type="button" class="btn-primary" data-open-athlete="' + a.id + '" aria-label="' + t('Abrir perfil de') + ' ' + escapeHtml(a.name) + '">' + t('Ver perfil') + '</button></div></article>'
 }
 
@@ -1482,34 +1515,36 @@ function tag(text, ghost = false) {
 }
 
 function athletesPage() {
+  const scout = state.user?.role === 'scout'
+  const pool = visibleAthletes()
   watchOnly = false // como os outros filtros, volta a "todos" ao abrir a página
   const filters = '<div class="filters-scrim" data-filters-close></div><aside id="filters-panel" class="filters-panel panel h-max" aria-label="' + t('Filtros de atletas') + '" data-lenis-prevent><div class="flex items-center justify-between gap-2"><h2 class="font-bold">' + t('Filtros') + '</h2><div class="flex items-center gap-1"><button type="button" class="btn-ghost text-xs text-brand" data-action="clearFilters">' + t('Limpar') + '</button><button type="button" class="filters-toggle icon-button sm" aria-label="' + t('Fechar filtros') + '" data-filters-close>' + icon('close', 'size-4') + '</button></div></div>' +
     '<div class="mt-4 space-y-4"><label class="field-label">' + t('Buscar por nome') + '<input id="filter-name" class="field" placeholder="' + t('Ex.: Gabriel') + '" /></label>' +
     '<label class="field-label">' + t('Posição principal ou secundária') + '<select id="filter-pos" class="field"><option value="">' + t('Todas') + '</option>' + POSITIONS.map((p) => '<option value="' + p + '">' + t(p) + '</option>').join('') + '</select></label>' +
     '<label class="field-label">' + t('Perna dominante') + '<select id="filter-foot" class="field"><option value="">' + t('Todas') + '</option>' + FEET.map((f) => '<option value="' + f + '">' + t(f) + '</option>').join('') + '</select></label>' +
-    '<label class="field-label">' + t('Cidade/região') + '<select id="filter-city" class="field"><option value="">' + t('Todas') + '</option>' + [...new Set(state.athletes.map((a) => a.city))].sort().map((c) => '<option>' + escapeHtml(c) + '</option>').join('') + '</select></label>' +
-    '<label class="field-label">' + t('Idade') + '<select id="filter-age" class="field"><option value="">' + t('Todas') + '</option>' + [...new Set(state.athletes.map((a) => a.age))].sort((a,b)=>a-b).map((age) => '<option value="' + age + '">' + age + '</option>').join('') + '</select></label>' +
+    '<label class="field-label">' + t('Cidade/região') + '<select id="filter-city" class="field"><option value="">' + t('Todas') + '</option>' + [...new Set(pool.map((a) => a.city))].sort().map((c) => '<option>' + escapeHtml(c) + '</option>').join('') + '</select></label>' +
+    '<label class="field-label">' + t('Idade') + '<select id="filter-age" class="field"><option value="">' + t('Todas') + '</option>' + [...new Set(pool.map((a) => a.age))].sort((a,b)=>a-b).map((age) => '<option value="' + age + '">' + age + '</option>').join('') + '</select></label>' +
     '<label class="field-label">' + t('Categoria') + '<select id="filter-category" class="field"><option value="">' + t('Todas') + '</option><option>Sub-7</option><option>Sub-9</option><option>Sub-11</option><option>Sub-13</option><option>Sub-15</option><option>Sub-17</option><option>Sub-20</option></select></label>' +
     '</div><div class="mt-6 rounded-2xl border border-brand/15 bg-brand/7 p-4 text-xs leading-5 text-ink-soft"><strong class="text-brand">' + t('Filtro em tempo real') + '</strong><br/>' + t('Nome, posição, perna dominante, cidade, idade e categoria alteram a lista sem recarregar.') + '</div></aside>'
 
   return shell(
-    '<div class="page-head"><div><h1 class="page-title">' + t('Pesquisar atletas') + '</h1><p class="page-subtitle">' + t('Abra o perfil completo, mande uma mensagem, registre uma avaliação e salve quem você quer acompanhar.') + '</p></div><button type="button" class="btn-primary lg:hidden" data-action="openTryout">' + icon('plus', 'size-4') + ' ' + t('Nova peneira') + '</button></div>' +
+    '<div class="page-head"><div><h1 class="page-title">' + t(scout ? 'Vitrine de atletas' : 'Pesquisar atletas') + '</h1><p class="page-subtitle">' + t(scout ? 'Atletas que escolheram aparecer para clubes. Para falar com alguém, peça o contato: a equipe da Pelé Academia conversa com o atleta e a família antes.' : 'Abra o perfil completo, mande uma mensagem, registre uma avaliação e salve quem você quer acompanhar.') + '</p></div>' + (scout ? '' : '<button type="button" class="btn-primary lg:hidden" data-action="openTryout">' + icon('plus', 'size-4') + ' ' + t('Nova peneira') + '</button>') + '</div>' +
     '<section class="mt-6 grid gap-5 lg:grid-cols-[280px_1fr]">' +
     filters +
-    '<div><div class="mb-4 flex flex-wrap items-center justify-between gap-2"><button type="button" class="filters-toggle btn-secondary" aria-controls="filters-panel" aria-expanded="false" data-filters-open>' + icon('filter', 'size-4') + ' ' + t('Filtros') + '</button><div class="flex flex-wrap items-center gap-3"><button type="button" class="tab-chip" data-action="toggle-watchlist" aria-pressed="' + watchOnly + '">' + icon('bookmark', 'size-4') + t('Lista de observação') + '<span class="tab-count" id="watch-count">' + state.favorites.filter((id) => state.athletes.some((a) => a.id === id)).length + '</span></button><p id="athlete-count" class="text-sm text-ink-soft" aria-live="polite">' + plural(state.athletes.length, 'atleta encontrado', 'atletas encontrados') + '</p></div><button type="button" class="btn-secondary" data-action="export">' + icon('arrow', 'size-4') + ' ' + t('Exportar seleção') + '</button></div><div id="athlete-grid" class="athlete-grid">' + state.athletes.map((a) => athleteCard(a, true)).join('') + '</div></div></section>',
-    { active: 'athletes', role: 'staff' },
+    '<div><div class="mb-4 flex flex-wrap items-center justify-between gap-2"><button type="button" class="filters-toggle btn-secondary" aria-controls="filters-panel" aria-expanded="false" data-filters-open>' + icon('filter', 'size-4') + ' ' + t('Filtros') + '</button><div class="flex flex-wrap items-center gap-3"><button type="button" class="tab-chip" data-action="toggle-watchlist" aria-pressed="' + watchOnly + '">' + icon('bookmark', 'size-4') + t('Lista de observação') + '<span class="tab-count" id="watch-count">' + state.favorites.filter((id) => pool.some((a) => a.id === id)).length + '</span></button><p id="athlete-count" class="text-sm text-ink-soft" aria-live="polite">' + plural(pool.length, 'atleta encontrado', 'atletas encontrados') + '</p></div>' + (scout ? '' : '<button type="button" class="btn-secondary" data-action="export">' + icon('arrow', 'size-4') + ' ' + t('Exportar seleção') + '</button>') + '</div><div id="athlete-grid" class="athlete-grid">' + pool.map((a) => athleteCard(a, scout ? 'scout' : true)).join('') + '</div></div></section>',
+    { active: 'athletes', role: state.user?.role },
   )
 }
 
 function profilePage() {
   const role = state.user?.role || 'player'
-  if (role === 'staff') {
+  if (role === 'staff' || role === 'scout') {
     const account = state.accounts.find((a) => a.email === state.user.email)
     const profile = account?.profile || { name: state.user.name, email: state.user.email, phone: '', position: t('Funcionário'), city: 'São Paulo', state: 'SP' }
     return shell(
       '<div class="page-head"><div><h1 class="page-title">' + t('Meu perfil') + '</h1><p class="page-subtitle">' + t('Seu perfil profissional: é o que atletas e famílias veem quando você organiza uma peneira ou avalia alguém.') + '</p></div><button type="button" class="btn-secondary" data-action="logout">' + icon('logout', 'size-4') + ' ' + t('Sair') + '</button></div>' +
-      '<section class="mt-6 grid gap-5">' + staffProCard({ ...profile, email: state.user.email }, { own: true, admin: isAdmin() }) + teamProfilePanel() + '</section>',
-      { active: 'dashboard', role: 'staff' },
+      '<section class="mt-6 grid gap-5">' + staffProCard({ ...profile, email: state.user.email }, { own: true, admin: isAdmin() }) + (role === 'staff' ? teamProfilePanel() : scoutRulesPanel()) + '</section>',
+      { active: role === 'scout' ? 'profile' : 'dashboard', role },
     )
   }
 
@@ -1537,6 +1572,7 @@ function profilePage() {
     '<div><dt>' + t('Peneiras inscritas') + '</dt><dd class="num">' + enrolledCount + '</dd></div>' +
     '<div><dt>' + t('Avaliações recebidas') + '</dt><dd class="num">' + getPlayerReviewCount() + '</dd></div>' +
     '<div><dt>' + t('Notificações') + '</dt><dd class="num">' + myNotifications().length + '</dd></div></dl></div></section>' +
+    showcasePanel(p, me, age) +
     '<section class="mt-6 grid gap-5 xl:grid-cols-[.8fr_1.2fr]">' +
     '<aside class="reveal panel h-max"><h2 class="section-title !mt-0">' + t('Atributos') + '</h2><p class="mt-1 text-sm text-ink-soft">' + t('Média das notas dos olheiros, de 0 a 10, nas características da sua posição.') + '</p>' +
     (Object.keys(attrs.values).length
@@ -2063,8 +2099,8 @@ async function loadTeam() {
   const data = await fetchTeam()
   const nameOf = (id) => data.staff.find((profile) => profile.id === id)?.name || ''
   teamCache = {
-    staff: data.staff.map((row) => ({ id: row.id, email: row.email, name: row.name, position: row.data?.position || '', admin: row.is_admin, active: row.active, photo: row.data?.photo, demo: DEMO_STAFF.some((demo) => demo.email === row.email) })),
-    invites: data.invites.map((row) => ({ id: Number(row.id), email: row.email, admin: row.is_admin, createdBy: nameOf(row.created_by), createdAt: row.created_at, expiresAt: row.expires_at, usedAt: row.used_at, usedBy: nameOf(row.used_by), revokedAt: row.revoked_at })),
+    staff: data.staff.map((row) => ({ id: row.id, role: row.role || 'staff', org: row.data?.org || '', email: row.email, name: row.name, position: row.data?.position || '', admin: row.is_admin, active: row.active, photo: row.data?.photo, demo: DEMO_STAFF.some((demo) => demo.email === row.email) })),
+    invites: data.invites.map((row) => ({ id: Number(row.id), role: row.role || 'staff', club: row.club, email: row.email, admin: row.is_admin, createdBy: nameOf(row.created_by), createdAt: row.created_at, expiresAt: row.expires_at, usedAt: row.used_at, usedBy: nameOf(row.used_by), revokedAt: row.revoked_at })),
     log: data.log.map((row) => ({ at: row.created_at, actor: nameOf(row.actor_id), action: row.action, entity: row.entity, details: row.details || {} })),
   }
 }
@@ -2073,7 +2109,7 @@ function teamData() {
   if (remote.enabled) return teamCache
   const nameOf = (email) => state.accounts.find((account) => account.email === email)?.profile?.name || email || ''
   return {
-    staff: state.accounts.filter((account) => account.role === 'staff').map((account) => ({ id: account.email, email: account.email, name: account.profile?.name || account.email, position: account.profile?.position || '', admin: !!account.admin, active: account.active !== false, photo: account.profile?.photo, demo: account.profile?.demo })),
+    staff: state.accounts.filter((account) => ['staff', 'scout'].includes(account.role)).map((account) => ({ id: account.email, role: account.role, org: account.profile?.org || '', email: account.email, name: account.profile?.name || account.email, position: account.profile?.position || '', admin: !!account.admin, active: account.active !== false, photo: account.profile?.photo, demo: account.profile?.demo })),
     invites: state.invites.slice().reverse().map((invite) => ({ ...invite, createdBy: nameOf(invite.createdBy), usedBy: nameOf(invite.usedBy) })),
     log: readStorage('ap_audit', []).filter((entry) => ['staff', 'staff_invite'].includes(entry.entity)).reverse().slice(0, 20)
       .map((entry) => ({ at: entry.at, actor: nameOf(entry.actor), action: entry.action, entity: entry.entity, details: entry.details || {} })),
@@ -2081,9 +2117,9 @@ function teamData() {
 }
 
 // ---------- ações (modo local espelha as regras do servidor) ----------
-async function inviteStaff(email, admin) {
+async function inviteStaff(email, admin, role = 'staff', club = '') {
   if (remote.enabled) {
-    const { invite, error } = await createStaffInvite(email, admin)
+    const { invite, error } = role === 'scout' ? await createScoutInvite(email, club) : await createStaffInvite(email, admin)
     return error ? { error: describeError(error) } : { id: Number(invite.id), code: invite.code, expiresAt: invite.expires_at }
   }
   if (!isAdmin()) return { error: t('Só administradores podem fazer isso.') }
@@ -2091,7 +2127,7 @@ async function inviteStaff(email, admin) {
   const now = new Date()
   state.invites.filter((invite) => invite.email === email && !invite.usedAt && !invite.revokedAt).forEach((invite) => { invite.revokedAt = now.toISOString(); invite.revokedBy = state.user.email })
   const code = newInviteCode()
-  const invite = { id: Date.now(), email, codeHash: await sha256Hex(code), admin, createdBy: state.user.email, createdAt: now.toISOString(), expiresAt: new Date(now.getTime() + INVITE_DAYS * 864e5).toISOString() }
+  const invite = { id: Date.now(), email, codeHash: await sha256Hex(code), admin, role, club: role === 'scout' ? club : null, createdBy: state.user.email, createdAt: now.toISOString(), expiresAt: new Date(now.getTime() + INVITE_DAYS * 864e5).toISOString() }
   state.invites.push(invite)
   logChange('create', 'staff_invite', invite.id, { email, is_admin: admin })
   persist()
@@ -2118,8 +2154,9 @@ async function saveMember(member, active, admin) {
     const error = await updateStaff(member.id, active, admin)
     return error ? describeError(error) : null
   }
-  const account = state.accounts.find((item) => item.email === member.email && item.role === 'staff')
+  const account = state.accounts.find((item) => item.email === member.email && ['staff', 'scout'].includes(item.role))
   if (!isAdmin()) return t('Só administradores podem fazer isso.')
+  if (account?.role === 'scout') admin = false
   if (!account) return t('Esta conta não é de funcionário.')
   if (account.email === state.user.email) return t('Você não pode alterar a própria conta. Peça a outro administrador.')
   const wasActive = account.active !== false
@@ -2176,7 +2213,7 @@ function staffProCard(p, { own = false, admin = false } = {}) {
 }
 // Qualquer [data-staff-profile="email"] abre o perfil profissional por cima do que estiver aberto.
 function openStaffProfile(email) {
-  const account = state.accounts.find((entry) => entry.email === email && entry.role === 'staff')
+  const account = state.accounts.find((entry) => entry.email === email && ['staff', 'scout'].includes(entry.role))
   if (!account?.profile) return toast(t('Perfil do profissional indisponível.'), 'error')
   const wrapper = document.createElement('div')
   wrapper.className = 'fixed inset-0 z-[95] grid place-items-center bg-black/75 p-4 backdrop-blur-md'
@@ -2295,7 +2332,11 @@ function aboutPage() {
     '<div class="info-flow"><h3>' + icon('clipboard', 'size-5') + t('Para a equipe da academia') + '</h3><ol>' +
     step('01', 'Abra a peneira', 'Data, local, categoria, posições e vagas. Só atletas compatíveis conseguem se inscrever.') +
     step('02', 'Faça a chamada e dê a nota no campo', 'No dia, a peneira ao vivo marca quem chegou e registra uma nota rápida por característica.') +
-    step('03', 'Acompanhe e converse', 'Banco de atletas com filtros, lista de observação e conversa direta com atletas e famílias.') + '</ol></div></div></section>' +
+    step('03', 'Acompanhe e converse', 'Banco de atletas com filtros, lista de observação e conversa direta com atletas e famílias.') + '</ol></div>' +
+    '<div class="info-flow"><h3>' + icon('search', 'size-5') + t('Para olheiros de clubes') + '</h3><ol>' +
+    step('01', 'Entre por convite', 'Um administrador da Pelé Academia convida o olheiro, ligado ao clube dele.') +
+    step('02', 'Observe a vitrine', 'Só atletas que ligaram a vitrine aparecem, com carta e médias das avaliações.') +
+    step('03', 'Peça o contato', 'A equipe da academia avalia o pedido e fala com o atleta e a família antes.') + '</ol></div></div></section>' +
     '<section id="parceria" class="info-section info-partner" tabindex="-1">' +
     '<div class="partner-lockup" aria-hidden="true">' + brandLockup(40) + '<span class="partner-x">×</span><img src="./assets/brand/simbolo.jpg" width="56" height="56" decoding="async" alt="" /></div>' +
     '<h2>' + t('A parceria com a Pelé Academia') + '</h2>' +
@@ -2304,7 +2345,8 @@ function aboutPage() {
     '<div class="partner-role is-academy"><h3><img src="./assets/brand/simbolo.jpg" width="28" height="28" decoding="async" alt="" />' + t('O que a Pelé Academia faz') + '</h3><ul>' +
     role('Abre e conduz as peneiras: data, local, categorias, posições e vagas.') +
     role('Seus olheiros e treinadores avaliam os atletas e decidem quem segue no processo.') +
-    role('Convida quem entra na equipe: nenhuma conta de funcionário é criada sem convite.') +
+    role('Convida quem entra na equipe e os olheiros de outros clubes: nenhuma dessas contas é criada sem convite.') +
+    role('Decide os pedidos de contato dos clubes e fala antes com o atleta e a família.') +
     role('É a responsável pelos dados das peneiras (controladora, na LGPD) e define o contato oficial para pedidos.') + '</ul></div>' +
     '<div class="partner-role is-platform"><h3>' + icon('shield', 'size-5') + t('O que a TIER ZERO faz') + '</h3><ul>' +
     role('Mantém o cadastro, as inscrições, a chamada, as avaliações e as conversas num lugar só.') +
@@ -2424,6 +2466,164 @@ document.addEventListener('click', async (event) => {
   toast(t('Mensagem marcada como respondida.'))
 })
 
+// ---------- Olheiros de clubes ----------
+// Três acessos com papéis diferentes: o atleta mostra o futebol; a equipe da Pelé Academia organiza, avalia e decide;
+// o olheiro de um clube observa a vitrine e pede contato, que a equipe intermedia com o atleta e a família (ECA e LGPD).
+const isScoutUser = () => state.user?.role === 'scout'
+// Na vitrine: o atleta ativou e, se for menor, tem a autorização do responsável em vigor (o banco aplica a mesma regra).
+function inShowcase(a) {
+  if (!a?.showcase) return false
+  return (Number(a.age) || 0) >= 18 || !!guardianFor(a)?.consentAt
+}
+const visibleAthletes = () => isScoutUser() ? state.athletes.filter(inShowcase) : state.athletes
+const myScoutRequest = (a) => state.scoutRequests.find((item) => item.athleteId === a.id && item.scoutEmail === state.user?.email && item.status === 'pending')
+function scoutRequestButton(a, big = false) {
+  if (myScoutRequest(a)) return '<button type="button" class="btn-secondary" disabled>' + icon('check', 'size-4') + ' ' + t('Contato pedido') + '</button>'
+  return '<button type="button" class="' + (big ? 'btn-primary' : 'btn-secondary') + '" data-scout-request="' + a.id + '">' + icon('mail', 'size-4') + ' ' + t('Pedir contato') + '</button>'
+}
+const mapScoutRequest = (row) => ({
+  id: row.id, scoutEmail: row.scout?.email || '', scoutName: row.scout?.name || t('Olheiro'), scoutOrg: row.scout?.data?.org || '',
+  athleteId: Number(row.athlete?.athlete_num) || null, message: row.message, status: row.status, createdAt: row.created_at, decidedAt: row.decided_at,
+})
+async function refreshRemoteScoutRequests() {
+  try { state.scoutRequests = (await fetchScoutRequests()).map(mapScoutRequest) } catch (error) { console.warn('[Supabase] pedidos de olheiros:', error) } // antes da migration, a lista só fica vazia
+}
+function openScoutRequest(athleteId) {
+  const athlete = state.athletes.find((a) => a.id === Number(athleteId))
+  if (!athlete || !isScoutUser()) return
+  const wrapper = document.createElement('div')
+  wrapper.className = 'fixed inset-0 z-[96] grid place-items-center bg-black/75 p-4 backdrop-blur-md'
+  wrapper.innerHTML = '<div class="w-full max-w-lg rounded-card surface surface--raised p-6 shadow-2xl sm:p-8" role="dialog" aria-modal="true" aria-labelledby="scout-req-title">' +
+    '<div class="flex items-start justify-between gap-4"><div><h2 id="scout-req-title" class="text-2xl font-bold">' + t('Pedir contato com') + ' ' + escapeHtml(athlete.name) + '</h2>' +
+    '<p class="mt-1 text-sm text-ink-soft">' + t('O pedido vai para a equipe da Pelé Academia. Se aceitar, a equipe fala com o atleta e a família e combina o próximo passo com você.') + '</p></div><button type="button" class="icon-button" aria-label="' + t('Fechar') + '" data-close>' + icon('close') + '</button></div>' +
+    '<form id="scout-req-form" class="mt-6 grid gap-4" novalidate><label class="field-label">' + t('Por que você quer conhecer o atleta?') + '<textarea id="scout-req-message" class="field min-h-28" maxlength="600" required placeholder="' + t('Ex.: procuramos um ponta canhoto para o Sub-20 e gostaríamos de convidá-lo para um treino.') + '"></textarea></label>' +
+    '<p id="scout-req-feedback" class="hidden rounded-2xl border px-4 py-3 text-sm" role="alert"></p>' +
+    '<div class="flex justify-end gap-2"><button type="button" class="btn-ghost" data-close>' + t('Cancelar') + '</button><button type="submit" class="btn-primary">' + icon('send', 'size-4') + ' ' + t('Enviar pedido') + '</button></div></form></div>'
+  document.body.appendChild(wrapper)
+  wrapper.querySelectorAll('[data-close]').forEach((button) => button.addEventListener('click', () => wrapper.remove()))
+  wrapper.querySelector('#scout-req-form').addEventListener('submit', async (event) => {
+    event.preventDefault()
+    const message = wrapper.querySelector('#scout-req-message').value.trim()
+    setFieldError('scout-req-message', message.length < 10 ? t('Escreva pelo menos 10 caracteres.') : '')
+    if (message.length < 10) return wrapper.querySelector('#scout-req-message').focus()
+    const submit = wrapper.querySelector('[type=submit]')
+    submit.setAttribute('aria-busy', 'true')
+    try {
+      if (remote.enabled) {
+        if (!athlete.profileId) throw new Error(t('Perfil de exemplo: não recebe pedidos de verdade.'))
+        const error = await createScoutRequest(athlete.profileId, message)
+        if (error) throw error
+        await refreshRemoteScoutRequests()
+      } else {
+        const me = state.accounts.find((account) => account.email === state.user.email)?.profile || {}
+        state.scoutRequests.unshift({ id: Date.now(), scoutEmail: state.user.email, scoutName: state.user.name, scoutOrg: me.org || '', athleteId: athlete.id, message, status: 'pending', createdAt: new Date().toISOString() })
+        state.accounts.filter((account) => account.role === 'staff').forEach((account) => notify(account.email, 'Pedido de olheiro', state.user.name + ' (' + (me.org || t('clube')) + ') ' + t('quer contato com') + ' ' + athlete.name + '.'))
+        persist()
+      }
+      wrapper.remove()
+      document.getElementById('modal-root')?.remove()
+      render()
+      toast(t('Pedido enviado. A equipe da Pelé Academia vai analisar.'))
+    } catch (error) { showFeedback('scout-req-feedback', describeError(error), true) } finally { submit.removeAttribute('aria-busy') }
+  })
+}
+document.addEventListener('click', (event) => {
+  const trigger = event.target.closest?.('[data-scout-request]')
+  if (trigger) openScoutRequest(trigger.dataset.scoutRequest)
+})
+
+const REQUEST_STATUS = { pending: ['warn', 'Aguardando a equipe'], accepted: ['green', 'Aceito: a equipe vai intermediar'], declined: ['ghost', 'Não aceito'] }
+function scoutDashboard() {
+  const me = state.accounts.find((account) => account.email === state.user.email)?.profile || {}
+  const pool = visibleAthletes()
+  const mine = state.scoutRequests.filter((item) => item.scoutEmail === state.user.email)
+  const count = (status) => mine.filter((item) => item.status === status).length
+  const nameOf = (id) => state.athletes.find((a) => a.id === id)?.name || t('Atleta')
+  return shell(
+    '<section class="hero rounded-card surface p-6 sm:p-8"><h1 class="page-title">' + t('Olá,') + ' ' + escapeHtml((state.user.name || '').split(' ')[0]) + '.</h1>' +
+    '<p class="mt-3 max-w-3xl text-lg leading-7">' + t('Olheiro do') + ' <strong>' + escapeHtml(me.org || t('seu clube')) + '</strong>. ' + t('Você vê atletas que ativaram a vitrine para clubes. Para falar com alguém, peça o contato: a equipe da Pelé Academia conversa com o atleta e a família antes.') + '</p>' +
+    '<div class="mt-6 flex flex-wrap gap-2"><button type="button" class="btn-primary" data-route="athletes">' + icon('search', 'size-4') + ' ' + t('Abrir a vitrine') + '</button><button type="button" class="btn-secondary" data-route="profile">' + icon('user', 'size-4') + ' ' + t('Meu perfil') + '</button></div>' +
+    '<dl class="profile-stats mt-8 grid grid-cols-2 gap-3 md:grid-cols-4">' +
+    '<div><dt>' + t('Atletas na vitrine') + '</dt><dd class="num">' + pool.length + '</dd></div>' +
+    '<div><dt>' + t('Pedidos aguardando') + '</dt><dd class="num">' + count('pending') + '</dd></div>' +
+    '<div><dt>' + t('Pedidos aceitos') + '</dt><dd class="num">' + count('accepted') + '</dd></div>' +
+    '<div><dt>' + t('Na sua lista de observação') + '</dt><dd class="num">' + state.favorites.filter((id) => pool.some((a) => a.id === id)).length + '</dd></div></dl></section>' +
+    '<section class="reveal mt-8 panel"><h2 class="section-title !mt-0">' + t('Seus pedidos de contato') + '</h2>' +
+    (mine.length ? '<ul class="inbox">' + mine.map((item) => '<li class="inbox-item"><div class="flex flex-wrap items-center gap-2"><strong>' + escapeHtml(nameOf(item.athleteId)) + '</strong><span class="tag ' + REQUEST_STATUS[item.status][0] + '">' + t(REQUEST_STATUS[item.status][1]) + '</span></div><p class="inbox-body">' + escapeHtml(item.message) + '</p></li>').join('') + '</ul>'
+      : '<p class="mt-2 text-sm text-ink-soft">' + t('Nenhum pedido ainda. Abra o perfil de um atleta da vitrine e use Pedir contato.') + '</p>') + '</section>' +
+    '<section class="reveal mt-8 panel"><div class="flex flex-wrap items-end justify-between gap-3"><h2 class="section-title !mt-0">' + t('Na vitrine') + '</h2><button type="button" class="btn-ghost" data-route="athletes">' + t('Ver todos') + ' ' + icon('arrow', 'size-4') + '</button></div>' +
+    '<div class="athlete-grid mt-4">' + pool.slice(0, 6).map((a) => athleteCard(a, 'scout')).join('') + '</div></section>',
+    { active: 'dashboard', role: 'scout' },
+  )
+}
+function scoutRulesPanel() {
+  return '<div class="panel flex flex-wrap items-start gap-4"><span class="venue-pin" aria-hidden="true">' + icon('shield', 'size-5') + '</span><div class="min-w-0 flex-1"><h2 class="section-title !mt-0">' + t('Como funciona o acesso de olheiro') + '</h2>' +
+    '<ul class="mt-2 grid gap-1.5 text-sm text-ink-soft"><li>' + t('Você vê só atletas que ativaram a vitrine para clubes. Menores aparecem apenas com a autorização do responsável.') + '</li>' +
+    '<li>' + t('A carta e o radar mostram as médias das avaliações; os comentários ficam com a equipe da Pelé Academia.') + '</li>' +
+    '<li>' + t('Não há conversa direta com atletas: o pedido de contato passa pela equipe, que fala com o atleta e a família.') + '</li></ul></div></div>'
+}
+function scoutRequestsPanel() {
+  const open = state.scoutRequests.filter((item) => item.status === 'pending')
+  if (!open.length) return ''
+  const athleteOf = (id) => state.athletes.find((a) => a.id === id)
+  return '<section class="reveal mt-8 panel"><h2 class="section-title !mt-0">' + t('Pedidos de olheiros') + ' <span class="tab-count">' + open.length + '</span></h2>' +
+    '<p class="mt-1 text-sm text-ink-soft">' + t('Olheiros de clubes querem conhecer estes atletas. Se aceitar, fale com o atleta e a família antes de passar qualquer contato.') + '</p>' +
+    '<ul class="inbox">' + open.map((item) => {
+      const a = athleteOf(item.athleteId)
+      return '<li class="inbox-item"><div class="flex flex-wrap items-center gap-2"><button type="button" class="link-button" data-staff-profile="' + escapeHtml(item.scoutEmail) + '">' + escapeHtml(item.scoutName) + '</button><span class="text-sm text-ink-soft">' + escapeHtml(item.scoutOrg) + '</span>' + icon('arrow', 'size-4 text-ink-soft') +
+        (a ? '<button type="button" class="link-button" data-open-athlete="' + a.id + '">' + escapeHtml(a.name) + '</button>' + (a.age < 18 ? '<span class="tag warn">' + t('Menor de idade') + '</span>' : '') : '<span>' + t('Atleta') + '</span>') + '</div>' +
+        '<p class="inbox-body">' + escapeHtml(item.message) + '</p><div class="flex flex-wrap gap-2"><button type="button" class="btn-primary text-sm" data-scout-decide="accepted" data-request="' + item.id + '">' + icon('check', 'size-4') + ' ' + t('Aceitar e falar com o atleta') + '</button>' +
+        '<button type="button" class="btn-ghost text-sm" data-scout-decide="declined" data-request="' + item.id + '">' + t('Recusar') + '</button></div></li>'
+    }).join('') + '</ul></section>'
+}
+document.addEventListener('click', async (event) => {
+  const button = event.target.closest?.('[data-scout-decide]')
+  if (!button || state.user?.role !== 'staff') return
+  const item = state.scoutRequests.find((entry) => String(entry.id) === button.dataset.request)
+  if (!item) return
+  const status = button.dataset.scoutDecide
+  button.setAttribute('aria-busy', 'true')
+  if (remote.enabled) {
+    const error = await decideScoutRequest(item.id, status, state.user.uid)
+    if (error) { button.removeAttribute('aria-busy'); return toast(describeError(error), 'error') }
+  }
+  item.status = status
+  item.decidedAt = new Date().toISOString()
+  const athlete = state.athletes.find((a) => a.id === item.athleteId)
+  notify(item.scoutEmail, status === 'accepted' ? 'Pedido de contato aceito' : 'Pedido de contato não aceito',
+    status === 'accepted' ? 'A equipe da Pelé Academia vai falar com ' + (athlete?.name || 'o atleta') + ' e a família e retorna com o próximo passo.' : 'A equipe da Pelé Academia não seguiu com o pedido sobre ' + (athlete?.name || 'o atleta') + '.')
+  if (status === 'accepted' && athlete?.email) notify(athlete.email, 'Um clube quer conhecer você', item.scoutName + ' (' + (item.scoutOrg || 'clube') + ') pediu contato. A equipe da Pelé Academia vai conversar com você e com a sua família antes de qualquer passo.')
+  persist()
+  render()
+  if (status === 'accepted' && athlete) {
+    toast(t('Pedido aceito. Abra a conversa com o atleta para combinar com a família.'))
+  } else toast(t('Pedido recusado.'))
+})
+
+// Perfil do atleta: liga e desliga a vitrine. Menor só com a autorização do responsável em vigor.
+function showcasePanel(p, me, age) {
+  const blocked = age < 18 && !(me && guardianFor(me)?.consentAt)
+  const on = !!p.showcase && !blocked
+  return '<section class="reveal mt-6 panel showcase-panel"><div class="flex flex-wrap items-start justify-between gap-4"><div class="min-w-0 flex-1"><h2 class="section-title !mt-0">' + t('Vitrine para clubes') + '</h2>' +
+    '<p class="mt-1 max-w-[62ch] text-sm text-ink-soft">' + t('Com a vitrine ligada, olheiros de clubes convidados pela Pelé Academia veem seu perfil, sua carta e as médias das avaliações. Eles não veem seus contatos nem os comentários e não falam direto com você: o pedido passa pela equipe da academia.') + '</p>' +
+    (blocked ? '<p class="fit-line fit-no">' + icon('info', 'size-4 shrink-0') + '<span>' + t('Para menores de 18 anos, a vitrine só liga com a autorização do responsável em vigor.') + '</span></p>' : '') + '</div>' +
+    '<label class="switch"><input type="checkbox" id="showcase-toggle" role="switch"' + (on ? ' checked' : '') + (blocked ? ' disabled' : '') + ' /><span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span><span class="switch-label">' + t(on ? 'Na vitrine' : 'Fora da vitrine') + '</span></label></div></section>'
+}
+async function saveShowcase(on) {
+  if (remote.enabled) {
+    const own = await fetchOwnProfile(state.user.uid)
+    const error = await updateOwnProfile(state.user.uid, { name: own.profile.name, data: { ...(own.profile.data || {}), showcase: on } })
+    if (error) throw error
+  }
+  if (state.profile) state.profile.showcase = on
+  const account = state.accounts.find((entry) => entry.email === state.user.email)
+  if (account?.profile) account.profile.showcase = on
+  syncAthletes()
+  persist()
+  render()
+  toast(on ? t('Você está na vitrine para clubes.') : t('Você saiu da vitrine para clubes.'))
+}
+
 function teamProfilePanel() {
   return '<div class="panel flex flex-wrap items-center gap-4"><span class="venue-pin" aria-hidden="true">' + icon('users', 'size-5') + '</span><div class="min-w-0 flex-1"><h2 class="section-title !mt-0">' + t('Equipe') + '</h2>' +
     (isAdmin()
@@ -2443,13 +2643,17 @@ function teamPage() {
     }
     return shell(head + '<div class="mt-10">' + ballLoader(t('Carregando a equipe…')) + '</div>', { active: 'team', role: 'staff' })
   }
-  const members = data.staff.slice().sort((a, b) => Number(b.active) - Number(a.active) || Number(b.admin) - Number(a.admin) || a.name.localeCompare(b.name, 'pt'))
+  const scouts = data.staff.filter((member) => member.role === 'scout')
+  const members = data.staff.filter((member) => member.role !== 'scout').sort((a, b) => Number(b.active) - Number(a.active) || Number(b.admin) - Number(a.admin) || a.name.localeCompare(b.name, 'pt'))
   const pending = data.invites.filter((invite) => inviteStatus(invite) === 'valid')
   const others = data.invites.filter((invite) => inviteStatus(invite) !== 'valid').slice(0, 6)
   const html = shell(head +
     '<section class="team-grid mt-6">' +
     '<div class="panel"><h2 class="section-title !mt-0">' + t('Funcionários') + ' <span class="tab-count">' + members.filter((member) => member.active).length + '</span></h2>' +
-    '<ul class="team-list mt-3">' + members.map(memberRow).join('') + '</ul></div>' +
+    '<ul class="team-list mt-3">' + members.map(memberRow).join('') + '</ul>' +
+    '<h2 class="section-title mt-8">' + t('Olheiros de clubes') + ' <span class="tab-count">' + scouts.filter((member) => member.active).length + '</span></h2>' +
+    '<p class="mt-1 text-sm text-ink-soft">' + t('Veem só a vitrine e pedem contato pela equipe. Não criam peneiras, não avaliam e não conversam direto com atletas.') + '</p>' +
+    (scouts.length ? '<ul class="team-list mt-3">' + scouts.map(memberRow).join('') + '</ul>' : '<p class="mt-3 text-sm text-ink-soft">' + t('Nenhum olheiro convidado ainda.') + '</p>') + '</div>' +
     '<div class="grid gap-5">' +
     '<div class="panel"><h2 class="section-title !mt-0">' + t('Convites') + (pending.length ? ' <span class="tab-count">' + pending.length + '</span>' : '') + '</h2>' +
     (data.invites.length
@@ -2470,10 +2674,10 @@ function memberRow(member) {
   return '<li class="team-row' + (member.active ? '' : ' is-inactive') + '" data-member-row="' + escapeHtml(member.email) + '">' +
     personAvatar({ name: member.name, photo: member.photo, demo: member.demo, id: member.email, group: 'staff' }) +
     '<div class="min-w-0 flex-1"><p class="truncate font-semibold">' + name + (me ? ' <span class="text-xs font-normal text-ink-soft">(' + t('você') + ')</span>' : '') + '</p>' +
-    '<p class="truncate text-xs text-ink-soft">' + (member.position ? escapeHtml(member.position) + ' · ' : '') + escapeHtml(member.email) + '</p>' +
+    '<p class="truncate text-xs text-ink-soft">' + (member.role === 'scout' && member.org ? escapeHtml(member.org) + ' · ' : member.position ? escapeHtml(member.position) + ' · ' : '') + escapeHtml(member.email) + '</p>' +
     (member.admin || !member.active ? '<p class="mt-1.5 flex flex-wrap gap-1.5">' + (member.admin ? adminTag() : '') + (member.active ? '' : '<span class="tag">' + t('Desativado') + '</span>') + '</p>' : '') + '</div>' +
     (me ? '' : '<div class="team-actions">' +
-      (member.active ? '<button type="button" class="btn-ghost" data-member-admin="' + escapeHtml(member.email) + '">' + (member.admin ? t('Remover administrador') : t('Tornar administrador')) + '</button>' : '') +
+      (member.active && member.role !== 'scout' ? '<button type="button" class="btn-ghost" data-member-admin="' + escapeHtml(member.email) + '">' + (member.admin ? t('Remover administrador') : t('Tornar administrador')) + '</button>' : '') +
       '<button type="button" class="btn-ghost' + (member.active ? ' text-danger' : '') + '" data-member-active="' + escapeHtml(member.email) + '">' + (member.active ? t('Desativar') : t('Reativar')) + '</button></div>') +
     '</li>'
 }
@@ -2490,7 +2694,7 @@ function inviteRow(invite) {
   const chip = { valid: '<span class="tag warn">' + t('Pendente') + '</span>', used: '<span class="tag green">' + t('Aceito') + '</span>', revoked: '<span class="tag ghost">' + t('Cancelado') + '</span>', expired: '<span class="tag ghost">' + t('Vencido') + '</span>' }[status]
   return '<li class="team-row' + (status === 'valid' ? '' : ' is-muted') + (invite.id === justInvited ? ' is-new' : '') + '" data-invite-row="' + invite.id + '">' +
     '<span class="invite-icon" aria-hidden="true">' + icon('mail', 'size-4') + '</span>' +
-    '<div class="min-w-0 flex-1"><p class="flex flex-wrap items-center gap-1.5"><span class="truncate font-semibold">' + escapeHtml(invite.email) + '</span>' + chip + (invite.admin ? adminTag() : '') + '</p>' +
+    '<div class="min-w-0 flex-1"><p class="flex flex-wrap items-center gap-1.5"><span class="truncate font-semibold">' + escapeHtml(invite.email) + '</span>' + chip + (invite.role === 'scout' ? '<span class="tag ghost">' + t('Olheiro') + (invite.club ? ' · ' + escapeHtml(invite.club) : '') + '</span>' : '') + (invite.admin ? adminTag() : '') + '</p>' +
     '<p class="mt-0.5 text-xs text-ink-soft">' + line + '</p></div>' +
     (status === 'valid' || status === 'expired' ? '<div class="team-actions">' +
       '<button type="button" class="btn-ghost" data-reinvite="' + invite.id + '">' + t('Gerar novo link') + '</button>' +
@@ -2517,7 +2721,12 @@ function openInviteModal(presetEmail = '', presetAdmin = false) {
   wrapper.innerHTML =
     '<div class="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-card surface surface--raised p-6 shadow-2xl sm:p-8" role="dialog" aria-modal="true" aria-labelledby="invite-title" data-lenis-prevent>' +
     '<div class="flex items-start justify-between gap-4"><div><h2 id="invite-title" class="text-2xl font-bold">' + t('Convidar funcionário') + '</h2><p class="mt-1 text-sm text-ink-soft">' + t('Você recebe um link para enviar. Ele só funciona para este e-mail e vence em 7 dias.') + '</p></div><button type="button" class="icon-button" aria-label="' + t('Fechar') + '" data-close>' + icon('close') + '</button></div>' +
-    '<form id="invite-form" class="mt-6 grid gap-4" novalidate>' + input(t('E-mail do funcionário'), 'invite-email', presetEmail, 'email', true) +
+    '<form id="invite-form" class="mt-6 grid gap-4" novalidate>' +
+    '<fieldset><legend class="field-label">' + t('Tipo de acesso') + '</legend><div class="mt-2 grid gap-2 sm:grid-cols-2">' +
+    '<label class="check-pill"><input type="radio" name="invite-role" value="staff" checked/><span>' + t('Funcionário da Pelé Academia') + '</span></label>' +
+    '<label class="check-pill"><input type="radio" name="invite-role" value="scout"/><span>' + t('Olheiro de clube') + '</span></label></div></fieldset>' +
+    input(t('E-mail'), 'invite-email', presetEmail, 'email', true) +
+    '<div data-invite-club hidden>' + input(t('Clube do olheiro'), 'invite-club', '', 'text') + '<p class="mt-1 text-xs text-ink-soft">' + t('O olheiro vê só atletas que ativaram a vitrine e pede contato pela equipe. Não cria peneiras, não avalia e não conversa direto com atletas.') + '</p></div>' +
     (presetEmail ? '<p class="fit-line fit-no !mt-0">' + icon('info', 'size-4 shrink-0') + t('Um link novo substitui o anterior, que deixa de funcionar.') + '</p>' : '') +
     '<label class="check-row"><input type="checkbox" id="invite-admin"' + (presetAdmin ? ' checked' : '') + '/><span><strong>' + t('Acesso de administrador') + '</strong><small>' + t('Também pode convidar, desativar funcionários e dar acesso de administrador.') + '</small></span></label>' +
     '<div class="flex justify-end gap-2"><button type="button" class="btn-secondary" data-close>' + t('Cancelar') + '</button><button class="btn-primary" type="submit">' + t('Gerar convite') + ' ' + icon('arrow', 'size-4') + '</button></div></form></div>'
@@ -2527,10 +2736,18 @@ function openInviteModal(presetEmail = '', presetAdmin = false) {
   wrapper.addEventListener('click', (event) => { if (event.target.closest('[data-close]')) close() })
   const form = wrapper.querySelector('#invite-form')
   form.addEventListener('input', () => setFieldError('invite-email', ''))
+  form.addEventListener('change', () => {
+    const scoutRole = form.querySelector('input[name="invite-role"]:checked').value === 'scout'
+    form.querySelector('[data-invite-club]').hidden = !scoutRole
+    form.querySelector('#invite-admin').closest('label').hidden = scoutRole
+  })
   form.addEventListener('submit', async (event) => {
     event.preventDefault()
     const email = normalizeEmail(form.querySelector('#invite-email').value)
-    const admin = form.querySelector('#invite-admin').checked
+    const inviteRole = form.querySelector('input[name="invite-role"]:checked').value
+    const club = form.querySelector('#invite-club').value.trim()
+    const admin = inviteRole === 'staff' && form.querySelector('#invite-admin').checked
+    if (inviteRole === 'scout' && (club.length < 2 || club.length > 80)) { setFieldError('invite-club', t('Informe o clube (2 a 80 caracteres).')); return form.querySelector('#invite-club').focus() }
     const known = (teamData()?.staff || []).map((member) => member.email).concat(state.accounts.map((account) => account.email))
     const problem = !EMAIL_RE.test(email) ? t('Informe um e-mail válido.') : known.includes(email) ? t('Este e-mail já tem uma conta na plataforma.') : ''
     if (problem) {
@@ -2539,7 +2756,7 @@ function openInviteModal(presetEmail = '', presetAdmin = false) {
     }
     const submit = form.querySelector('[type="submit"]')
     submit.setAttribute('aria-busy', 'true')
-    const result = await inviteStaff(email, admin)
+    const result = await inviteStaff(email, admin, inviteRole, club)
     if (result.error) {
       submit.removeAttribute('aria-busy')
       setFieldError('invite-email', result.error)
@@ -2645,11 +2862,11 @@ function inviteProblem(status) {
 async function findInvite(code) {
   if (remote.enabled) {
     const row = await checkStaffInvite(code)
-    return row && { email: row.email, status: row.status, expiresAt: row.expires_at, admin: row.is_admin, invitedBy: row.invited_by }
+    return row && { email: row.email, status: row.status, expiresAt: row.expires_at, admin: row.is_admin, invitedBy: row.invited_by, role: row.role || 'staff', club: row.club }
   }
   const hash = await sha256Hex(code)
   const invite = state.invites.find((item) => item.codeHash === hash)
-  return invite && { local: invite, email: invite.email, status: inviteStatus(invite), expiresAt: invite.expiresAt, admin: invite.admin, invitedBy: state.accounts.find((account) => account.email === invite.createdBy)?.profile?.name || '' }
+  return invite && { local: invite, email: invite.email, status: inviteStatus(invite), expiresAt: invite.expiresAt, admin: invite.admin, role: invite.role || 'staff', club: invite.club, invitedBy: state.accounts.find((account) => account.email === invite.createdBy)?.profile?.name || '' }
 }
 
 async function loadInvitePage(code) {
@@ -2662,8 +2879,10 @@ async function loadInvitePage(code) {
     root.innerHTML = inviteProblem(invite?.status)
     return
   }
-  root.innerHTML = '<h1 class="text-3xl font-bold">' + t('Crie sua conta de funcionário') + '</h1>' +
-    '<p class="mt-3 text-sm leading-6 text-ink-soft">' + (invite.invitedBy ? escapeHtml(invite.invitedBy) + ' ' + t('convidou você') : t('Você foi convidado')) + ' ' + t('para entrar como funcionário') + (invite.admin ? ' (' + t('administrador') + ')' : '') + '. ' + t('O convite vale até') + ' ' + fmtWhen(invite.expiresAt) + '.</p>' +
+  const asScout = invite.role === 'scout'
+  root.innerHTML = '<h1 class="text-3xl font-bold">' + t(asScout ? 'Crie sua conta de olheiro' : 'Crie sua conta de funcionário') + '</h1>' +
+    (asScout ? '<p class="mt-3 text-sm leading-6 text-ink-soft">' + (invite.invitedBy ? escapeHtml(invite.invitedBy) + ' ' + t('convidou você') : t('Você foi convidado')) + ' ' + t('para observar atletas como olheiro do') + ' <strong class="text-chalk">' + escapeHtml(invite.club || '') + '</strong>. ' + t('Você verá só quem ativou a vitrine para clubes; o contato passa pela equipe da Pelé Academia.') + '</p>' : '') +
+    (asScout ? '' : '<p class="mt-3 text-sm leading-6 text-ink-soft">' + (invite.invitedBy ? escapeHtml(invite.invitedBy) + ' ' + t('convidou você') : t('Você foi convidado')) + ' ' + t('para entrar como funcionário') + (invite.admin ? ' (' + t('administrador') + ')' : '') + '. ' + t('O convite vale até') + ' ' + fmtWhen(invite.expiresAt) + '.</p>') +
     '<form id="invite-accept-form" class="mt-6 grid gap-4" novalidate>' +
     input(t('Nome completo'), 'inv-name', '', 'text', true) + input(t('Cargo'), 'inv-position', '', 'text', true) +
     input(t('E-mail'), 'inv-email', invite.email, 'email', true, false, true) +
@@ -2720,17 +2939,18 @@ async function acceptInvite(code, invite, form) {
       submit.removeAttribute('aria-busy')
       return showFeedback('inv-feedback', t('Este e-mail já tem uma conta na plataforma.'), true)
     }
-    state.accounts.push({ email: invite.email, password, role: 'staff', admin: !!current.admin, active: true, profile: { name, email: invite.email, position } })
+    const asScout = current.role === 'scout'
+    state.accounts.push({ email: invite.email, password, role: asScout ? 'scout' : 'staff', admin: !asScout && !!current.admin, active: true, profile: { name, email: invite.email, position, ...(asScout ? { org: current.club } : {}) } })
     current.local.usedAt = new Date().toISOString()
     current.local.usedBy = invite.email
-    state.user = { name, email: invite.email, role: 'staff' }
+    state.user = { name, email: invite.email, role: asScout ? 'scout' : 'staff' }
     state.profile = null
-    logChange('accept', 'staff_invite', current.local.id, { email: invite.email, is_admin: !!current.admin })
+    logChange('accept', 'staff_invite', current.local.id, { email: invite.email, is_admin: !asScout && !!current.admin, role: current.role || 'staff' })
     notify(current.local.createdBy, 'Convite aceito', name + ' entrou na equipe.')
   }
   persist()
   go('dashboard')
-  toast(t('Conta de funcionário criada. Boas-vindas à equipe!'))
+  toast(state.user?.role === 'scout' ? t('Conta de olheiro criada. A vitrine já está aberta para você.') : t('Conta de funcionário criada. Boas-vindas à equipe!'))
 }
 
 // =====================================================================================
@@ -2951,7 +3171,7 @@ function privacyPage() {
     ['resumo', 'Resumo', '<div class="legal-cards">' + [
       ['shield', 'Sem venda de dados', 'A plataforma não vende dados e não mostra anúncios.'],
       ['users', 'Menores com responsável', 'Atletas menores de 18 anos só se inscrevem em peneiras com a autorização de um responsável.'],
-      ['user', 'Só a equipe vê', 'Perfil, carta e avaliações ficam entre o atleta e a equipe da Pelé Academia. Nada disso é público.'],
+      ['user', 'Só a equipe vê', 'Perfil, carta e avaliações ficam entre o atleta e a equipe da Pelé Academia. Olheiros de clubes só veem quem ligar a vitrine, sem os comentários das avaliações.'],
       ['copy', 'Você no controle', 'Você pode baixar uma cópia dos seus dados, corrigir o perfil e pedir a exclusão da conta.'],
     ].map(card).join('') + '</div>'],
     ['controlador', 'Quem cuida dos dados', legalText('Controladora: Pelé Academia, que usa a TIER ZERO para organizar peneiras e avaliações. A TIER ZERO é um projeto acadêmico da FIAP (2026).') +
@@ -2965,6 +3185,7 @@ function privacyPage() {
       row('Telefone e endereço (opcional)', 'Ficam no seu perfil. O endereço é opcional e nenhuma função o usa.', 'Só você') +
       row('Inscrições, avaliações e conversas', 'Organizar as peneiras e o acompanhamento técnico.', 'Você e a equipe') +
       row('Responsável legal (menores de 18)', 'Registrar a autorização e permitir que a equipe fale com a família.', 'Você e a equipe') +
+      row('Vitrine para clubes (opcional)', 'Mostrar perfil, carta e médias das avaliações a olheiros de clubes convidados. Liga e desliga em Meu perfil.', 'Olheiros de clubes, se você ligar') +
       row('Perfil profissional (funcionários)', 'Mostrar aos atletas e às famílias quem organiza a peneira e quem avalia.', 'Atletas e equipe') +
       row('Nome, e-mail e mensagem do Fale conosco', 'Responder quem escreveu.', 'Só a equipe') +
       '</tbody></table></div>' +
@@ -2983,6 +3204,7 @@ function privacyPage() {
       'A plataforma registra a declaração, mas não confere documentos. A equipe pode pedir a confirmação do responsável no dia da peneira.'])],
     ['compartilhamento', 'Com quem os dados são compartilhados', legalList([
       ['Equipe da Pelé Academia:', 'olheiros e treinadores veem perfis, inscrições e avaliações para conduzir as peneiras.'],
+      ['Olheiros de clubes:', 'só se você ligar a vitrine. Veem perfil, carta e médias, não os contatos nem os comentários. Entram por convite e pedem contato pela equipe.'],
       ['Supabase:', 'hospeda o banco de dados e cuida do login. Conforme a região do servidor, os dados podem ficar fora do Brasil; a LGPD trata essa transferência internacional no art. 33.'],
       ['Google Fonts:', 'entrega a fonte do site. Para isso, o navegador se conecta ao Google e envia dados técnicos, como o endereço IP.'],
       'O botão "Entrar com o Google" desta versão é uma demonstração: ele entra numa conta de exemplo e não envia nem recebe dados do Google.',
@@ -3015,7 +3237,8 @@ function termsPage() {
     ['quem', 'Quem pode usar', legalList([
       'Atletas de 7 a 20 anos, nas categorias Sub-7 a Sub-20.',
       'Atletas menores de 18 anos precisam da autorização de um responsável legal, dada no cadastro. Sem ela, não dá para se inscrever em peneiras.',
-      'Funcionários entram por convite de um administrador da Pelé Academia.'])],
+      'Funcionários entram por convite de um administrador da Pelé Academia.',
+      'Olheiros de outros clubes também entram por convite e seguem as regras da seção Olheiros de clubes.'])],
     ['conta', 'Sua conta', legalList([
       'Use dados verdadeiros. Cada pessoa tem uma conta só; o CPF evita contas duplicadas.',
       'A senha é pessoal. Não compartilhe e avise a equipe se achar que alguém entrou na sua conta.',
@@ -3040,6 +3263,11 @@ function termsPage() {
       'Use os dados dos atletas só para organizar peneiras e avaliar. Não leve dados para fora da plataforma sem necessidade.',
       'Avalie com base no que viu em campo e registre a avaliação na peneira em que observou o atleta.',
       'Quando alguém sai da equipe, um administrador desativa a conta dessa pessoa.'])],
+    ['olheiros', 'Olheiros de clubes', legalList([
+      'Veem só atletas que ligaram a vitrine para clubes; menores aparecem apenas com a autorização do responsável.',
+      'Não criam peneiras, não avaliam e não conversam direto com atletas. Para falar com alguém, pedem contato pela equipe da Pelé Academia.',
+      'Usam o que veem só para recrutamento do próprio clube e não copiam dados para fora da plataforma.',
+      'A equipe pode recusar pedidos e desativar o acesso de quem quebrar estas regras.'])],
     ['suspensao', 'Suspensão e exclusão', legalText('A equipe pode suspender ou excluir contas que quebrem estes termos ou a lei. Você pode pedir a exclusão da sua conta a qualquer momento pela tela Conversas.')],
     ['limites', 'Limites do serviço', legalText('A plataforma é um projeto acadêmico e é oferecida como está. Ela pode ficar fora do ar para manutenção. No modo de demonstração, os dados ficam só no navegador e somem se o histórico for apagado.')],
     ['lei', 'Mudanças, lei aplicável e contato', legalText('Estes termos podem mudar; quando isso acontecer, a versão no topo da página muda junto. Valem as leis brasileiras, entre elas o Estatuto da Criança e do Adolescente e a LGPD. Dúvidas: escreva para a equipe em Conversas.')],
@@ -3122,7 +3350,7 @@ const coverPhoto = ([src, alt, r, d], i) => '<figure class="cover-photo" style="
 // Botão no formato do "Sign in with Google" (logo G oficial, fundo branco, borda #747775; developers.google.com/identity/branding-guidelines).
 // Aqui é só demonstração: entra na conta de exemplo da aba escolhida, sem falar com o Google. A legenda diz isso.
 const GOOGLE_G = '<svg class="google-g" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>'
-const demoNote = (role) => role === 'staff' ? t('Demonstração: entra na conta de exemplo de funcionário (Marina Lopes), sem usar sua conta Google.') : t('Demonstração: entra na conta de exemplo de jogador (Gabriel Martins), sem usar sua conta Google.')
+const demoNote = (role) => ({ staff: t('Demonstração: entra na conta de exemplo de funcionário (Marina Lopes), sem usar sua conta Google.'), scout: t('Demonstração: entra na conta de exemplo de olheiro de clube (Carlos Mendes), sem usar sua conta Google.') })[role] || t('Demonstração: entra na conta de exemplo de jogador (Gabriel Martins), sem usar sua conta Google.')
 
 // Capa do álbum: o ouro a tela toda, a prancheta animada ao fundo, a lombada, o título, fotos coladas e três figurinhas de exemplo em leque.
 function loginPage() {
@@ -3138,7 +3366,7 @@ function loginPage() {
     '<p class="cover-note">' + t('Nas pontas, figurinhas de exemplo. No meio, a sua: nasce no cadastro como carta base e ganha nota com as avaliações dos olheiros.') + '</p>' +
     '<div class="cover-foot">' + partnerSeal() + '</div></section>' +
     '<div class="login-card paper"><h2 class="text-3xl font-bold">' + t('Entrar') + '</h2><p class="mt-2 text-sm text-ink-soft">' + t('Escolha o tipo de conta antes de entrar.') + '</p>' +
-    '<div class="segmented mt-6" role="group" aria-label="' + t('Tipo de conta') + '" data-active="0"><span class="seg-pill" aria-hidden="true"></span><button type="button" class="role-tab active" data-role="player" aria-pressed="true">' + icon('user', 'size-4 seg-icon') + t('Jogador') + '</button><button type="button" class="role-tab" data-role="staff" aria-pressed="false">' + icon('clipboard', 'size-4 seg-icon') + t('Funcionário') + '</button></div>' +
+    '<div class="segmented mt-6" role="group" aria-label="' + t('Tipo de conta') + '" data-active="0"><span class="seg-pill" aria-hidden="true"></span><button type="button" class="role-tab active" data-role="player" aria-pressed="true">' + icon('user', 'size-4 seg-icon') + t('Jogador') + '</button><button type="button" class="role-tab" data-role="scout" aria-pressed="false">' + icon('search', 'size-4 seg-icon') + t('Olheiro') + '</button><button type="button" class="role-tab" data-role="staff" aria-pressed="false">' + icon('clipboard', 'size-4 seg-icon') + t('Funcionário') + '</button></div>' +
     '<form id="login-form" class="mt-6 space-y-4">' + input(t('E-mail'), 'login-email', '', 'email', true) + input(t('Senha'), 'login-password', '', 'password', true) + '<p id="login-error" class="hidden rounded-xl border border-danger/40 bg-danger/10 px-3 py-2 text-xs font-semibold text-danger"></p><button class="btn-primary w-full" type="submit">' + t('Entrar') + ' ' + icon('arrow', 'size-4') + '</button></form>' +
     '<button type="button" class="mt-3 w-full text-center text-xs text-brand hover:text-brand-strong" data-action="forgot-password">' + t('Esqueci minha senha') + '</button>' +
     '<div class="my-6 flex items-center gap-3"><span class="h-px flex-1 bg-line"></span><span class="text-xs text-ink-soft">' + t('ou') + '</span><span class="h-px flex-1 bg-line"></span></div>' +
@@ -3420,6 +3648,7 @@ function openAthleteModal(athleteId) {
   const strengths = strengthsOf(athlete)
   const enrolledIn = athlete.email ? state.tryouts.filter((tryout) => (tryout.enrolled || []).includes(athlete.email)).sort(byStart) : []
   const presences = enrolledIn.filter((tryout) => checkinsOf(tryout)[athlete.email]).length
+  const scout = state.user?.role === 'scout'
   wrapper.innerHTML =
     '<div class="athlete-modal pos-' + positionGroup(athlete.pos) + ' max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-card surface surface--raised shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="athlete-modal-title" data-lenis-prevent>' +
     '<header class="athlete-modal-hero"><button type="button" class="icon-button athlete-modal-close" data-close-modal aria-label="' + t('Fechar') + '">' + icon('close') + '</button>' +
@@ -3441,13 +3670,14 @@ function openAthleteModal(athleteId) {
       [t('Última avaliação'), reviews[0]?.date || '—'],
       [t('Peneiras'), plural(enrolledIn.length, 'inscrição', 'inscrições') + ' · ' + plural(presences, 'presença', 'presenças')],
     ].map(([k, v]) => '<div><dt>' + k + '</dt><dd>' + escapeHtml(v) + '</dd></div>').join('') + '</dl>' +
-    (enrolledIn.length ? '<h3 class="section-title mt-8">' + t('Peneiras do atleta') + '</h3><ul class="athlete-tryouts">' + enrolledIn.map((tryout) => '<li><span class="min-w-0"><strong class="block truncate">' + escapeHtml(tryout.title) + '</strong><small class="text-ink-soft">' + escapeHtml(formatDate(tryout.date)) + ' · ' + escapeHtml(tryout.location || '') + '</small></span>' + (checkinsOf(tryout)[athlete.email] ? '<span class="tag green">' + icon('check', 'size-3.5') + ' ' + t('Presente') + '</span>' : tryout.status === 'cancelled' ? '<span class="tag ghost">' + t('Cancelada') + '</span>' : '<span class="tag ghost">' + t('Inscrito') + '</span>') + '</li>').join('') + '</ul>' : '') +
-    guardianStaffBox(athlete) +
-    '<div class="mt-6 flex flex-wrap gap-2"><button type="button" class="btn-primary" data-message-athlete="' + athlete.id + '">' + icon('message', 'size-4') + ' ' + t('Abrir conversa') + '</button><button type="button" class="btn-secondary save-toggle" data-save="' + athlete.id + '" aria-pressed="' + isSaved(athlete.id) + '">' + icon('bookmark', 'size-4') + '<span>' + (isSaved(athlete.id) ? t('Na sua lista') : t('Salvar na lista')) + '</span></button>' +
+    (enrolledIn.length && !scout ? '<h3 class="section-title mt-8">' + t('Peneiras do atleta') + '</h3><ul class="athlete-tryouts">' + enrolledIn.map((tryout) => '<li><span class="min-w-0"><strong class="block truncate">' + escapeHtml(tryout.title) + '</strong><small class="text-ink-soft">' + escapeHtml(formatDate(tryout.date)) + ' · ' + escapeHtml(tryout.location || '') + '</small></span>' + (checkinsOf(tryout)[athlete.email] ? '<span class="tag green">' + icon('check', 'size-3.5') + ' ' + t('Presente') + '</span>' : tryout.status === 'cancelled' ? '<span class="tag ghost">' + t('Cancelada') + '</span>' : '<span class="tag ghost">' + t('Inscrito') + '</span>') + '</li>').join('') + '</ul>' : '') +
+    (scout ? '<p class="fit-line fit-no">' + icon('shield', 'size-4 shrink-0') + '<span>' + t('O contato com o atleta passa pela equipe da Pelé Academia, que conversa com ele e com a família antes.') + '</span></p>' : guardianStaffBox(athlete)) +
+    '<div class="mt-6 flex flex-wrap gap-2">' + (scout ? scoutRequestButton(athlete, true) : '<button type="button" class="btn-primary" data-message-athlete="' + athlete.id + '">' + icon('message', 'size-4') + ' ' + t('Abrir conversa') + '</button>') + '<button type="button" class="btn-secondary save-toggle" data-save="' + athlete.id + '" aria-pressed="' + isSaved(athlete.id) + '">' + icon('bookmark', 'size-4') + '<span>' + (isSaved(athlete.id) ? t('Na sua lista') : t('Salvar na lista')) + '</span></button>' +
     (state.user?.role === 'staff' ? '<button type="button" class="btn-secondary" data-review-athlete="' + athlete.id + '">' + icon('edit', 'size-4') + ' ' + t('Registrar avaliação') + '</button>' : '') + '</div>' +
     '<section class="mt-8 grid gap-6 md:grid-cols-[1fr_1.1fr]"><div><h3 class="section-title !mt-0">' + t('Atributos') + '</h3>' +
     (Object.keys(attrs.values).length ? '<div class="mt-3">' + radarChart(attrs.criteria, attrs.values) + '</div>' : '<div class="empty-state mt-3"><strong>' + t('Sem avaliação ainda') + '</strong><span class="text-sm">' + t('O radar aparece depois da primeira avaliação registrada.') + '</span></div>') + cardBasis(athlete) + '</div>' +
-    '<div><h3 class="section-title !mt-0">' + t('Avaliações') + ' <span class="text-ink-soft">(' + reviews.length + ')</span></h3><div class="mt-3 grid gap-3">' + (reviews.length ? reviews.map((review) => reviewCard(review, athlete.id)).join('') : '<p class="text-sm text-ink-soft">' + t('Nenhuma avaliação registrada ainda.') + '</p>') + '</div></div></section>' +
+    (scout ? '<div><h3 class="section-title !mt-0">' + t('Avaliações') + ' <span class="text-ink-soft">(' + reviews.length + ')</span></h3><p class="mt-3 text-sm text-ink-soft">' + t('Os comentários das avaliações ficam só com a equipe da Pelé Academia. A carta e o radar mostram as médias.') + '</p></div></section>' :
+    '<div><h3 class="section-title !mt-0">' + t('Avaliações') + ' <span class="text-ink-soft">(' + reviews.length + ')</span></h3><div class="mt-3 grid gap-3">' + (reviews.length ? reviews.map((review) => reviewCard(review, athlete.id)).join('') : '<p class="text-sm text-ink-soft">' + t('Nenhuma avaliação registrada ainda.') + '</p>') + '</div></div></section>') +
     '</div></div>'
 
   document.body.appendChild(wrapper)
@@ -4045,12 +4275,12 @@ function applyFilters() {
   const age = document.querySelector('#filter-age')?.value || ''
   const category = document.querySelector('#filter-category')?.value || ''
   const foot = document.querySelector('#filter-foot')?.value || ''
-  const filtered = filterAthletes(state.athletes, { name, pos, city, age, category, foot }).filter((a) => !watchOnly || isSaved(a.id))
+  const filtered = filterAthletes(visibleAthletes(), { name, pos, city, age, category, foot }).filter((a) => !watchOnly || isSaved(a.id))
   state.filteredAthletes = filtered
   const grid = document.querySelector('#athlete-grid')
   if (grid) {
     const emptyWatch = watchOnly && !state.athletes.some((a) => isSaved(a.id))
-    grid.innerHTML = filtered.map((a) => athleteCard(a, true)).join('') || (emptyWatch
+    grid.innerHTML = filtered.map((a) => athleteCard(a, state.user?.role === 'scout' ? 'scout' : true)).join('') || (emptyWatch
       ? '<div class="empty-state md:col-span-2 xl:col-span-3">' + icon('bookmark', 'size-6 text-brand') + '<strong>' + t('Sua lista de observação está vazia') + '</strong><span class="text-sm">' + t('Toque no marcador de um card para salvar o atleta e acompanhar aqui.') + '</span><button type="button" class="btn-secondary mt-2" data-action="toggle-watchlist">' + t('Ver todos os atletas') + '</button></div>'
       : '<div class="empty-state md:col-span-2 xl:col-span-3"><strong>' + t('Nenhum atleta com esses filtros') + '</strong><span class="text-sm">' + t('Remova um filtro para ver mais atletas.') + '</span><button type="button" class="btn-secondary mt-2" data-action="clear-filters-empty">' + t('Limpar filtros') + '</button></div>')
     grid.querySelector('[data-action="clear-filters-empty"]')?.addEventListener('click', clearFilters)
@@ -4248,6 +4478,8 @@ async function registerAccount() {
   toast(t('Conta criada com sucesso.'))
 }
 
+const wrongTab = (role) => ({ staff: t('Esta conta é de funcionário. Selecione a aba correta acima.'), scout: t('Esta conta é de olheiro. Selecione a aba Olheiro acima.') })[role] || t('Esta conta é de jogador. Selecione a aba correta acima.')
+const loggedAs = (role) => ({ staff: t('Login realizado como funcionário.'), scout: t('Login realizado como olheiro.') })[role] || t('Login realizado como jogador.')
 async function finishRemoteLogin(uid, role, errorId) {
   try {
     await hydrateRemote(uid)
@@ -4259,12 +4491,12 @@ async function finishRemoteLogin(uid, role, errorId) {
   if (state.user.role !== role) {
     const actual = state.user.role
     await clearRemoteSession()
-    showFeedback(errorId, actual === 'staff' ? t('Esta conta é de funcionário. Selecione a aba correta acima.') : t('Esta conta é de jogador. Selecione a aba correta acima.'), true)
+    showFeedback(errorId, wrongTab(actual), true)
     return false
   }
   persist()
   go('dashboard')
-  toast(role === 'staff' ? t('Login realizado como funcionário.') : t('Login realizado como jogador.'))
+  toast(loggedAs(role))
   setTimeout(() => { updateMessageBadge(); announceUnread() }, 600)
   return true
 }
@@ -4301,7 +4533,7 @@ async function loginAccount() {
 
   const anyRole = state.accounts.find((entry) => entry.email === email)
   if (anyRole && anyRole.role !== role && anyRole.password === password) {
-    return showFeedback(errorId, anyRole.role === 'staff' ? t('Esta conta é de funcionário. Selecione a aba correta acima.') : t('Esta conta é de jogador. Selecione a aba correta acima.'), true)
+    return showFeedback(errorId, wrongTab(anyRole.role), true)
   }
   const account = state.accounts.find((entry) => entry.email === email && entry.role === role)
   if (account && account.password === password && account.active === false) return showFeedback(errorId, t('Esta conta de funcionário foi desativada. Fale com um administrador.'), true)
@@ -4315,7 +4547,7 @@ async function loginAccount() {
   state.profile = role === 'player' ? account.profile : null
   persist()
   go('dashboard')
-  toast(role === 'staff' ? t('Login realizado como funcionário.') : t('Login realizado como jogador.'))
+  toast(loggedAs(role))
   setTimeout(() => { updateMessageBadge(); announceUnread() }, 600)
 }
 
@@ -4324,7 +4556,7 @@ async function loginDemo() {
   disableRemote()
   state.accounts = readStorage('ap_accounts', state.accounts)
 
-  const email = role === 'staff' ? 'funcionario@academiapele.com' : 'gabriel@academiapele.com'
+  const email = { staff: 'funcionario@academiapele.com', scout: 'olheiro@clube-exemplo.com' }[role] || 'gabriel@academiapele.com'
   const account = state.accounts.find((entry) => entry.email === email)
   if (!account) return
   state.user = { name: account.profile.name, email: account.email, role }
@@ -4530,6 +4762,7 @@ function bind() {
   document.querySelectorAll('[data-action="demo"]').forEach((button) => button.addEventListener('click', () => safely(loginDemo())))
   document.querySelectorAll('[data-action="edit-pro"]').forEach((button) => button.addEventListener('click', openProEditor))
   bindContactForm()
+  document.querySelector('#showcase-toggle')?.addEventListener('change', (event) => safely(saveShowcase(event.target.checked)))
 
   const conversationSearch = document.querySelector('#conversation-search')
   if (conversationSearch) conversationSearch.addEventListener('input', () => {
@@ -4594,6 +4827,11 @@ function render() {
   const [routeBase, routeArg = ''] = route.split('/')
   if (!state.user && !['login', 'register', 'reset-password', 'convite', 'privacidade', 'termos', 'sobre', 'contato'].includes(routeBase)) {
     go('login')
+    return
+  }
+  // Olheiro de clube: início, vitrine, perfil e páginas públicas. Peneiras, conversas e equipe são da academia.
+  if (state.user?.role === 'scout' && !['dashboard', 'athletes', 'profile', 'privacidade', 'termos', 'sobre', 'contato', 'convite'].includes(routeBase)) {
+    go('dashboard')
     return
   }
   if (state.user && routeBase === 'convite') {

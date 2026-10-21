@@ -1322,3 +1322,23 @@ h2, h3 { font-stretch:108%; }
 .legal-hero.has-board .tactic-board { inset:0; top:0; height:100%; }
 /* No rodapé, o subtítulo da marca acompanha a cor do rodapé (ouro ou tinta), nos dois temas. */
 .site-footer .brand-sub { color: inherit; }
+
+/* ===== Login com três tipos de conta ===== */
+.segmented:has(> [data-role="scout"]) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.segmented:has(> [data-role="scout"]) .seg-pill { width: calc((100% - .6rem) / 3); }
+.segmented[data-active="2"] .seg-pill { transform: translateX(200%); }
+@media (max-width: 26rem) { .segmented .role-tab { font-size:.8rem; gap:.3rem; } .segmented .role-tab .seg-icon { display:none; } }
+/* Como funciona: três perfis lado a lado no desktop. */
+@media (min-width: 64rem) { .info-flows { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+/* Interruptor da vitrine. */
+.switch { display:inline-flex; align-items:center; gap:.65rem; min-height:2.75rem; cursor:pointer; font-weight:700; font-size:.9rem; }
+.switch input { position:absolute; opacity:0; width:1px; height:1px; }
+.switch-track { position:relative; flex:none; width:3.1rem; height:1.75rem; border-radius:999px; background:var(--color-line-strong); transition: background-color .2s; }
+.switch-thumb { position:absolute; top:.2rem; left:.2rem; width:1.35rem; height:1.35rem; border-radius:50%; background:#FFFFFF; box-shadow: 0 2px 6px rgb(0 0 0 / .3); transition: transform .3s var(--ease-settle); }
+.switch input:checked + .switch-track { background:var(--color-success); }
+.switch input:checked + .switch-track .switch-thumb { transform: translateX(1.35rem); }
+.switch input:focus-visible + .switch-track { outline:2px solid var(--color-focus); outline-offset:3px; }
+.switch input:disabled + .switch-track { opacity:.45; }
+.switch:has(input:disabled) { cursor:not-allowed; }
+/* Em tela estreita o interruptor desce para baixo do texto em vez de espremê-lo. */
+.showcase-panel .min-w-0 { flex: 1 1 18rem; }
