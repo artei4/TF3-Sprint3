@@ -313,5 +313,31 @@ await as('staff', `update tryouts set status = 'cancelled', cancel_reason = 'chu
 r = await as('staff', `select set_attendance(${todayTryout}, 'adulto@x.com', true)`)
 expect('peneira cancelada não tem chamada', /tryout_closed/.test(r.error || ''), r)
 
+// Fale conosco
+const contactSql = (email, topic = 'peneiras') => `insert into contact_messages (name, email, topic, body) values ('Ana Souza', '${email}', '${topic}', 'Quando abre a próxima peneira Sub-15?')`
+r = await asAnon(contactSql('ana@x.com'))
+expect('visitante sem conta envia mensagem', !r.error, r)
+r = await asAnon(`select * from contact_messages`)
+expect('visitante NÃO lê mensagens', /permission denied/.test(r.error || ''), r)
+r = await asAnon(contactSql('sem-arroba'))
+expect('e-mail inválido é recusado', /check constraint/.test(r.error || ''), r)
+r = await asAnon(contactSql('ana@x.com', 'spam'))
+expect('assunto fora da lista é recusado', /check constraint/.test(r.error || ''), r)
+r = await asAnon(`insert into contact_messages (name, email, topic, body, handled_at) values ('Ana', 'ana@x.com', 'outro', 'mensagem de teste', now())`)
+expect('visitante NÃO marca como respondida', /permission denied/.test(r.error || ''), r)
+r = await as('p1', contactSql('a@x.com', 'dados'))
+const contactRow = (await db.query(`select sender_id from contact_messages where email = 'a@x.com'`)).rows[0]
+expect('atleta logado envia e fica como autor', !r.error && contactRow?.sender_id === ids.p1, { r, contactRow })
+r = await as('p1', `select count(*)::int n from contact_messages`)
+expect('atleta NÃO lê as mensagens do contato', r.rows?.[0]?.n === 0, r)
+r = await as('staff', `select count(*)::int n from contact_messages`)
+expect('equipe lê as mensagens', r.rows?.[0]?.n === 2, r)
+r = await as('staff', `update contact_messages set handled_at = now(), handled_by = auth.uid() where email = 'ana@x.com' returning handled_by`)
+expect('equipe marca como respondida', r.rows?.[0]?.handled_by === ids.staff, r)
+r = await as('staff', `update contact_messages set body = 'trocado' where email = 'ana@x.com'`)
+expect('equipe NÃO altera o texto enviado', /permission denied/.test(r.error || ''), r)
+r = await as('p1', `update contact_messages set handled_at = now() where email = 'a@x.com' returning id`)
+expect('atleta NÃO marca como respondida', !r.error && r.rows?.length === 0, r)
+
 console.log(`\n${pass} ok, ${fail} falharam`)
 process.exit(fail ? 1 : 0)

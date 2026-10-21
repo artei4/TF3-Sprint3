@@ -310,3 +310,24 @@ export async function revokeGuardianConsent() {
   const { error } = await client.rpc('revoke_guardian_consent')
   return error || null
 }
+
+// Fale conosco: qualquer pessoa envia (sem ler de volta: só a equipe lê a tabela).
+export async function sendContactMessage({ name, email, topic, body }) {
+  const { error } = await client.from('contact_messages').insert({ name, email, topic, body })
+  return error
+}
+
+export async function fetchContactMessages() {
+  const { data, error } = await client
+    .from('contact_messages')
+    .select('id,name,email,topic,body,created_at,handled_at')
+    .order('created_at', { ascending: false })
+    .limit(200)
+  if (error) throw error
+  return data || []
+}
+
+export async function markContactHandled(id, uid) {
+  const { error } = await client.from('contact_messages').update({ handled_at: new Date().toISOString(), handled_by: uid }).eq('id', id)
+  return error
+}

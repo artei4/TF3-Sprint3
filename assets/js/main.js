@@ -61,6 +61,9 @@ import {
   saveGuardian,
   revokeGuardianConsent,
   setAttendance,
+  sendContactMessage,
+  fetchContactMessages,
+  markContactHandled,
 } from './remote.js'
 
 const app = document.querySelector('#app')
@@ -146,6 +149,7 @@ const state = {
   tryouts: readStorage('ap_tryouts', defaultTryouts),
   venues: readStorage('ap_venues', defaultVenues),
   invites: readStorage('ap_invites', []),
+  contacts: readStorage('ap_contacts', []),
   guardians: {},
   reviews: readStorage('ap_reviews', {}),
   notifications: readStorage('ap_notifications', []),
@@ -224,6 +228,7 @@ function persist() {
     localStorage.setItem('ap_tryouts', JSON.stringify(state.tryouts))
     localStorage.setItem('ap_venues', JSON.stringify(state.venues))
     localStorage.setItem('ap_invites', JSON.stringify(state.invites))
+    localStorage.setItem('ap_contacts', JSON.stringify(state.contacts))
   }
   localStorage.setItem('ap_favorites', JSON.stringify(state.favorites))
   localStorage.setItem('ap_reviews', JSON.stringify(state.reviews))
@@ -647,6 +652,7 @@ async function hydrateRemote(uid) {
     console.warn('[Supabase] não foi possível carregar avaliações:', error)
   }
   await refreshRemoteGuardians()
+  if (own.profile.role === 'staff') await refreshRemoteContacts()
   state.tryoutsStatus = 'loading'
   const loadingSince = performance.now()
   refreshRemoteTryouts().then(() => {
@@ -942,7 +948,7 @@ function shell(content, options = {}) {
     '<button type="button" class="icon-button md:hidden" data-action="menu" aria-label="' + t('Abrir menu') + '">' + icon('menu') + '</button>' +
     '</div></header>' +
     '<main id="conteudo" tabindex="-1" class="content-sheet outline-none">' + content + '</main>' +
-    '<footer class="app-footer"><p>TIER ZERO · ' + t('Plataforma de talentos em parceria com a Pelé Academia') + ' · FIAP 2026. <a class="underline underline-offset-4 hover:text-chalk" href="#/termos">' + t('Termos de uso') + '</a> · <a class="underline underline-offset-4 hover:text-chalk" href="#/privacidade">' + t('Privacidade') + '</a> · <a class="underline underline-offset-4 hover:text-chalk" href="#/design-system">Design system</a></p></footer>' +
+    siteFooter() +
     '</div>' +
     '<nav class="bottom-nav" aria-label="' + t('Navegação rápida') + '">' +
     nav.map((item) => '<button type="button" data-route="' + item[0] + '"' + (item[0] === 'messages' ? ' data-badge-host aria-label="' + item[1] + '"' : '') + (active === item[0] ? ' aria-current="page"' : '') + '>' + icon(item[2], 'size-5') + '<span>' + item[1] + '</span>' + (item[0] === 'messages' ? '<span class="count-badge" data-msg-badge aria-hidden="true" hidden></span>' : '') + '</button>').join('') +
@@ -1076,6 +1082,7 @@ function staffDashboard() {
     '<div><dt>' + t('Atletas sem avaliação') + '</dt><dd class="num">' + unreviewed + '</dd></div>' +
     '<div><dt>' + t('Na sua lista de observação') + '</dt><dd class="num">' + watching + '</dd></div>' +
     '<div><dt>' + t('Mensagens não lidas') + '</dt><dd class="num">' + unreadSummary().total + '</dd></div></dl></section>' +
+    contactInbox() +
     '<section class="reveal mt-8 panel"><div class="flex flex-wrap items-end justify-between gap-3"><div><h2 class="section-title !mt-0">' + t('Elenco em campo') + '</h2><p class="mt-1 max-w-[60ch] text-sm text-ink-soft">' + t('Cada ponto é um atleta do banco, na posição principal. Clique para abrir o perfil.') + '</p></div></div>' +
     '<div class="mt-5">' + pitchFormation(state.athletes) + '</div>' + squadLegend(state.athletes) + '</section>' +
     '<section class="reveal mt-8 panel"><div class="flex flex-wrap items-end justify-between gap-3"><div><h2 class="section-title">' + t('Atletas para observar') + '</h2></div><button type="button" class="btn-ghost" data-route="athletes">' + t('Abrir banco completo') + ' ' + icon('arrow', 'size-4') + '</button></div><div class="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">' +
@@ -2249,6 +2256,174 @@ function openProEditor() {
   })
 }
 
+// ---------- Rodapé do site, Sobre (com a parceria) e Fale conosco ----------
+// Referências: rodapé do GOV.UK Design System (navegação agrupada + links de política sempre visíveis) e o
+// padrão "Contact a department or service team" (diga por onde e como a resposta chega; avise o que não enviar).
+function siteFooter({ ink = false } = {}) {
+  const logged = !!state.user
+  const link = (href, text) => '<li><a href="' + href + '">' + t(text) + '</a></li>'
+  return '<footer class="site-footer' + (ink ? ' is-ink' : ' on-album') + '"><div class="sf-wrap">' +
+    '<div class="sf-brand">' + brandLockup(36) + '<p class="sf-tag">' + t('Peneiras da Pelé Academia para atletas de 7 a 20 anos, da Sub-7 à Sub-20, num lugar só.') + '</p>' +
+    '<a class="sf-partner" href="#/sobre/parceria"><img src="./assets/brand/simbolo.jpg" width="36" height="36" decoding="async" alt="" /><strong>' + t('Em parceria com a Pelé Academia') + '</strong></a></div>' +
+    '<nav class="sf-cols" aria-label="' + t('Rodapé') + '">' +
+    '<div><h2>' + t('Plataforma') + '</h2><ul>' + link('#/sobre', 'Sobre a TIER ZERO') + link('#/sobre/parceria', 'A parceria') + (logged ? link('#/tryouts', 'Peneiras') : link('#/register', 'Criar conta de jogador')) + '</ul></div>' +
+    '<div><h2>' + t('Ajuda') + '</h2><ul>' + link('#/contato', 'Fale conosco') + (logged ? link('#/messages', 'Conversas') : link('#/login', 'Entrar')) + '</ul></div>' +
+    '<div><h2>' + t('Seus dados') + '</h2><ul>' + link('#/termos', 'Termos de uso') + link('#/privacidade', 'Política de privacidade') + link('#/contato', 'Pedidos sobre dados (LGPD)') + '</ul></div>' +
+    '</nav></div>' +
+    '<div class="sf-base sf-wrap"><p>© 2026 TIER ZERO · ' + t('Projeto acadêmico FIAP') + ' · ' + t('Versão') + ' ' + CONSENT_VERSION + '</p><a href="#/design-system">Design system</a></div></footer>'
+}
+
+// Página informativa: faixa de ouro com título (e a prancheta animada, se pedida) e o conteúdo embaixo.
+function infoPage(title, lead, body, { board = false } = {}) {
+  return '<main id="conteudo" tabindex="-1" class="legal info-page outline-none">' +
+    '<header class="legal-hero on-album' + (board ? ' has-board' : '') + '">' + (board ? TACTIC_BOARD : '') + '<div class="legal-wrap"><div class="legal-top">' + brandLockup(32) +
+    '<button type="button" class="btn-secondary text-sm" data-route="' + (state.user ? 'dashboard' : 'login') + '">' + icon('back', 'size-4') + ' ' + (state.user ? t('Voltar ao início') : t('Voltar ao login')) + '</button></div>' +
+    '<h1 class="legal-title">' + t(title) + '</h1><p class="legal-lead">' + t(lead) + '</p></div></header>' +
+    '<div class="legal-wrap info-body">' + body + '</div></main>' + siteFooter()
+}
+
+function aboutPage() {
+  const step = (n, title, text) => '<li class="info-step"><span class="info-step-num tabular" aria-hidden="true">' + n + '</span><div><strong>' + t(title) + '</strong><p>' + t(text) + '</p></div></li>'
+  const promise = ([name, title, text]) => '<div class="legal-card">' + icon(name, 'size-5') + '<strong>' + t(title) + '</strong><span>' + t(text) + '</span></div>'
+  const role = (text) => '<li>' + icon('check', 'size-4 shrink-0') + '<span>' + t(text) + '</span></li>'
+  return infoPage('Sobre a TIER ZERO', 'A plataforma de peneiras da Pelé Academia: atletas de 7 a 20 anos mostram o seu futebol, e a equipe da academia encontra, avalia e acompanha cada um.',
+    '<section class="info-section"><h2>' + t('Como funciona') + '</h2><div class="info-flows">' +
+    '<div class="info-flow"><h3>' + icon('user', 'size-5') + t('Para atletas e famílias') + '</h3><ol>' +
+    step('01', 'Crie sua conta', 'Posição, perna dominante e cidade. Menores de 18 anos entram com a autorização de um responsável.') +
+    step('02', 'Inscreva-se numa peneira', 'Antes de se inscrever, você vê se a peneira combina com a sua posição e a sua categoria.') +
+    step('03', 'Ganhe a sua carta', 'Depois da peneira, a avaliação da equipe vira nota e atributos na sua carta, com a explicação de cada número.') + '</ol></div>' +
+    '<div class="info-flow"><h3>' + icon('clipboard', 'size-5') + t('Para a equipe da academia') + '</h3><ol>' +
+    step('01', 'Abra a peneira', 'Data, local, categoria, posições e vagas. Só atletas compatíveis conseguem se inscrever.') +
+    step('02', 'Faça a chamada e dê a nota no campo', 'No dia, a peneira ao vivo marca quem chegou e registra uma nota rápida por característica.') +
+    step('03', 'Acompanhe e converse', 'Banco de atletas com filtros, lista de observação e conversa direta com atletas e famílias.') + '</ol></div></div></section>' +
+    '<section id="parceria" class="info-section info-partner" tabindex="-1">' +
+    '<div class="partner-lockup" aria-hidden="true">' + brandLockup(40) + '<span class="partner-x">×</span><img src="./assets/brand/simbolo.jpg" width="56" height="56" decoding="async" alt="" /></div>' +
+    '<h2>' + t('A parceria com a Pelé Academia') + '</h2>' +
+    '<p class="info-lead">' + t('A TIER ZERO existe para as peneiras da Pelé Academia. A academia decide; a plataforma organiza. Cada lado tem um papel claro, e é isso que dá confiança para atletas e famílias.') + '</p>' +
+    '<div class="partner-roles">' +
+    '<div class="partner-role is-academy"><h3><img src="./assets/brand/simbolo.jpg" width="28" height="28" decoding="async" alt="" />' + t('O que a Pelé Academia faz') + '</h3><ul>' +
+    role('Abre e conduz as peneiras: data, local, categorias, posições e vagas.') +
+    role('Seus olheiros e treinadores avaliam os atletas e decidem quem segue no processo.') +
+    role('Convida quem entra na equipe: nenhuma conta de funcionário é criada sem convite.') +
+    role('É a responsável pelos dados das peneiras (controladora, na LGPD) e define o contato oficial para pedidos.') + '</ul></div>' +
+    '<div class="partner-role is-platform"><h3>' + icon('shield', 'size-5') + t('O que a TIER ZERO faz') + '</h3><ul>' +
+    role('Mantém o cadastro, as inscrições, a chamada, as avaliações e as conversas num lugar só.') +
+    role('Mostra ao atleta, antes da inscrição, se a peneira combina com a posição e a categoria.') +
+    role('Aplica as regras de quem vê o quê e a autorização do responsável para menores de 18 anos.') +
+    role('Não escolhe atletas, não muda notas e não vende dados.') + '</ul></div></div>' +
+    '<h3 class="info-sub">' + t('O que a parceria garante a você') + '</h3><div class="legal-cards">' + [
+      ['calendar', 'Peneiras de verdade', 'Toda peneira foi aberta por alguém da equipe da academia, com nome e perfil profissional.'],
+      ['user', 'Quem avalia tem nome', 'Cada avaliação mostra quem avaliou. O perfil traz cargo, vínculo e experiência.'],
+      ['star', 'Nota explicada', 'A carta mostra de onde vem cada número: média das avaliações, característica por característica.'],
+      ['users', 'Família por perto', 'Menores de 18 anos só se inscrevem com a autorização de um responsável, que pode revogá-la.'],
+    ].map(promise).join('') + '</div>' +
+    '<p class="info-note">' + icon('info', 'size-4 shrink-0') + '<span>' + t('Esta página não traz números, depoimentos nem a história da academia: só publicamos o que conseguimos confirmar.') + '</span></p></section>' +
+    '<section class="info-section"><h2>' + t('Quem faz') + '</h2><p class="info-lead">' + t('A TIER ZERO é um projeto acadêmico da FIAP (2026), feito para a Pelé Academia. O código, as regras do banco e os testes ficam no repositório do projeto.') + '</p></section>' +
+    '<section class="info-cta on-album"><h2>' + t(state.user ? 'Sua próxima peneira está a um clique.' : 'Pronto para a próxima peneira?') + '</h2><div class="flex flex-wrap gap-2">' +
+    (state.user ? '<button type="button" class="btn-primary" data-route="tryouts">' + icon('calendar', 'size-4') + ' ' + t('Ver peneiras') + '</button>' : '<button type="button" class="btn-primary" data-route="register">' + t('Criar conta de jogador') + ' ' + icon('arrow', 'size-4') + '</button>') +
+    '<button type="button" class="btn-secondary" data-route="contato">' + icon('mail', 'size-4') + ' ' + t('Fale conosco') + '</button></div></section>', { board: true })
+}
+
+const CONTACT_TOPICS = [['peneiras', 'Peneiras e inscrição'], ['cadastro', 'Cadastro e acesso'], ['dados', 'Meus dados (LGPD)'], ['parcerias', 'Parcerias e imprensa'], ['outro', 'Outro assunto']]
+const topicLabel = (key) => t((CONTACT_TOPICS.find(([k]) => k === key) || [, 'Outro assunto'])[1])
+function contactPage() {
+  const me = state.user ? state.accounts.find((account) => account.email === state.user.email)?.profile : null
+  const ways = [
+    state.user ? ['message', 'Já tem conta?', 'Em Conversas você fala direto com olheiros e treinadores. É o caminho mais rápido.', '<button type="button" class="btn-secondary mt-3" data-route="messages">' + t('Abrir conversas') + '</button>'] : null,
+    ['shield', 'Pedidos sobre seus dados', 'Para ver, corrigir, receber uma cópia ou excluir seus dados, escolha o assunto Meus dados (LGPD). A cópia também sai em Meu perfil.', ''],
+    ['info', 'Esqueceu a senha?', 'Use Esqueci minha senha na tela de entrada: o link chega no seu e-mail.', ''],
+  ].filter(Boolean)
+  return infoPage('Fale conosco', 'Dúvidas sobre peneiras, cadastro, seus dados ou parcerias. A mensagem vai para a equipe da Pelé Academia.',
+    '<div class="contact-grid"><section class="contact-form-wrap panel" aria-labelledby="contact-title"><h2 id="contact-title" class="section-title !mt-0">' + t('Escreva para a equipe') + '</h2>' +
+    '<p class="mt-1 text-sm text-ink-soft">' + t('A resposta chega no e-mail que você informar.') + '</p>' +
+    '<form id="contact-form" class="mt-5 grid gap-4 sm:grid-cols-2" novalidate>' +
+    input(t('Nome'), 'contact-name', me?.name || '', 'text', true) + input(t('E-mail'), 'contact-email', state.user?.email || '', 'email', true) +
+    '<label class="field-label sm:col-span-2">' + t('Assunto') + '<select id="contact-topic" class="field" required><option value="">' + t('Selecione…') + '</option>' + CONTACT_TOPICS.map(([key, label]) => '<option value="' + key + '">' + t(label) + '</option>').join('') + '</select></label>' +
+    '<label class="field-label sm:col-span-2">' + t('Mensagem') + '<textarea id="contact-body" class="field min-h-36" maxlength="2000" required aria-describedby="contact-hint"></textarea></label>' +
+    '<p id="contact-hint" class="sm:col-span-2 -mt-2 flex justify-between gap-3 text-xs text-ink-soft"><span>' + t('Não escreva CPF, senhas nem dados de saúde.') + '</span><span class="tabular" data-contact-count>0/2000</span></p>' +
+    // Campo isca contra robôs: fica fora da tela e do Tab; pessoas não preenchem.
+    '<div class="contact-trap" aria-hidden="true"><label>Site<input id="contact-site" tabindex="-1" autocomplete="off" /></label></div>' +
+    '<p class="sm:col-span-2 text-xs leading-5 text-ink-soft">' + t('Usamos o nome e o e-mail só para responder esta mensagem.') + ' <a class="underline underline-offset-4" href="#/privacidade">' + t('Política de privacidade') + '</a></p>' +
+    '<p id="contact-feedback" class="hidden sm:col-span-2 rounded-2xl border px-4 py-3 text-sm" role="alert"></p>' +
+    '<div class="sm:col-span-2 flex justify-end"><button type="submit" class="btn-primary">' + icon('send', 'size-4') + ' ' + t('Enviar mensagem') + '</button></div></form></section>' +
+    '<aside class="contact-ways" aria-label="' + t('Outros caminhos') + '">' + ways.map(([name, title, text, extra]) => '<div class="contact-way">' + icon(name, 'size-5') + '<div><strong>' + t(title) + '</strong><p>' + t(text) + '</p>' + extra + '</div></div>').join('') +
+    (remote.enabled ? '' : '<p class="contact-local">' + t('Modo local: a mensagem fica só neste navegador. A equipe vê ao entrar neste mesmo navegador.') + '</p>') + '</aside></div>')
+}
+function bindContactForm() {
+  const form = document.querySelector('#contact-form')
+  if (!form) return
+  const body = form.querySelector('#contact-body')
+  body.addEventListener('input', () => { form.querySelector('[data-contact-count]').textContent = body.value.length + '/2000' })
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault()
+    const val = (id) => form.querySelector('#' + id).value.trim()
+    if (val('contact-site')) return // robô preencheu a isca
+    const message = { name: val('contact-name'), email: val('contact-email').toLowerCase(), topic: val('contact-topic'), body: val('contact-body') }
+    const errors = []
+    const check = (id, ok, text) => { setFieldError(id, ok ? '' : t(text)); if (!ok) errors.push(id) }
+    check('contact-name', message.name.length >= 2 && message.name.length <= 120, 'Informe seu nome.')
+    check('contact-email', /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(message.email) && message.email.length <= 254, 'Informe um e-mail válido.')
+    check('contact-topic', CONTACT_TOPICS.some(([key]) => key === message.topic), 'Escolha um assunto.')
+    check('contact-body', message.body.length >= 10, 'Escreva pelo menos 10 caracteres.')
+    if (errors.length) return form.querySelector('#' + errors[0])?.focus()
+    const submit = form.querySelector('[type=submit]')
+    submit.setAttribute('aria-busy', 'true')
+    try {
+      if (remote.enabled) {
+        const error = await sendContactMessage(message)
+        if (error) throw error
+      } else {
+        state.contacts.unshift({ id: Date.now(), ...message, createdAt: new Date().toISOString(), handledAt: null })
+        state.accounts.filter((account) => account.role === 'staff').forEach((account) => notify(account.email, 'Fale conosco', message.name + ': ' + topicLabel(message.topic)))
+        persist()
+      }
+      const wrap = form.closest('.contact-form-wrap')
+      wrap.innerHTML = '<div class="contact-done" role="status"><span class="contact-done-icon">' + icon('check', 'size-7') + '</span><h2 class="section-title !mt-0">' + t('Mensagem enviada') + '</h2>' +
+        '<p class="text-ink-soft">' + t('A equipe da Pelé Academia responde pelo e-mail') + ' <strong class="text-chalk">' + escapeHtml(message.email) + '</strong>.</p>' +
+        '<button type="button" class="btn-secondary" data-route="contato">' + t('Enviar outra mensagem') + '</button></div>'
+      wrap.querySelector('[data-route]').addEventListener('click', () => render())
+      wrap.querySelector('.contact-done').focus?.()
+    } catch (error) {
+      showFeedback('contact-feedback', describeError(error), true)
+    } finally { submit.removeAttribute('aria-busy') }
+  })
+}
+
+// Caixa do Fale conosco no início da equipe: mensagens em aberto, responder por e-mail e marcar como respondida.
+async function refreshRemoteContacts() {
+  try {
+    state.contacts = (await fetchContactMessages()).map((row) => ({ id: row.id, name: row.name, email: row.email, topic: row.topic, body: row.body, createdAt: row.created_at, handledAt: row.handled_at }))
+  } catch (error) {
+    console.warn('[Supabase] não foi possível carregar o Fale conosco:', error) // antes da migration, a caixa só fica vazia
+  }
+}
+function contactInbox() {
+  const open = state.contacts.filter((item) => !item.handledAt)
+  const done = state.contacts.length - open.length
+  const when = (iso) => new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' + new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  return '<section class="reveal mt-8 panel"><div class="flex flex-wrap items-end justify-between gap-3"><div><h2 class="section-title !mt-0">' + t('Fale conosco') + ' <span class="tab-count">' + open.length + '</span></h2>' +
+    '<p class="mt-1 text-sm text-ink-soft">' + (open.length ? t('Mensagens do site esperando resposta.') : t('Nenhuma mensagem esperando resposta.')) + (done ? ' ' + plural(done, 'já respondida', 'já respondidas') + '.' : '') + '</p></div></div>' +
+    (open.length ? '<ul class="inbox">' + open.slice(0, 5).map((item) => '<li class="inbox-item"><div class="flex flex-wrap items-center gap-2">' + tag(topicLabel(item.topic), true) + '<strong>' + escapeHtml(item.name) + '</strong><span class="text-xs text-ink-soft tabular">' + escapeHtml(when(item.createdAt)) + '</span></div>' +
+      '<p class="inbox-body">' + escapeHtml(item.body) + '</p><div class="flex flex-wrap gap-2">' +
+      '<a class="btn-secondary text-sm" href="mailto:' + encodeURIComponent(item.email).replace('%40', '@') + '?subject=' + encodeURIComponent('TIER ZERO · ' + topicLabel(item.topic)) + '">' + icon('mail', 'size-4') + ' ' + t('Responder por e-mail') + '<span class="sr-only"> ' + escapeHtml(item.email) + '</span></a>' +
+      '<button type="button" class="btn-ghost text-sm" data-contact-done="' + item.id + '">' + icon('check', 'size-4') + ' ' + t('Marcar como respondida') + '</button></div></li>').join('') + '</ul>' : '') + '</section>'
+}
+document.addEventListener('click', async (event) => {
+  const button = event.target.closest?.('[data-contact-done]')
+  if (!button) return
+  const item = state.contacts.find((entry) => String(entry.id) === button.dataset.contactDone)
+  if (!item) return
+  button.setAttribute('aria-busy', 'true')
+  if (remote.enabled) {
+    const error = await markContactHandled(item.id, state.user.uid)
+    if (error) { button.removeAttribute('aria-busy'); return toast(describeError(error), 'error') }
+  }
+  item.handledAt = new Date().toISOString()
+  persist()
+  render()
+  toast(t('Mensagem marcada como respondida.'))
+})
+
 function teamProfilePanel() {
   return '<div class="panel flex flex-wrap items-center gap-4"><span class="venue-pin" aria-hidden="true">' + icon('users', 'size-5') + '</span><div class="min-w-0 flex-1"><h2 class="section-title !mt-0">' + t('Equipe') + '</h2>' +
     (isAdmin()
@@ -2759,7 +2934,7 @@ function legalPage(current, title, lead, sections) {
     sections.map(([id, heading], i) => '<li><button type="button" data-scroll-to="' + id + '"><span class="tabular">' + num(i) + '</span>' + t(heading) + '</button></li>').join('') + '</ol></nav>' +
     '<article class="privacy legal-article"><p class="fit-line fit-no">' + icon('info', 'size-4 shrink-0') + '<span>' + t('Projeto acadêmico (FIAP 2026). Este texto descreve como a plataforma funciona hoje. Ele não é uma avaliação jurídica, não foi revisado por advogado e não afirma conformidade com a LGPD (Lei 13.709/2018).') + '</span></p>' +
     sections.map(([id, heading, body], i) => '<section id="' + id + '" class="legal-section" tabindex="-1"><h2><span class="legal-num tabular" aria-hidden="true">' + num(i) + '</span>' + t(heading) + '</h2>' + body + '</section>').join('') +
-    '</article></div></main>'
+    '</article></div></main>' + siteFooter()
 }
 document.addEventListener('click', (event) => {
   const target = document.getElementById(event.target.closest?.('[data-scroll-to]')?.dataset.scrollTo || '')
@@ -2791,6 +2966,7 @@ function privacyPage() {
       row('Inscrições, avaliações e conversas', 'Organizar as peneiras e o acompanhamento técnico.', 'Você e a equipe') +
       row('Responsável legal (menores de 18)', 'Registrar a autorização e permitir que a equipe fale com a família.', 'Você e a equipe') +
       row('Perfil profissional (funcionários)', 'Mostrar aos atletas e às famílias quem organiza a peneira e quem avalia.', 'Atletas e equipe') +
+      row('Nome, e-mail e mensagem do Fale conosco', 'Responder quem escreveu.', 'Só a equipe') +
       '</tbody></table></div>' +
       legalText('A plataforma não pede dados sensíveis, como saúde, origem racial, religião ou biometria. Só pedimos o que alguma função usa (LGPD, art. 6º, III).')],
     ['bases', 'Por que podemos usar esses dados', '<div class="privacy-table"><table><thead><tr><th scope="col">' + t('Uso') + '</th><th scope="col">' + t('Base legal') + '</th></tr></thead><tbody>' +
@@ -2970,7 +3146,7 @@ function loginPage() {
     '<p id="demo-note" class="demo-note" data-demo-note aria-live="polite">' + demoNote('player') + '</p>' +
     '<button type="button" class="btn-secondary mt-4 w-full" data-route="register">' + t('Criar conta de jogador') + '</button>' +
     '<div class="mt-4 flex items-center justify-center gap-2"><button type="button" class="btn-ghost text-xs" data-action="change-lang">' + icon('globe', 'size-3.5') + ' ' + LANGS.find((l) => l.code !== getLang())?.label + '</button>' + themeButton() + '</div>' +
-    '<p class="legal-links"><a href="#/termos">' + t('Termos de uso') + '</a><span aria-hidden="true">·</span><a href="#/privacidade">' + t('Política de privacidade') + '</a></p></div></main>'
+    '<p class="legal-links"><a href="#/termos">' + t('Termos de uso') + '</a><span aria-hidden="true">·</span><a href="#/privacidade">' + t('Política de privacidade') + '</a></p></div></main>' + siteFooter({ ink: true })
 }
 
 function passwordRecoveryPage() {
@@ -4353,6 +4529,7 @@ function bind() {
   if (recoveryForm) recoveryForm.addEventListener('submit', (event) => { event.preventDefault(); safely(saveRecoveredPassword()) })
   document.querySelectorAll('[data-action="demo"]').forEach((button) => button.addEventListener('click', () => safely(loginDemo())))
   document.querySelectorAll('[data-action="edit-pro"]').forEach((button) => button.addEventListener('click', openProEditor))
+  bindContactForm()
 
   const conversationSearch = document.querySelector('#conversation-search')
   if (conversationSearch) conversationSearch.addEventListener('input', () => {
@@ -4415,7 +4592,7 @@ function render() {
     return
   }
   const [routeBase, routeArg = ''] = route.split('/')
-  if (!state.user && !['login', 'register', 'reset-password', 'convite', 'privacidade', 'termos'].includes(routeBase)) {
+  if (!state.user && !['login', 'register', 'reset-password', 'convite', 'privacidade', 'termos', 'sobre', 'contato'].includes(routeBase)) {
     go('login')
     return
   }
@@ -4450,6 +4627,8 @@ function render() {
   else if (routeBase === 'convite') view = invitePage()
   else if (route === 'privacidade') view = privacyPage()
   else if (route === 'termos') view = termsPage()
+  else if (routeBase === 'sobre') view = aboutPage()
+  else if (route === 'contato') view = contactPage()
   else view = dashboard(state.user.role)
 
   const isNew = route !== lastRoute
@@ -4458,6 +4637,7 @@ function render() {
     app.innerHTML = view
     bind()
     if (routeBase === 'convite') loadInvitePage(routeArg)
+    if (route === 'sobre/parceria') requestAnimationFrame(() => document.getElementById('parceria')?.scrollIntoView({ block: 'start' }))
     if (pushChatEntry) history.pushState({ apChat: true }, '')
     document.body.classList.toggle('chat-open', route === 'messages' && mobileChatOpen)
     updateMessageBadge()
