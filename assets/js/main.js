@@ -928,7 +928,7 @@ function shell(content, options = {}) {
     '<button type="button" class="icon-button md:hidden" data-action="menu" aria-label="' + t('Abrir menu') + '">' + icon('menu') + '</button>' +
     '</div></header>' +
     '<main id="conteudo" tabindex="-1" class="content-sheet outline-none">' + content + '</main>' +
-    '<footer class="app-footer"><p>TIER ZERO · ' + t('Plataforma de talentos em parceria com a Pelé Academia') + ' · FIAP 2026. <a class="underline underline-offset-4 hover:text-chalk" href="#/privacidade">' + t('Privacidade') + '</a> · <a class="underline underline-offset-4 hover:text-chalk" href="#/design-system">Design system</a></p></footer>' +
+    '<footer class="app-footer"><p>TIER ZERO · ' + t('Plataforma de talentos em parceria com a Pelé Academia') + ' · FIAP 2026. <a class="underline underline-offset-4 hover:text-chalk" href="#/termos">' + t('Termos de uso') + '</a> · <a class="underline underline-offset-4 hover:text-chalk" href="#/privacidade">' + t('Privacidade') + '</a> · <a class="underline underline-offset-4 hover:text-chalk" href="#/design-system">Design system</a></p></footer>' +
     '</div>' +
     '<nav class="bottom-nav" aria-label="' + t('Navegação rápida') + '">' +
     nav.map((item) => '<button type="button" data-route="' + item[0] + '"' + (item[0] === 'messages' ? ' data-badge-host aria-label="' + item[1] + '"' : '') + (active === item[0] ? ' aria-current="page"' : '') + '>' + icon(item[2], 'size-5') + '<span>' + item[1] + '</span>' + (item[0] === 'messages' ? '<span class="count-badge" data-msg-badge aria-hidden="true" hidden></span>' : '') + '</button>').join('') +
@@ -2600,41 +2600,132 @@ function downloadMyData() {
   toast(t('Arquivo com seus dados baixado.'))
 }
 
-// ---------- Página de privacidade (#/privacidade) ----------
+// ---------- Páginas legais (#/termos e #/privacidade) ----------
+// Referências: LGPD (Lei 13.709/2018) arts. 7º, 14, 16, 18, 33, 41 e 48; Enunciado CD/ANPD nº 1/2023 (bases legais para
+// crianças e adolescentes, sempre no melhor interesse); ECA Digital (Lei 15.211/2025). Formato: índice numerado ao lado e
+// seções curtas, como as páginas legais do GOV.UK e da Stripe. O índice usa botões porque o roteador ocupa o hash da URL.
+const legalText = (text) => '<p>' + t(text) + '</p>'
+const legalList = (items) => '<ul>' + items.map((item) => '<li>' + (Array.isArray(item) ? '<strong>' + t(item[0]) + '</strong> ' + t(item[1]) : t(item)) + '</li>').join('') + '</ul>'
+function legalPage(current, title, lead, sections) {
+  const other = current === 'termos' ? ['privacidade', 'Política de privacidade'] : ['termos', 'Termos de uso']
+  const num = (i) => String(i + 1).padStart(2, '0')
+  return '<main id="conteudo" tabindex="-1" class="legal outline-none">' +
+    '<header class="legal-hero on-album"><div class="legal-wrap"><div class="legal-top">' + brandLockup(32) +
+    '<button type="button" class="btn-secondary text-sm" data-route="' + (state.user ? 'profile' : 'login') + '">' + icon('back', 'size-4') + ' ' + (state.user ? t('Voltar ao perfil') : t('Voltar ao login')) + '</button></div>' +
+    '<h1 class="legal-title">' + t(title) + '</h1><p class="legal-lead">' + t(lead) + '</p>' +
+    '<p class="legal-meta">' + t('Versão') + ' ' + CONSENT_VERSION + ' · <a href="#/' + other[0] + '">' + t('Ler também:') + ' ' + t(other[1]) + '</a></p></div></header>' +
+    '<div class="legal-wrap legal-body"><nav class="legal-toc" aria-label="' + t('Nesta página') + '"><p>' + t('Nesta página') + '</p><ol>' +
+    sections.map(([id, heading], i) => '<li><button type="button" data-scroll-to="' + id + '"><span class="tabular">' + num(i) + '</span>' + t(heading) + '</button></li>').join('') + '</ol></nav>' +
+    '<article class="privacy legal-article"><p class="fit-line fit-no">' + icon('info', 'size-4 shrink-0') + '<span>' + t('Projeto acadêmico (FIAP 2026). Este texto descreve como a plataforma funciona hoje. Ele não é uma avaliação jurídica, não foi revisado por advogado e não afirma conformidade com a LGPD (Lei 13.709/2018).') + '</span></p>' +
+    sections.map(([id, heading, body], i) => '<section id="' + id + '" class="legal-section" tabindex="-1"><h2><span class="legal-num tabular" aria-hidden="true">' + num(i) + '</span>' + t(heading) + '</h2>' + body + '</section>').join('') +
+    '</article></div></main>'
+}
+document.addEventListener('click', (event) => {
+  const target = document.getElementById(event.target.closest?.('[data-scroll-to]')?.dataset.scrollTo || '')
+  if (!target) return
+  target.scrollIntoView({ behavior: calmMotion.matches ? 'auto' : 'smooth', block: 'start' })
+  target.focus({ preventScroll: true })
+})
+
 function privacyPage() {
   const row = (data, why, who) => '<tr><th scope="row">' + t(data) + '</th><td data-label="' + t('Para quê') + '">' + t(why) + '</td><td data-label="' + t('Quem vê') + '">' + t(who) + '</td></tr>'
-  const back = state.user ? 'profile' : 'login'
-  return '<main id="conteudo" tabindex="-1" class="outline-none min-h-screen bg-night px-4 py-10 text-chalk"><article class="privacy mx-auto max-w-3xl">' +
-    '<button type="button" class="btn-ghost -ml-3" data-route="' + back + '">' + icon('back', 'size-4') + ' ' + (state.user ? t('Voltar ao perfil') : t('Voltar ao login')) + '</button>' +
-    '<div class="mt-6">' + brandLockup(32, false) + '</div>' +
-    '<h1 class="page-title mt-6">' + t('Privacidade e dados') + '</h1>' +
-    '<p class="page-subtitle">' + t('Como a TIER ZERO usa os dados de atletas, responsáveis e funcionários, em linguagem simples.') + '</p>' +
-    '<p class="fit-line fit-no">' + icon('info', 'size-4 shrink-0') + '<span>' + t('Este texto descreve como a plataforma funciona hoje. Ele não é uma avaliação jurídica e não afirma conformidade com a LGPD (Lei 13.709/2018).') + '</span></p>' +
-    '<h2>' + t('Quais dados, para quê e quem vê') + '</h2>' +
-    '<div class="privacy-table"><table><thead><tr><th scope="col">' + t('Dado') + '</th><th scope="col">' + t('Para quê') + '</th><th scope="col">' + t('Quem vê') + '</th></tr></thead><tbody>' +
-    row('Nome, foto e gênero', 'Identificar você no perfil.', 'Você e a equipe') +
-    row('Data de nascimento', 'Calcular a idade e a categoria (Sub-7 a Sub-20) e saber se precisa de responsável.', 'Você e a equipe') +
-    row('Posições, perna dominante, cidade e UF', 'Mostrar as peneiras compatíveis e ajudar os olheiros a encontrar você.', 'Você e a equipe') +
-    row('E-mail', 'Entrar na conta e identificar sua inscrição nas peneiras.', 'Você e a equipe') +
-    row('CPF', 'Evitar duas contas para a mesma pessoa.', 'Só você') +
-    row('Telefone e endereço (opcional)', 'Ficam no seu perfil. O endereço é opcional e nenhuma função o usa.', 'Só você') +
-    row('Inscrições, avaliações e conversas', 'Organizar as peneiras e o acompanhamento técnico.', 'Você e a equipe') +
-    row('Responsável legal (menores de 18)', 'Registrar a autorização e permitir que a equipe fale com a família.', 'Você e a equipe') +
-    '</tbody></table></div>' +
-    '<p class="text-sm text-ink-soft">' + t('A senha fica com o serviço de autenticação (Supabase Auth); a plataforma não tem acesso a ela. As regras de quem vê o quê ficam no banco de dados, não só na tela. No modo de demonstração (sem servidor), tudo fica salvo apenas neste navegador, inclusive a senha: não use dados ou senhas reais nele.') + '</p>' +
-    '<h2>' + t('Atletas menores de 18 anos') + '</h2><ul>' +
-    '<li>' + t('A conta só é criada com a autorização de um responsável legal (mãe, pai, avó ou avô, tutor ou outro responsável), marcada em destaque no cadastro. A plataforma guarda quando a autorização foi dada.') + '</li>' +
-    '<li>' + t('Para crianças (até 12 anos incompletos), a LGPD pede o consentimento específico e em destaque de um dos pais ou do responsável (art. 14, § 1º). A plataforma aplica a mesma regra até os 18 anos.') + '</li>' +
-    '<li>' + t('Sem autorização, ou se ela for revogada, o atleta não consegue se inscrever em peneiras.') + '</li>' +
-    '<li>' + t('A equipe vê o nome e o contato do responsável para falar com a família.') + '</li>' +
-    '<li>' + t('A plataforma registra a declaração, mas não confere documentos. A equipe pode pedir a confirmação do responsável no dia da peneira.') + '</li></ul>' +
-    '<h2>' + t('Seus direitos e como pedir') + '</h2><ul>' +
-    '<li><strong>' + t('Ver e corrigir:') + '</strong> ' + t('em Meu perfil. CPF e data de nascimento são corrigidos pela equipe: peça em Conversas.') + '</li>' +
-    '<li><strong>' + t('Receber uma cópia:') + '</strong> ' + t('em Meu perfil → Baixar meus dados (arquivo JSON).') + '</li>' +
-    '<li><strong>' + t('Revogar a autorização do responsável:') + '</strong> ' + t('em Meu perfil → Responsável legal.') + '</li>' +
-    '<li><strong>' + t('Excluir a conta ou tirar dúvidas:') + '</strong> ' + t('escreva para a equipe em Conversas. A exclusão é feita por um administrador da plataforma.') + '</li></ul>' +
-    '<p class="mt-10 text-xs text-ink-soft">' + t('Versão') + ' ' + CONSENT_VERSION + '.</p>' +
-    '</article></main>'
+  const basis = (what, base) => '<tr><th scope="row">' + t(what) + '</th><td data-label="' + t('Base legal') + '">' + t(base) + '</td></tr>'
+  const card = ([name, heading, text]) => '<div class="legal-card">' + icon(name, 'size-5') + '<strong>' + t(heading) + '</strong><span>' + t(text) + '</span></div>'
+  return legalPage('privacidade', 'Política de privacidade', 'Como a TIER ZERO usa os dados de atletas, responsáveis e funcionários, em linguagem simples, para que pais, responsáveis e os próprios atletas entendam (LGPD, art. 14, § 6º).', [
+    ['resumo', 'Resumo', '<div class="legal-cards">' + [
+      ['shield', 'Sem venda de dados', 'A plataforma não vende dados e não mostra anúncios.'],
+      ['users', 'Menores com responsável', 'Atletas menores de 18 anos só se inscrevem em peneiras com a autorização de um responsável.'],
+      ['user', 'Só a equipe vê', 'Perfil, carta e avaliações ficam entre o atleta e a equipe da Pelé Academia. Nada disso é público.'],
+      ['copy', 'Você no controle', 'Você pode baixar uma cópia dos seus dados, corrigir o perfil e pedir a exclusão da conta.'],
+    ].map(card).join('') + '</div>'],
+    ['controlador', 'Quem cuida dos dados', legalText('Controladora: Pelé Academia, que usa a TIER ZERO para organizar peneiras e avaliações. A TIER ZERO é um projeto acadêmico da FIAP (2026).') +
+      legalText('Encarregado pelo tratamento de dados (art. 41): o nome e o contato oficiais ainda serão definidos pela Pelé Academia antes do lançamento. Até lá, pedidos e dúvidas vão para a equipe pela tela Conversas.')],
+    ['dados', 'Quais dados, para quê e quem vê', '<div class="privacy-table"><table><thead><tr><th scope="col">' + t('Dado') + '</th><th scope="col">' + t('Para quê') + '</th><th scope="col">' + t('Quem vê') + '</th></tr></thead><tbody>' +
+      row('Nome, foto e gênero', 'Identificar você no perfil.', 'Você e a equipe') +
+      row('Data de nascimento', 'Calcular a idade e a categoria (Sub-7 a Sub-20) e saber se precisa de responsável.', 'Você e a equipe') +
+      row('Posições, perna dominante, cidade e UF', 'Mostrar as peneiras compatíveis e ajudar os olheiros a encontrar você.', 'Você e a equipe') +
+      row('E-mail', 'Entrar na conta e identificar sua inscrição nas peneiras.', 'Você e a equipe') +
+      row('CPF', 'Evitar duas contas para a mesma pessoa.', 'Só você') +
+      row('Telefone e endereço (opcional)', 'Ficam no seu perfil. O endereço é opcional e nenhuma função o usa.', 'Só você') +
+      row('Inscrições, avaliações e conversas', 'Organizar as peneiras e o acompanhamento técnico.', 'Você e a equipe') +
+      row('Responsável legal (menores de 18)', 'Registrar a autorização e permitir que a equipe fale com a família.', 'Você e a equipe') +
+      '</tbody></table></div>' +
+      legalText('A plataforma não pede dados sensíveis, como saúde, origem racial, religião ou biometria. Só pedimos o que alguma função usa (LGPD, art. 6º, III).')],
+    ['bases', 'Por que podemos usar esses dados', '<div class="privacy-table"><table><thead><tr><th scope="col">' + t('Uso') + '</th><th scope="col">' + t('Base legal') + '</th></tr></thead><tbody>' +
+      basis('Conta, perfil, inscrições e avaliações', 'Execução do serviço que você pediu ao se cadastrar (art. 7º, V).') +
+      basis('Dados de atletas menores de 18 anos', 'Consentimento específico e em destaque de um responsável (art. 14, § 1º), sempre no melhor interesse do atleta (Enunciado CD/ANPD nº 1/2023).') +
+      basis('Histórico de alterações (quem mudou o quê e quando)', 'Legítimo interesse, para segurança e prevenção de fraudes (art. 7º, IX).') +
+      '</tbody></table></div>'],
+    ['menores', 'Atletas menores de 18 anos', legalList([
+      'A conta só é criada com a autorização de um responsável legal (mãe, pai, avó ou avô, tutor ou outro responsável), marcada em destaque no cadastro. A plataforma guarda quando a autorização foi dada e em qual versão desta política.',
+      'Para crianças (até 12 anos incompletos), a LGPD pede o consentimento específico e em destaque de um dos pais ou do responsável (art. 14, § 1º). A plataforma aplica a mesma regra até os 18 anos.',
+      'O ECA Digital (Lei 15.211/2025), em vigor desde março de 2026, pede que contas de menores de 16 anos em serviços digitais fiquem vinculadas a um responsável. Aqui o responsável é pedido até os 18.',
+      'Sem autorização, ou se ela for revogada, o atleta não consegue se inscrever em peneiras.',
+      'A equipe vê o nome e o contato do responsável para falar com a família.',
+      'A plataforma registra a declaração, mas não confere documentos. A equipe pode pedir a confirmação do responsável no dia da peneira.'])],
+    ['compartilhamento', 'Com quem os dados são compartilhados', legalList([
+      ['Equipe da Pelé Academia:', 'olheiros e treinadores veem perfis, inscrições e avaliações para conduzir as peneiras.'],
+      ['Supabase:', 'hospeda o banco de dados e cuida do login. Conforme a região do servidor, os dados podem ficar fora do Brasil; a LGPD trata essa transferência internacional no art. 33.'],
+      ['Google Fonts:', 'entrega a fonte do site. Para isso, o navegador se conecta ao Google e envia dados técnicos, como o endereço IP.'],
+      'O botão "Entrar com o Google" desta versão é uma demonstração: ele entra numa conta de exemplo e não envia nem recebe dados do Google.',
+      'Nenhum dado é vendido, alugado ou usado para publicidade.'])],
+    ['guarda', 'Por quanto tempo os dados ficam guardados', legalText('Enquanto a conta existir. Quando a conta é excluída no servidor, o perfil, as conversas e as avaliações ligadas a ela são apagados junto, exceto o que a lei obrigar a guardar (art. 16).') +
+      legalText('A plataforma ainda não apaga contas paradas automaticamente: a exclusão é feita a pedido, por um administrador.')],
+    ['seguranca', 'Segurança e incidentes', legalList([
+      'A senha fica com o serviço de autenticação (Supabase Auth); a plataforma não tem acesso a ela.',
+      'As regras de quem vê o quê ficam no banco de dados (políticas de acesso por linha), não só na tela.',
+      'A comunicação com o servidor é criptografada (HTTPS).',
+      'Se houver um incidente de segurança que possa causar risco ou dano relevante, a LGPD manda comunicar a ANPD e as pessoas afetadas (art. 48).'])],
+    ['navegador', 'O que fica salvo no seu navegador', legalText('A plataforma não usa cookies de rastreamento nem ferramentas de análise. Ela guarda no armazenamento local do navegador só o necessário para funcionar: idioma, tema claro ou escuro, a sessão de login e o que você já leu nas conversas.') +
+      legalText('No modo de demonstração (sem servidor), tudo fica salvo apenas neste navegador, inclusive a senha: não use dados ou senhas reais nele.')],
+    ['direitos', 'Seus direitos e como pedir', legalList([
+      ['Confirmar e acessar:', 'em Meu perfil você vê tudo o que a plataforma guarda sobre você.'],
+      ['Corrigir:', 'em Meu perfil. CPF e data de nascimento são corrigidos pela equipe: peça em Conversas.'],
+      ['Receber uma cópia:', 'em Meu perfil → Baixar meus dados (arquivo JSON).'],
+      ['Revogar a autorização do responsável:', 'em Meu perfil → Responsável legal.'],
+      ['Excluir a conta ou tirar dúvidas:', 'escreva para a equipe em Conversas. A exclusão é feita por um administrador da plataforma.'],
+      ['Reclamar:', 'se o pedido não for atendido, você pode peticionar à Autoridade Nacional de Proteção de Dados, a ANPD (art. 18, § 1º).']]) +
+      legalText('Esses direitos estão no art. 18 da LGPD.')],
+    ['mudancas', 'Mudanças nesta política', legalText('Quando esta política mudar, a versão no topo da página muda junto. Cada autorização de responsável fica registrada com a versão em vigor no momento em que foi dada.')],
+  ])
+}
+
+function termsPage() {
+  return legalPage('termos', 'Termos de uso', 'As regras para usar a TIER ZERO: o que a plataforma faz, o que se espera de atletas, responsáveis e funcionários e o que acontece se alguém quebrar essas regras.', [
+    ['servico', 'O que é a TIER ZERO', legalText('A TIER ZERO é a plataforma de peneiras da Pelé Academia. Atletas de 7 a 20 anos criam um perfil, se inscrevem em peneiras e conversam com a equipe; olheiros e treinadores organizam as peneiras e registram avaliações.') +
+      legalText('Ao criar uma conta ou usar a plataforma, você concorda com estes termos e com a Política de privacidade.')],
+    ['quem', 'Quem pode usar', legalList([
+      'Atletas de 7 a 20 anos, nas categorias Sub-7 a Sub-20.',
+      'Atletas menores de 18 anos precisam da autorização de um responsável legal, dada no cadastro. Sem ela, não dá para se inscrever em peneiras.',
+      'Funcionários entram por convite de um administrador da Pelé Academia.'])],
+    ['conta', 'Sua conta', legalList([
+      'Use dados verdadeiros. Cada pessoa tem uma conta só; o CPF evita contas duplicadas.',
+      'A senha é pessoal. Não compartilhe e avise a equipe se achar que alguém entrou na sua conta.',
+      'Você pode corrigir seus dados em Meu perfil quando quiser.'])],
+    ['peneiras', 'Peneiras', legalList([
+      'A inscrição não garante aprovação nem vaga em time.',
+      'Cada peneira tem posições, categoria, local, data e horário definidos pela equipe. A equipe pode mudar ou cancelar uma peneira, e os inscritos veem a mudança na plataforma.',
+      'Atletas menores de 18 anos devem ir acompanhados de um responsável, que pode ter de confirmar a autorização no dia.',
+      'A presença é marcada pela equipe no local da peneira.'])],
+    ['avaliacoes', 'Avaliações e carta do atleta', legalList([
+      'As notas são a opinião técnica de olheiros e treinadores da Pelé Academia, registrada depois de observar o atleta.',
+      'Cada característica da posição (por exemplo passe, drible ou finalização) recebe uma nota de 0 a 10. Na carta, cada atributo é a média das notas recebidas multiplicada por 10, e a nota geral é a média das notas gerais multiplicada por 10.',
+      'Perfis marcados como "exemplo" mostram notas de demonstração, não avaliações reais.',
+      'A nota não é promessa de contratação nem laudo esportivo ou médico.'])],
+    ['conduta', 'Conversas e conduta', legalList([
+      'Trate todos com respeito. Não são aceitos assédio, ofensas, discriminação, ameaças nem pedidos de dinheiro.',
+      'A equipe fala com atletas menores de 18 anos só pela plataforma ou pelo contato do responsável cadastrado.',
+      'Não envie senhas, documentos nem dados de outras pessoas pelas conversas.',
+      'Mensagens que quebrem estes termos podem ser removidas, e a conta pode ser suspensa.'])],
+    ['conteudo', 'Fotos e textos que você envia', legalText('A foto e os textos continuam sendo seus. Ao enviá-los, você autoriza a Pelé Academia a mostrá-los dentro da plataforma, para a equipe, enquanto a conta existir. Envie só fotos suas, que você tenha o direito de usar.')],
+    ['equipe', 'Regras para funcionários', legalList([
+      'Use os dados dos atletas só para organizar peneiras e avaliar. Não leve dados para fora da plataforma sem necessidade.',
+      'Avalie com base no que viu em campo e registre a avaliação na peneira em que observou o atleta.',
+      'Quando alguém sai da equipe, um administrador desativa a conta dessa pessoa.'])],
+    ['suspensao', 'Suspensão e exclusão', legalText('A equipe pode suspender ou excluir contas que quebrem estes termos ou a lei. Você pode pedir a exclusão da sua conta a qualquer momento pela tela Conversas.')],
+    ['limites', 'Limites do serviço', legalText('A plataforma é um projeto acadêmico e é oferecida como está. Ela pode ficar fora do ar para manutenção. No modo de demonstração, os dados ficam só no navegador e somem se o histórico for apagado.')],
+    ['lei', 'Mudanças, lei aplicável e contato', legalText('Estes termos podem mudar; quando isso acontecer, a versão no topo da página muda junto. Valem as leis brasileiras, entre elas o Estatuto da Criança e do Adolescente e a LGPD. Dúvidas: escreva para a equipe em Conversas.')],
+  ])
 }
 
 function messagesPage() {
@@ -2710,6 +2801,11 @@ const COVER_PHOTOS = [
 ]
 const coverPhoto = ([src, alt, r, d], i) => '<figure class="cover-photo" style="--r:' + r + ';--d:' + d + ';--depth:' + (i + 2) + '"><img src="' + src + '" alt="' + t(alt) + '" width="900" height="600" decoding="async"' + (i ? ' loading="lazy"' : '') + ' /></figure>'
 
+// Botão no formato do "Sign in with Google" (logo G oficial, fundo branco, borda #747775; developers.google.com/identity/branding-guidelines).
+// Aqui é só demonstração: entra na conta de exemplo da aba escolhida, sem falar com o Google. A legenda diz isso.
+const GOOGLE_G = '<svg class="google-g" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>'
+const demoNote = (role) => role === 'staff' ? t('Demonstração: entra na conta de exemplo de funcionário (Marina Lopes), sem usar sua conta Google.') : t('Demonstração: entra na conta de exemplo de jogador (Gabriel Martins), sem usar sua conta Google.')
+
 // Capa do álbum: o ouro a tela toda, a prancheta animada ao fundo, a lombada, o título, fotos coladas e três figurinhas de exemplo em leque.
 function loginPage() {
   const visitor = { id: 'voce', slot: true, name: t('Você'), pos: '', city: '', state: '' }
@@ -2728,10 +2824,11 @@ function loginPage() {
     '<form id="login-form" class="mt-6 space-y-4">' + input(t('E-mail'), 'login-email', '', 'email', true) + input(t('Senha'), 'login-password', '', 'password', true) + '<p id="login-error" class="hidden rounded-xl border border-danger/40 bg-danger/10 px-3 py-2 text-xs font-semibold text-danger"></p><button class="btn-primary w-full" type="submit">' + t('Entrar') + ' ' + icon('arrow', 'size-4') + '</button></form>' +
     '<button type="button" class="mt-3 w-full text-center text-xs text-brand hover:text-brand-strong" data-action="forgot-password">' + t('Esqueci minha senha') + '</button>' +
     '<div class="my-6 flex items-center gap-3"><span class="h-px flex-1 bg-line"></span><span class="text-xs text-ink-soft">' + t('ou') + '</span><span class="h-px flex-1 bg-line"></span></div>' +
-    '<button type="button" class="btn-secondary w-full" data-route="register">' + t('Criar conta de jogador') + '</button><button type="button" class="mt-3 w-full text-center text-xs text-ink-soft hover:text-chalk" data-action="demo">' + t('Entrar com conta demo') + '</button>' +
+    '<button type="button" class="btn-google w-full" data-action="demo" aria-describedby="demo-note">' + GOOGLE_G + '<span>' + t('Entrar com o Google') + '</span></button>' +
+    '<p id="demo-note" class="demo-note" data-demo-note aria-live="polite">' + demoNote('player') + '</p>' +
+    '<button type="button" class="btn-secondary mt-4 w-full" data-route="register">' + t('Criar conta de jogador') + '</button>' +
     '<div class="mt-4 flex items-center justify-center gap-2"><button type="button" class="btn-ghost text-xs" data-action="change-lang">' + icon('globe', 'size-3.5') + ' ' + LANGS.find((l) => l.code !== getLang())?.label + '</button>' + themeButton() + '</div>' +
-    '<p class="mt-4 text-center text-xs"><a class="text-ink-soft underline underline-offset-4 hover:text-chalk" href="#/privacidade">' + t('Como usamos seus dados') + '</a></p>' +
-    '<p class="mt-3 text-center text-xs leading-5 text-ink-soft">' + t('Funcionário (teste)') + ': funcionario@academiapele.com / Academia123!<br/>' + t('Jogador (teste)') + ': gabriel@academiapele.com / Demo123!</p></div></main>'
+    '<p class="legal-links"><a href="#/termos">' + t('Termos de uso') + '</a><span aria-hidden="true">·</span><a href="#/privacidade">' + t('Política de privacidade') + '</a></p></div></main>'
 }
 
 function passwordRecoveryPage() {
@@ -2808,7 +2905,8 @@ function registerPage() {
       addressFields('reg') +
       '<p class="form-group-title sm:col-span-2">' + t('Acesso') + '</p>' +
       input(t('Senha'), 'reg-password', '', 'password', true) + input(t('Confirmar senha'), 'reg-confirm', '', 'password', true) +
-      '<p class="sm:col-span-2 text-xs leading-5 text-ink-soft">' + (remote.enabled ? t('Sua conta fica no servidor da plataforma. CPF, telefone e endereço são visíveis só para você.') : t('Modo local: os dados ficam apenas neste navegador. Não use senhas reais.')) + '</p>') +
+      '<p class="sm:col-span-2 text-xs leading-5 text-ink-soft">' + (remote.enabled ? t('Sua conta fica no servidor da plataforma. CPF, telefone e endereço são visíveis só para você.') : t('Modo local: os dados ficam apenas neste navegador. Não use senhas reais.')) + '</p>' +
+      '<p class="sm:col-span-2 text-sm leading-6">' + t('Ao criar a conta, você concorda com os') + ' <a class="font-semibold underline underline-offset-4" href="#/termos" target="_blank" rel="noopener">' + t('Termos de uso') + '<span class="sr-only"> (' + t('abre em outra aba') + ')</span></a> ' + t('e com a') + ' <a class="font-semibold underline underline-offset-4" href="#/privacidade" target="_blank" rel="noopener">' + t('Política de privacidade') + '<span class="sr-only"> (' + t('abre em outra aba') + ')</span></a>.</p>') +
     '<div id="reg-feedback" class="mt-4 hidden rounded-2xl border px-4 py-3 text-sm" role="alert"></div>' +
     '<div class="reg-nav"><button type="button" class="btn-ghost" data-reg-back hidden>' + icon('back', 'size-4') + ' ' + t('Voltar') + '</button><button type="button" class="btn-primary ml-auto" data-reg-next>' + t('Continuar') + ' ' + icon('arrow', 'size-4') + '</button><button class="btn-primary ml-auto" type="submit" hidden>' + t('Criar conta') + ' ' + icon('check', 'size-4') + '</button></div>' +
     '</form></section></main>'
@@ -3879,8 +3977,8 @@ async function loginAccount() {
   if (account && account.password === password && account.active === false) return showFeedback(errorId, t('Esta conta de funcionário foi desativada. Fale com um administrador.'), true)
   if (!account || account.password !== password) {
     return showFeedback(errorId, role === 'staff'
-      ? 'Funcionário não encontrado ou senha incorreta. Use a conta demo exibida abaixo.'
-      : 'Conta não encontrada ou senha incorreta. Crie sua conta ou use a conta demo.', true)
+      ? 'Funcionário não encontrado ou senha incorreta. Para testar, use Entrar com o Google.'
+      : 'Conta não encontrada ou senha incorreta. Crie sua conta ou, para testar, use Entrar com o Google.', true)
   }
 
   state.user = { name: account.profile?.name || 'Usuário', email, role }
@@ -3926,6 +4024,8 @@ function initLoginRoleButtons() {
         item.setAttribute('aria-pressed', String(i === index))
       })
       if (focus) buttons[index].focus()
+      const note = document.querySelector('[data-demo-note]')
+      if (note) note.textContent = demoNote(buttons[index].dataset.role)
     }
     buttons.forEach((button, i) => button.addEventListener('click', () => select(i)))
     group.addEventListener('keydown', (event) => {
@@ -4160,7 +4260,7 @@ function render() {
     return
   }
   const [routeBase, routeArg = ''] = route.split('/')
-  if (!state.user && !['login', 'register', 'reset-password', 'convite', 'privacidade'].includes(routeBase)) {
+  if (!state.user && !['login', 'register', 'reset-password', 'convite', 'privacidade', 'termos'].includes(routeBase)) {
     go('login')
     return
   }
@@ -4194,6 +4294,7 @@ function render() {
   else if (route === 'team') view = teamPage()
   else if (routeBase === 'convite') view = invitePage()
   else if (route === 'privacidade') view = privacyPage()
+  else if (route === 'termos') view = termsPage()
   else view = dashboard(state.user.role)
 
   const isNew = route !== lastRoute
