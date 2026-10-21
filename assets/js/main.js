@@ -73,8 +73,18 @@ const AVATAR_COLORS = [
 ]
 const LEGACY_EMAIL_DOMAIN = 'academiapelé.com'
 const DEMO_STAFF = [
-  { email: 'funcionario@academiapele.com', name: 'Marina Lopes', position: 'Olheira', phone: '(11) 99999-0000', admin: true },
-  { email: 'treinador@academiapele.com', name: 'Bruno Martins', position: 'Treinador', phone: '(11) 99999-1111' },
+  { email: 'funcionario@academiapele.com', name: 'Marina Lopes', position: 'Olheira', phone: '(11) 99999-0000', admin: true, pro: {
+    org: 'Pelé Academia', team: 'Captação · Sub-15 a Sub-20', since: 2021,
+    bio: 'Observa jogos de escolinhas e da várzea na Grande São Paulo e organiza as peneiras de meio-campo e ataque. Numa peneira, olha primeiro a tomada de decisão: para onde o atleta olha antes de receber a bola.',
+    specialties: ['Meia', 'Ponta', 'Atacante'], categories: ['Sub-15', 'Sub-17', 'Sub-20'],
+    experience: [{ role: 'Olheira', org: 'Pelé Academia', start: '2021', end: '' }, { role: 'Analista de desempenho', org: 'Escolinha de futebol (Osasco/SP)', start: '2017', end: '2021' }],
+    credentials: ['Curso de análise de desempenho no futebol', 'Educação Física (bacharelado)'], linkedin: '' } },
+  { email: 'treinador@academiapele.com', name: 'Bruno Martins', position: 'Treinador', phone: '(11) 99999-1111', pro: {
+    org: 'Pelé Academia', team: 'Categorias de base · Sub-11 a Sub-15', since: 2022,
+    bio: 'Treina as categorias de base e avalia goleiros e defensores nas peneiras. Gosta de ver o atleta errar e tentar de novo: a reação ao erro conta tanto quanto o acerto.',
+    specialties: ['Goleiro', 'Zagueiro', 'Lateral', 'Volante'], categories: ['Sub-11', 'Sub-13', 'Sub-15'],
+    experience: [{ role: 'Treinador', org: 'Pelé Academia', start: '2022', end: '' }, { role: 'Auxiliar técnico', org: 'Projeto social de futebol (Guarulhos/SP)', start: '2018', end: '2022' }],
+    credentials: ['Licença de treinador de futebol de base', 'Primeiros socorros no esporte'], linkedin: '' } },
 ]
 
 const defaultProfile = {
@@ -104,6 +114,8 @@ const defaultAthletes = [
   { demo: true, id: 6, foot: 'Canhoto', name: 'Matheus Alves', age: 18, birth: '2008-12-02', gender: 'Masculino', city: 'Sorocaba', state: 'SP', pos: 'Ponta', secondary: 'Atacante', rating: 8.7, status: 'Destaque', color: 'from-orange-400 to-amber-200', tags: ['Velocidade', 'Drible', 'Cruzamento'] },
 ]
 
+// Peneiras de exemplo organizadas pelas contas de exemplo da equipe (o atleta vê quem organiza e abre o perfil).
+const DEMO_TRYOUT_OWNER = { 1: 'funcionario@academiapele.com', 2: 'funcionario@academiapele.com', 3: 'treinador@academiapele.com' }
 const defaultTryouts = [
   { id: 1, title: 'Peneira Sub-20 — Atacantes', date: '2026-11-07', time: '14:00', city: 'São Paulo', state: 'SP', location: 'Centro de Treinamento Pelé', venueId: 1, category: 'Sub-20', positions: ['Atacante', 'Ponta'], seats: 12, enrolled: ['gabriel@academiapele.com'], description: 'Aquecimento, finalização em dupla e um jogo coletivo de 2 tempos de 25 minutos.\n\nO que levar: chuteira de campo, caneleira, água e documento com foto.\nChegada: 30 minutos antes, na recepção.' },
   { id: 2, title: 'Avaliação Sub-20 — Meio-campo', date: '2026-11-14', time: '09:00', city: 'Osasco', state: 'SP', location: 'Arena Oeste', venueId: 2, category: 'Sub-20', positions: ['Meia', 'Volante'], seats: 18, enrolled: [], description: 'Treino de passe e posicionamento seguido de jogo reduzido. A comissão observa tomada de decisão e leitura de jogo.' },
@@ -198,6 +210,7 @@ function migrateLegacyStorage(){
     category:tryout.category || 'Sub-20',
     location:tryout.location || String(tryout.city || 'Local não informado').split(' - ')[0],
     state:tryout.state || 'SP',
+    createdBy:tryout.createdBy || DEMO_TRYOUT_OWNER[tryout.id],
   }))
 }
 
@@ -257,11 +270,12 @@ function seedDemoAccounts() {
         email: demo.email,
         password: 'Academia123!',
         role: 'staff',
-        profile: { name: demo.name, email: demo.email, phone: demo.phone, position: demo.position, city: 'São Paulo', state: 'SP', demo: true },
+        profile: { name: demo.name, email: demo.email, phone: demo.phone, position: demo.position, city: 'São Paulo', state: 'SP', demo: true, ...demo.pro },
       })
     }
     const account = state.accounts.find((entry) => entry.email === demo.email)
     if (account?.profile) account.profile.demo = true // contas salvas antes desta versão
+    if (account?.profile && account.profile.org === undefined) Object.assign(account.profile, demo.pro)
     if (account && account.admin === undefined) account.admin = !!demo.admin
   })
   if (!state.accounts.some((account) => account.email === 'gabriel@academiapele.com')) {
@@ -358,7 +372,7 @@ function getConversations() {
   return state.accounts.filter((a) => a.role === 'staff').map((a) => ({
     id: remote.enabled ? a.uid : a.email,
     name: a.profile?.name || a.email,
-    subtitle: (a.profile?.position || t('Profissional')) + ' • ' + (a.profile?.city || 'Pelé Academia'),
+    subtitle: proHeadline(a.profile || {}) || t('Profissional'),
     avatar: a.profile?.name || a.email,
     person: { name: a.profile?.name || a.email, photo: a.profile?.photo || null, demo: !!a.profile?.demo, id: a.email, group: 'staff' },
     key: remote.enabled ? threadKey(state.user.uid, a.uid) : threadKey(me.id, a.email),
@@ -1259,6 +1273,19 @@ function cardDelta(reviews) {
   const avg = (list) => list.reduce((sum, value) => sum + value, 0) / list.length
   return Math.round(avg(scores) * 10) - Math.round(avg(scores.slice(1)) * 10)
 }
+// De onde vêm os números: cada atributo é a média das notas (0 a 10) que a equipe deu para aquela característica, ×10;
+// a nota geral é a média das notas finais (ponderadas pela posição, com o ajuste pelas estatísticas do jogo), ×10.
+function cardBasis(a) {
+  const reviews = state.reviews[a.id] || []
+  const { criteria, values } = attributeAverages(a.id, a.pos)
+  const authors = [...new Set(reviews.map((review) => review.author).filter(Boolean))]
+  const lead = reviews.length
+    ? t('A nota geral é a média das notas finais de') + ' ' + plural(reviews.length, 'avaliação', 'avaliações') + (authors.length ? ' (' + escapeHtml(joinPt(authors)) + ')' : '') + ', ' + t('multiplicada por 10. A nota final de cada avaliação pondera as características da posição e soma um ajuste pelas estatísticas do jogo.')
+    : a.demo ? t('Perfil de exemplo: a nota geral é de demonstração. Os atributos só aparecem com avaliações reais da equipe.') : t('Ainda não há avaliações. A carta ganha nota e atributos na primeira avaliação da equipe.')
+  return '<details class="card-basis"><summary>' + icon('info', 'size-4') + t('De onde vêm os números da carta?') + '</summary><div class="card-basis-body"><p>' + lead + '</p>' +
+    '<dl class="basis-list">' + criteria.map((c) => '<div><dt><abbr title="' + escapeHtml(t(c.label)) + '">' + t(CARD_ABBR[c.key]) + '</abbr> ' + escapeHtml(t(c.label)) + '</dt><dd class="tabular">' + (values[c.key] ? t('média') + ' ' + formatRating(values[c.key]) + ' → ' + Math.round(values[c.key] * 10) : t('sem nota')) + '</dd></div>').join('') + '</dl>' +
+    '<p class="basis-scale">' + t('Cada olheiro dá de 0 a 10 para cada característica da posição; a carta mostra a média multiplicada por 10. Faixas: Bronze até 64, Prata de 65 a 74, Ouro a partir de 75.') + '</p></div></details>'
+}
 function playerCard(a, { reveal = false, size = '', flip = false } = {}) {
   const reviews = state.reviews[a.id] || []
   const ovr = Math.round(ratingOf(a) * 10) || 0
@@ -1298,6 +1325,7 @@ function playerCard(a, { reveal = false, size = '', flip = false } = {}) {
     [t('Cidade'), place || '—'],
     [t('Presenças em peneiras'), String(presences)],
     [t('Última avaliação'), reviews[0]?.date || '—'],
+    [t('Base das notas'), reviews.length ? plural(reviews.length, 'avaliação', 'avaliações') + ' ' + t('da equipe') : a.demo ? t('nota de exemplo') : t('sem avaliação')],
   ]
   const strengths = strengthsOf(a)
   const back = '<div class="fc-face fc-back"><div class="fc-inner"><p class="fc-back-title">' + t('Ficha') + '</p>' +
@@ -1415,21 +1443,19 @@ function bindPhotoInputs(root = document) {
 }
 let regPhoto = null
 
+// Item do banco de atletas: a carta (nota, posição, categoria e atributos) é o destaque; embaixo, só o que a carta não diz.
 function athleteCard(a, staff = false) {
   const reviewCount = (state.reviews[a.id] || []).length
-  const rating = ratingOf(a)
-
-  return '<article class="reveal spot athlete-card pos-' + positionGroup(a.pos) + ' flex h-full flex-col rounded-card surface p-4">' +
-    '<div class="flex gap-4"><div class="fut-badge tier-' + cardTier(Math.round(rating * 10)) + '" aria-label="' + t('Nota') + ' ' + formatRating(rating) + ', ' + escapeHtml(t(a.pos)) + '"><span class="num text-[2rem] ' + rateClass(rating) + '">' + formatRating(rating) + '</span><span class="pos-abbr">' + t(POSITION_ABBR[a.pos] || '—') + '</span></div>' +
-    '<div class="min-w-0 flex-1"><div class="flex items-start justify-between gap-2"><div class="flex min-w-0 items-center gap-3">' + personAvatar(a, 'avatar card-avatar') + '<button type="button" class="min-w-0 text-left" data-open-athlete="' + a.id + '"><h3 class="truncate text-lg font-semibold leading-tight">' + escapeHtml(a.name) + '</h3><p class="mt-0.5 truncate text-sm text-ink-soft">' + a.age + ' ' + t('anos') + ' · ' + escapeHtml(a.city) + '/' + escapeHtml(a.state) + '</p></button></div>' +
-    saveToggle(a) + '</div>' +
-    '<div class="mt-3 flex flex-wrap gap-1.5">' + posTag(a.pos) + posTag(a.secondary) + tag(getCategoryFromAge(a.age), true) + '</div></div></div>' +
-    '<div class="scout-note mt-4"><p>' + escapeHtml(describeAthlete(a)) + '</p>' +
-    (strengthsOf(a).length ? '<p class="scout-strengths">' + strengthsOf(a).map((item) => '<span>' + escapeHtml(item) + '</span>').join('') + '</p>' : '') + '</div>' +
-    '<p class="mt-3 text-xs text-ink-soft">' + (reviewCount ? '<span class="tabular">' + plural(reviewCount, 'avaliação', 'avaliações') + '</span>' : t('ainda sem avaliação')) + (a.demo ? ' · ' + t('perfil de exemplo') : '') + '</p>' +
-    '<div class="mt-auto flex flex-wrap gap-2 pt-4">' +
-    (staff ? '<button type="button" class="btn-secondary" data-message-athlete="' + a.id + '">' + t('Mensagem') + '</button>' : '') +
-    '<button type="button" class="btn-ghost ml-auto" data-open-athlete="' + a.id + '" aria-label="' + t('Abrir perfil de') + ' ' + escapeHtml(a.name) + '">' + t('Ver perfil') + '</button></div></article>'
+  const strengths = strengthsOf(a)
+  return '<article class="reveal athlete-tile pos-' + positionGroup(a.pos) + ' rounded-card surface">' +
+    '<div class="athlete-tile-save">' + saveToggle(a) + '</div>' +
+    '<div class="athlete-tile-card" data-open-athlete="' + a.id + '">' + playerCard(a) + '</div>' +
+    '<p class="athlete-tile-meta">' + a.age + ' ' + t('anos') + ' · ' + escapeHtml(a.city) + '/' + escapeHtml(a.state) + (a.secondary && a.secondary !== '—' ? ' · ' + t('também') + ' ' + escapeHtml(t(a.secondary)) : '') + '</p>' +
+    (strengths.length ? '<p class="scout-strengths athlete-tile-tags">' + strengths.map((item) => '<span>' + escapeHtml(item) + '</span>').join('') + '</p>' : '') +
+    '<p class="athlete-tile-count">' + (reviewCount ? '<span class="tabular">' + plural(reviewCount, 'avaliação', 'avaliações') + '</span>' : t('ainda sem avaliação')) + (a.demo ? ' · ' + t('perfil de exemplo') : '') + '</p>' +
+    '<div class="athlete-tile-actions">' +
+    (staff ? '<button type="button" class="btn-secondary" data-message-athlete="' + a.id + '">' + icon('message', 'size-4') + ' ' + t('Mensagem') + '</button>' : '') +
+    '<button type="button" class="btn-primary" data-open-athlete="' + a.id + '" aria-label="' + t('Abrir perfil de') + ' ' + escapeHtml(a.name) + '">' + t('Ver perfil') + '</button></div></article>'
 }
 
 // Lista de observação: marcador pessoal de quem o funcionário quer acompanhar. Não é voto nem curtida:
@@ -1463,7 +1489,7 @@ function athletesPage() {
     '<div class="page-head"><div><h1 class="page-title">' + t('Pesquisar atletas') + '</h1><p class="page-subtitle">' + t('Abra o perfil completo, mande uma mensagem, registre uma avaliação e salve quem você quer acompanhar.') + '</p></div><button type="button" class="btn-primary lg:hidden" data-action="openTryout">' + icon('plus', 'size-4') + ' ' + t('Nova peneira') + '</button></div>' +
     '<section class="mt-6 grid gap-5 lg:grid-cols-[280px_1fr]">' +
     filters +
-    '<div><div class="mb-4 flex flex-wrap items-center justify-between gap-2"><button type="button" class="filters-toggle btn-secondary" aria-controls="filters-panel" aria-expanded="false" data-filters-open>' + icon('filter', 'size-4') + ' ' + t('Filtros') + '</button><div class="flex flex-wrap items-center gap-3"><button type="button" class="tab-chip" data-action="toggle-watchlist" aria-pressed="' + watchOnly + '">' + icon('bookmark', 'size-4') + t('Lista de observação') + '<span class="tab-count" id="watch-count">' + state.favorites.filter((id) => state.athletes.some((a) => a.id === id)).length + '</span></button><p id="athlete-count" class="text-sm text-ink-soft" aria-live="polite">' + plural(state.athletes.length, 'atleta encontrado', 'atletas encontrados') + '</p></div><button type="button" class="btn-secondary" data-action="export">' + icon('arrow', 'size-4') + ' ' + t('Exportar seleção') + '</button></div><div id="athlete-grid" class="grid gap-4 md:grid-cols-2 min-[1700px]:grid-cols-3">' + state.athletes.map((a) => athleteCard(a, true)).join('') + '</div></div></section>',
+    '<div><div class="mb-4 flex flex-wrap items-center justify-between gap-2"><button type="button" class="filters-toggle btn-secondary" aria-controls="filters-panel" aria-expanded="false" data-filters-open>' + icon('filter', 'size-4') + ' ' + t('Filtros') + '</button><div class="flex flex-wrap items-center gap-3"><button type="button" class="tab-chip" data-action="toggle-watchlist" aria-pressed="' + watchOnly + '">' + icon('bookmark', 'size-4') + t('Lista de observação') + '<span class="tab-count" id="watch-count">' + state.favorites.filter((id) => state.athletes.some((a) => a.id === id)).length + '</span></button><p id="athlete-count" class="text-sm text-ink-soft" aria-live="polite">' + plural(state.athletes.length, 'atleta encontrado', 'atletas encontrados') + '</p></div><button type="button" class="btn-secondary" data-action="export">' + icon('arrow', 'size-4') + ' ' + t('Exportar seleção') + '</button></div><div id="athlete-grid" class="athlete-grid">' + state.athletes.map((a) => athleteCard(a, true)).join('') + '</div></div></section>',
     { active: 'athletes', role: 'staff' },
   )
 }
@@ -1474,8 +1500,8 @@ function profilePage() {
     const account = state.accounts.find((a) => a.email === state.user.email)
     const profile = account?.profile || { name: state.user.name, email: state.user.email, phone: '', position: t('Funcionário'), city: 'São Paulo', state: 'SP' }
     return shell(
-      '<div class="page-head"><div><h1 class="page-title">' + escapeHtml(profile.name) + '</h1><p class="page-subtitle">' + t('Dados do funcionário que está conectado.') + '</p></div><button type="button" class="btn-secondary" data-action="logout">' + icon('logout', 'size-4') + ' ' + t('Sair') + '</button></div>' +
-      '<section class="mt-6 grid gap-5 md:grid-cols-2"><aside class="panel"><div class="flex items-center gap-4">' + photoUploader({ name: profile.name, photo: profile.photo, demo: profile.demo, id: profile.email, group: 'staff' }) + '<div><p class="text-xs text-ink-soft">' + t('Funcionário') + '</p><h2 class="mt-1 text-2xl font-bold">' + escapeHtml(profile.position || t('Profissional')) + '</h2>' + (profile.city ? '<p class="text-sm text-ink-soft">' + escapeHtml(profile.city) + '/' + escapeHtml(profile.state || '') + '</p>' : '') + (isAdmin() ? '<p class="mt-2">' + adminTag() + '</p>' : '') + '</div></div></aside><div class="panel"><h2 class="section-title">' + t('Credenciais de teste') + '</h2><p class="mt-4 text-sm leading-6 text-ink-soft">'+ t('E-mail de teste') + ': funcionario@academiapele.com<br/>' + t('Senha de teste') + ': Academia123!</p><button type="button" class="btn-primary mt-5" data-route="athletes">'+ t('Ir para o banco de atletas') + ' ' + icon('arrow', 'size-4') + '</button></div>' + teamProfilePanel() + '</section>',
+      '<div class="page-head"><div><h1 class="page-title">' + t('Meu perfil') + '</h1><p class="page-subtitle">' + t('Seu perfil profissional: é o que atletas e famílias veem quando você organiza uma peneira ou avalia alguém.') + '</p></div><button type="button" class="btn-secondary" data-action="logout">' + icon('logout', 'size-4') + ' ' + t('Sair') + '</button></div>' +
+      '<section class="mt-6 grid gap-5">' + staffProCard({ ...profile, email: state.user.email }, { own: true, admin: isAdmin() }) + teamProfilePanel() + '</section>',
       { active: 'dashboard', role: 'staff' },
     )
   }
@@ -1498,7 +1524,7 @@ function profilePage() {
     '<p class="text-ink-soft">' + escapeHtml(describeAthlete(p)) + ' ' + age + ' ' + t('anos') + ', ' + escapeHtml(category) + ', ' + escapeHtml(p.city || '') + '.</p>' +
     '<div class="flex flex-wrap justify-center gap-1.5 lg:justify-start">' + posTag(p.pos) + posTag(p.secondary) + tag(category, true) + '</div>' +
     '<button type="button" class="btn-secondary" data-action="logout">' + icon('logout', 'size-4') + ' ' + t('Sair') + '</button></div>' +
-    playerCard(cardOwner, { reveal, size: 'large', flip: true }) +
+    '<div class="profile-hero-card">' + playerCard(cardOwner, { reveal, size: 'large', flip: true }) + cardBasis(cardOwner) + '</div>' +
     '<dl class="profile-stats profile-hero-stats grid grid-cols-2 gap-3">' +
     '<div><dt>' + avgLabel() + '</dt><dd class="num ' + rateClass(avg) + '">' + escapeHtml(String(avg)) + '</dd></div>' +
     '<div><dt>' + t('Peneiras inscritas') + '</dt><dd class="num">' + enrolledCount + '</dd></div>' +
@@ -1567,7 +1593,7 @@ function reviewCard(review, athleteId = null) {
   const criteria = review.ratings && review.position
     ? criteriaForPosition(review.position).filter((c) => review.ratings[c.key] !== undefined && review.ratings[c.key] !== '')
     : []
-  return '<article class="rounded-2xl surface p-5"><div class="flex items-start justify-between gap-3"><div class="flex items-center gap-3"><span class="avatar">' + avatar(review.author || 'Olheiro') + '</span><div><p class="font-semibold">' + escapeHtml(review.author || 'Olheiro') + '</p><p class="text-xs text-ink-soft">' + escapeHtml(review.date || t('Agora')) + (review.position ? ' • ' + t('como') + ' ' + escapeHtml(t(review.position)) : '') + '</p></div></div>' +
+  return '<article class="rounded-2xl surface p-5"><div class="flex items-start justify-between gap-3"><div class="flex items-center gap-3"><span class="avatar">' + avatar(review.author || 'Olheiro') + '</span><div><p class="font-semibold">' + (state.accounts.some((account) => account.role === 'staff' && account.email === review.authorEmail) ? '<button type="button" class="link-button" data-staff-profile="' + escapeHtml(review.authorEmail) + '">' + escapeHtml(review.author || 'Olheiro') + '</button>' : escapeHtml(review.author || 'Olheiro')) + '</p><p class="text-xs text-ink-soft">' + escapeHtml(review.date || t('Agora')) + (review.position ? ' • ' + t('como') + ' ' + escapeHtml(t(review.position)) : '') + '</p></div></div>' +
     '<div class="text-center"><div class="rounded-xl border border-brand/20 bg-brand/8 px-3 py-2 text-sm font-bold text-brand">' + escapeHtml(String(review.rating).replace('.', ',')) + '</div>' + (criteria.length ? '<p class="mt-1 text-xs text-ink-soft">' + t('nota ponderada') + '</p>' : '') + '</div></div>' +
     (criteria.length ? '<div class="mt-4 grid grid-cols-2 gap-x-4 gap-y-2">' + criteria.map((c) => {
       const value = Number(review.ratings[c.key])
@@ -1772,7 +1798,7 @@ function openTryoutDetails(id) {
     '</div>' +
     section(t('Para quem'), 'user', '<p class="flex flex-wrap gap-1.5">' + tag(tryout.category || t('Livre'), true) + tryout.positions.map(posTag).join('') + '</p>' + v.fitLine) +
     section(t('Vagas'), 'clipboard', seatsMeter(v)) +
-    (organizer ? '<p class="text-xs text-ink-soft">' + t('Organizada por') + ' ' + escapeHtml(organizer) + '</p>' : '') +
+    (organizer ? '<p class="text-xs text-ink-soft">' + t('Organizada por') + ' <button type="button" class="link-button" data-staff-profile="' + escapeHtml(tryout.createdBy) + '">' + escapeHtml(organizer) + '</button></p>' : '') +
     '</div>' +
     '<footer class="td-foot">' + v.actions + '</footer></div>'
   document.body.appendChild(wrapper)
@@ -2108,8 +2134,123 @@ async function refreshTeam() {
 }
 
 // ---------- telas ----------
+// ---------- Perfil profissional do funcionário ----------
+// Referências: as seções do perfil do LinkedIn (título, Sobre, Experiência, Competências, Licenças) e a ficha de
+// comissão técnica do Transfermarkt (clube atual, função, desde quando, histórico). Fica em profiles.data, que
+// atletas logados podem ler enquanto o funcionário estiver ativo. Os números vêm do que a pessoa fez na plataforma.
+const LINKEDIN_RE = /^https:\/\/(www\.)?linkedin\.com\/in\/[\w%-]+\/?$/i
+const CATEGORIES = ['Sub-7', 'Sub-9', 'Sub-11', 'Sub-13', 'Sub-15', 'Sub-17', 'Sub-20']
+const proHeadline = (p) => [t(p.position || 'Funcionário'), p.org].filter(Boolean).join(' · ')
+function staffStats(email) {
+  const authored = Object.entries(state.reviews).map(([id, list]) => [id, list.filter((review) => review.authorEmail === email).length]).filter(([, n]) => n)
+  return { tryouts: state.tryouts.filter((tryout) => tryout.createdBy === email).length, reviews: authored.reduce((sum, [, n]) => sum + n, 0), athletes: authored.length }
+}
+function staffProCard(p, { own = false, admin = false } = {}) {
+  const s = staffStats(p.email)
+  const exp = (p.experience || []).filter((e) => e.role || e.org)
+  const creds = (p.credentials || []).filter(Boolean)
+  const empty = (text) => '<p class="text-sm text-ink-soft">' + t(text) + '</p>'
+  const period = (e) => e.start ? e.start + ' – ' + (e.end || t('atual')) : (e.end || '')
+  const person = { name: p.name, photo: p.photo, demo: p.demo, id: p.email, group: 'staff' }
+  return '<article class="pro-card surface rounded-card">' +
+    '<header class="pro-head on-album">' + (own ? photoUploader(person) : personAvatar(person, 'avatar-xl pro-avatar')) +
+    '<div class="min-w-0 flex-1"><h2 class="pro-name" id="pro-name">' + escapeHtml(p.name) + '</h2><p class="pro-headline">' + escapeHtml(proHeadline(p)) + '</p>' +
+    '<p class="pro-meta">' + [p.team && escapeHtml(p.team), p.since && t('desde') + ' ' + escapeHtml(String(p.since)), p.city && escapeHtml(p.city + (p.state ? '/' + p.state : ''))].filter(Boolean).join(' · ') + '</p>' +
+    (admin || p.demo ? '<p class="mt-2 flex flex-wrap gap-1.5">' + (admin ? adminTag() : '') + (p.demo ? '<span class="tag ghost">' + t('Perfil de exemplo') + '</span>' : '') + '</p>' : '') + '</div>' +
+    (p.linkedin && LINKEDIN_RE.test(p.linkedin) ? '<a class="btn-secondary pro-link" href="' + escapeHtml(p.linkedin) + '" target="_blank" rel="noopener noreferrer">' + icon('globe', 'size-4') + ' LinkedIn<span class="sr-only"> (' + t('abre em outra aba') + ')</span></a>' : '') +
+    '</header>' +
+    '<dl class="pro-stats"><div><dt>' + t('Peneiras criadas') + '</dt><dd class="num">' + s.tryouts + '</dd></div><div><dt>' + t('Avaliações feitas') + '</dt><dd class="num">' + s.reviews + '</dd></div><div><dt>' + t('Atletas avaliados') + '</dt><dd class="num">' + s.athletes + '</dd></div></dl>' +
+    '<div class="pro-body">' +
+    '<section><h3>' + t('Sobre') + '</h3>' + (p.bio ? '<p class="pro-bio">' + escapeHtml(p.bio) + '</p>' : empty(own ? 'Conte aos atletas e às famílias o que você faz e o que observa numa peneira.' : 'Ainda não escreveu sobre o próprio trabalho.')) + '</section>' +
+    '<section><h3>' + t('Avalia') + '</h3>' + ((p.specialties || []).length || (p.categories || []).length ? '<p class="flex flex-wrap gap-1.5">' + (p.specialties || []).map((pos) => posTag(pos)).join('') + (p.categories || []).map((c) => tag(c, true)).join('') + '</p>' : empty('Posições e categorias ainda não informadas.')) + '</section>' +
+    '<section><h3>' + t('Experiência') + '</h3>' + (exp.length ? '<ol class="pro-timeline">' + exp.map((e) => '<li><strong>' + escapeHtml(e.role) + '</strong><span>' + escapeHtml(e.org) + '</span><small class="tabular">' + escapeHtml(period(e)) + '</small></li>').join('') + '</ol>' : empty('Nenhuma experiência informada.')) + '</section>' +
+    '<section><h3>' + t('Formação e licenças') + '</h3>' + (creds.length ? '<ul class="pro-list">' + creds.map((c) => '<li>' + escapeHtml(c) + '</li>').join('') + '</ul>' : empty('Nenhum curso ou licença informado.')) + '</section>' +
+    '</div>' + (own ? '<footer class="pro-foot"><button type="button" class="btn-primary" data-action="edit-pro">' + icon('edit', 'size-4') + ' ' + t('Editar perfil profissional') + '</button></footer>' : '') + '</article>'
+}
+// Qualquer [data-staff-profile="email"] abre o perfil profissional por cima do que estiver aberto.
+function openStaffProfile(email) {
+  const account = state.accounts.find((entry) => entry.email === email && entry.role === 'staff')
+  if (!account?.profile) return toast(t('Perfil do profissional indisponível.'), 'error')
+  const wrapper = document.createElement('div')
+  wrapper.className = 'fixed inset-0 z-[95] grid place-items-center bg-black/75 p-4 backdrop-blur-md'
+  wrapper.innerHTML = '<div class="pro-modal max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-card" role="dialog" aria-modal="true" aria-labelledby="pro-name" data-lenis-prevent>' +
+    '<button type="button" class="icon-button pro-close" data-close aria-label="' + t('Fechar') + '">' + icon('close') + '</button>' +
+    staffProCard({ ...account.profile, email: account.email }, { admin: !!account.admin }) + '</div>'
+  document.body.appendChild(wrapper)
+  wrapper.querySelector('[data-close]').addEventListener('click', () => wrapper.remove())
+  wrapper.addEventListener('click', (event) => { if (event.target === wrapper) wrapper.remove() })
+}
+document.addEventListener('click', (event) => {
+  const trigger = event.target.closest?.('[data-staff-profile]')
+  if (trigger) openStaffProfile(trigger.dataset.staffProfile)
+})
+async function saveProProfile(fields) {
+  if (remote.enabled) {
+    const own = await fetchOwnProfile(state.user.uid)
+    const error = await updateOwnProfile(state.user.uid, { name: own.profile.name, data: { ...(own.profile.data || {}), ...fields } })
+    if (error) throw error
+  }
+  const account = state.accounts.find((entry) => entry.email === state.user.email)
+  if (account) account.profile = Object.assign(account.profile || {}, fields)
+  persist()
+}
+function openProEditor() {
+  const account = state.accounts.find((entry) => entry.email === state.user.email)
+  const p = account?.profile || {}
+  const exp = [0, 1, 2].map((i) => (p.experience || [])[i] || {})
+  const checks = (name, list, chosen, label) => '<fieldset class="sm:col-span-2"><legend class="field-label">' + t(label) + '</legend><div class="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">' +
+    list.map((item) => '<label class="check-pill"><input type="checkbox" name="' + name + '" value="' + escapeHtml(item) + '"' + ((chosen || []).includes(item) ? ' checked' : '') + '/><span>' + escapeHtml(t(item)) + '</span></label>').join('') + '</div></fieldset>'
+  const wrapper = document.createElement('div')
+  wrapper.className = 'fixed inset-0 z-[95] grid place-items-center bg-black/75 p-4 backdrop-blur-md'
+  wrapper.innerHTML = '<div class="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-card surface surface--raised p-6 shadow-2xl sm:p-8" role="dialog" aria-modal="true" aria-labelledby="pro-edit-title" data-lenis-prevent>' +
+    '<div class="flex items-start justify-between gap-4"><div><h2 id="pro-edit-title" class="text-2xl font-bold">' + t('Perfil profissional') + '</h2><p class="mt-1 text-sm text-ink-soft">' + t('Atletas e famílias veem estas informações quando você organiza uma peneira ou avalia alguém.') + '</p></div><button type="button" class="icon-button" aria-label="' + t('Fechar') + '" data-close>' + icon('close') + '</button></div>' +
+    '<form id="pro-form" class="mt-6 grid gap-4 sm:grid-cols-2" novalidate>' +
+    input(t('Cargo'), 'pro-position', p.position || '', 'text', true) + input(t('Academia ou clube'), 'pro-org', p.org || 'Pelé Academia', 'text', true) +
+    input(t('Área ou equipe (opcional)'), 'pro-team', p.team || '', 'text') + input(t('Na organização desde (ano)'), 'pro-since', p.since ? String(p.since) : '', 'number') +
+    '<label class="field-label sm:col-span-2">' + t('Sobre (opcional)') + '<textarea id="pro-bio" class="field min-h-28" maxlength="600">' + escapeHtml(p.bio || '') + '</textarea></label>' +
+    checks('pro-spec', POSITIONS, p.specialties, 'Posições que você avalia') + checks('pro-cat', CATEGORIES, p.categories, 'Categorias') +
+    '<p class="form-group-title sm:col-span-2">' + t('Experiência') + '</p>' +
+    exp.map((e, i) => '<div class="pro-exp-row sm:col-span-2">' + input(t('Cargo'), 'pro-exp-role-' + i, e.role || '', 'text') + input(t('Onde'), 'pro-exp-org-' + i, e.org || '', 'text') + input(t('Início (ano)'), 'pro-exp-start-' + i, e.start || '', 'number') + input(t('Fim (ano, vazio se atual)'), 'pro-exp-end-' + i, e.end || '', 'number') + '</div>').join('') +
+    '<label class="field-label sm:col-span-2">' + t('Formação e licenças (uma por linha, opcional)') + '<textarea id="pro-creds" class="field min-h-20" maxlength="600">' + escapeHtml((p.credentials || []).join('\n')) + '</textarea></label>' +
+    '<div class="sm:col-span-2">' + input(t('LinkedIn (opcional)'), 'pro-linkedin', p.linkedin || '', 'url') + '<p class="mt-1 text-xs text-ink-soft">' + t('Formato: https://www.linkedin.com/in/seu-nome') + '</p></div>' +
+    '<p id="pro-feedback" class="hidden sm:col-span-2 rounded-2xl border px-4 py-3 text-sm" role="alert"></p>' +
+    '<div class="sm:col-span-2 flex justify-end gap-2"><button type="button" class="btn-ghost" data-close>' + t('Cancelar') + '</button><button type="submit" class="btn-primary">' + t('Salvar perfil') + '</button></div></form></div>'
+  document.body.appendChild(wrapper)
+  wrapper.querySelectorAll('[data-close]').forEach((button) => button.addEventListener('click', () => wrapper.remove()))
+  wrapper.querySelector('#pro-form').addEventListener('submit', async (event) => {
+    event.preventDefault()
+    const val = (id) => wrapper.querySelector('#' + id).value.trim()
+    const year = (id) => { const v = val(id); return v === '' ? '' : /^\d{4}$/.test(v) && Number(v) >= 1950 && Number(v) <= new Date().getFullYear() ? v : null }
+    const errors = []
+    const check = (id, ok, message) => { setFieldError(id, ok ? '' : t(message)); if (!ok) errors.push(id) }
+    check('pro-position', val('pro-position').length >= 2 && val('pro-position').length <= 60, 'Informe o cargo (2 a 60 caracteres).')
+    check('pro-org', val('pro-org').length >= 2 && val('pro-org').length <= 80, 'Informe a academia ou o clube (2 a 80 caracteres).')
+    check('pro-team', val('pro-team').length <= 80, 'Use até 80 caracteres.')
+    check('pro-since', year('pro-since') !== null, 'Use um ano com 4 dígitos, até o ano atual.')
+    check('pro-linkedin', !val('pro-linkedin') || LINKEDIN_RE.test(val('pro-linkedin')), 'Use o endereço do perfil: https://www.linkedin.com/in/seu-nome')
+    const experience = [0, 1, 2].map((i) => {
+      const e = { role: val('pro-exp-role-' + i).slice(0, 80), org: val('pro-exp-org-' + i).slice(0, 80), start: year('pro-exp-start-' + i), end: year('pro-exp-end-' + i) }
+      check('pro-exp-start-' + i, e.start !== null, 'Use um ano com 4 dígitos, até o ano atual.')
+      check('pro-exp-end-' + i, e.end !== null && !(e.end && e.start && e.end < e.start), 'O fim não pode ser antes do início.')
+      return e
+    }).filter((e) => e.role || e.org)
+    if (errors.length) return wrapper.querySelector('#' + errors[0])?.focus()
+    const fields = {
+      position: val('pro-position'), org: val('pro-org'), team: val('pro-team'), since: val('pro-since') ? Number(val('pro-since')) : '',
+      bio: val('pro-bio').slice(0, 600),
+      specialties: [...wrapper.querySelectorAll('input[name="pro-spec"]:checked')].map((box) => box.value),
+      categories: [...wrapper.querySelectorAll('input[name="pro-cat"]:checked')].map((box) => box.value),
+      experience, credentials: val('pro-creds').split('\n').map((line) => line.trim().slice(0, 120)).filter(Boolean).slice(0, 5),
+      linkedin: val('pro-linkedin'),
+    }
+    const submit = wrapper.querySelector('[type=submit]')
+    submit.setAttribute('aria-busy', 'true')
+    try { await saveProProfile(fields); wrapper.remove(); render(); toast(t('Perfil profissional salvo.')) } catch (error) { showFeedback('pro-feedback', describeError(error), true) } finally { submit.removeAttribute('aria-busy') }
+  })
+}
+
 function teamProfilePanel() {
-  return '<div class="panel md:col-span-2 flex flex-wrap items-center gap-4"><span class="venue-pin" aria-hidden="true">' + icon('users', 'size-5') + '</span><div class="min-w-0 flex-1"><h2 class="section-title !mt-0">' + t('Equipe') + '</h2>' +
+  return '<div class="panel flex flex-wrap items-center gap-4"><span class="venue-pin" aria-hidden="true">' + icon('users', 'size-5') + '</span><div class="min-w-0 flex-1"><h2 class="section-title !mt-0">' + t('Equipe') + '</h2>' +
     (isAdmin()
       ? '<p class="mt-1 text-sm text-ink-soft">' + t('Você é administrador: convide funcionários e decida quem gerencia a equipe.') + '</p></div><button type="button" class="btn-primary" data-route="team">' + t('Gerenciar equipe') + ' ' + icon('arrow', 'size-4') + '</button>'
       : '<p class="mt-1 text-sm text-ink-soft">' + t('Novos funcionários entram por convite de um administrador da equipe.') + '</p></div>') + '</div>'
@@ -2649,6 +2790,7 @@ function privacyPage() {
       row('Telefone e endereço (opcional)', 'Ficam no seu perfil. O endereço é opcional e nenhuma função o usa.', 'Só você') +
       row('Inscrições, avaliações e conversas', 'Organizar as peneiras e o acompanhamento técnico.', 'Você e a equipe') +
       row('Responsável legal (menores de 18)', 'Registrar a autorização e permitir que a equipe fale com a família.', 'Você e a equipe') +
+      row('Perfil profissional (funcionários)', 'Mostrar aos atletas e às famílias quem organiza a peneira e quem avalia.', 'Atletas e equipe') +
       '</tbody></table></div>' +
       legalText('A plataforma não pede dados sensíveis, como saúde, origem racial, religião ou biometria. Só pedimos o que alguma função usa (LGPD, art. 6º, III).')],
     ['bases', 'Por que podemos usar esses dados', '<div class="privacy-table"><table><thead><tr><th scope="col">' + t('Uso') + '</th><th scope="col">' + t('Base legal') + '</th></tr></thead><tbody>' +
@@ -3099,24 +3241,36 @@ function openAthleteModal(athleteId) {
   wrapper.id = 'modal-root'
   wrapper.className = 'fixed inset-0 z-[90] grid place-items-center bg-black/75 p-4 backdrop-blur-md'
   const attrs = attributeAverages(athlete.id, athlete.pos)
-  const rating = ratingOf(athlete)
   const strengths = strengthsOf(athlete)
+  const enrolledIn = athlete.email ? state.tryouts.filter((tryout) => (tryout.enrolled || []).includes(athlete.email)).sort(byStart) : []
+  const presences = enrolledIn.filter((tryout) => checkinsOf(tryout)[athlete.email]).length
   wrapper.innerHTML =
     '<div class="athlete-modal pos-' + positionGroup(athlete.pos) + ' max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-card surface surface--raised shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="athlete-modal-title" data-lenis-prevent>' +
     '<header class="athlete-modal-hero"><button type="button" class="icon-button athlete-modal-close" data-close-modal aria-label="' + t('Fechar') + '">' + icon('close') + '</button>' +
-    '<div class="flex flex-wrap items-end gap-5">' + playerCard(athlete, { flip: true }) +
-    '<div class="min-w-0 flex-1"><h2 id="athlete-modal-title" class="text-3xl font-semibold leading-tight">' + escapeHtml(athlete.name) + '</h2>' +
-    '<p class="mt-1 text-ink-soft">' + athlete.age + ' ' + t('anos') + ' · ' + escapeHtml(athlete.city) + '/' + escapeHtml(athlete.state) + (athlete.demo ? ' · ' + t('perfil de exemplo') : '') + '</p>' +
-    '<div class="mt-3 flex flex-wrap gap-1.5">' + posTag(athlete.pos) + posTag(athlete.secondary) + tag(getCategoryFromAge(athlete.age), true) + (athlete.gender ? tag(athlete.gender, true) : '') + '</div></div>' +
-    '</div></header>' +
+    '<div class="athlete-modal-card">' + playerCard(athlete, { flip: true, size: 'large' }) + '</div>' +
+    '<h2 id="athlete-modal-title" class="athlete-modal-name">' + escapeHtml(athlete.name) + '</h2>' +
+    '<p class="mt-1 text-center text-ink-soft">' + athlete.age + ' ' + t('anos') + ' · ' + escapeHtml(athlete.city) + '/' + escapeHtml(athlete.state) + (athlete.demo ? ' · ' + t('perfil de exemplo') : '') + '</p>' +
+    '<div class="mt-3 flex flex-wrap justify-center gap-1.5">' + posTag(athlete.pos) + posTag(athlete.secondary) + tag(getCategoryFromAge(athlete.age), true) + (athlete.gender ? tag(athlete.gender, true) : '') + '</div>' +
+    '</header>' +
     '<div class="p-6 sm:p-8">' +
     '<div class="scout-note"><p>' + escapeHtml(describeAthlete(athlete)) + '</p>' + (strengths.length ? '<p class="scout-strengths">' + strengths.map((item) => '<span>' + escapeHtml(item) + '</span>').join('') + '</p>' : '') + '</div>' +
-    '<dl class="profile-stats mt-5 grid grid-cols-3 gap-3"><div><dt>' + t('Avaliações') + '</dt><dd class="num">' + reviews.length + '</dd></div><div><dt>' + t('Última avaliação') + '</dt><dd class="text-base font-semibold tabular">' + escapeHtml(reviews[0]?.date || '—') + '</dd></div><div><dt>' + t('Status') + '</dt><dd class="text-base font-semibold">' + escapeHtml(t(athlete.status || '—')) + '</dd></div></dl>' +
+    '<h3 class="section-title mt-8">' + t('Ficha do atleta') + '</h3>' +
+    '<dl class="athlete-facts">' + [
+      [t('Idade'), athlete.age + ' ' + t('anos') + ' · ' + getCategoryFromAge(athlete.age)],
+      [t('Posição'), t(athlete.pos) + (athlete.secondary && athlete.secondary !== '—' ? ' / ' + t(athlete.secondary) : '')],
+      [t('Perna dominante'), athlete.foot ? t(athlete.foot) : '—'],
+      [t('Cidade'), athlete.city + '/' + athlete.state],
+      [t('Status'), t(athlete.status || '—')],
+      [t('Avaliações'), String(reviews.length)],
+      [t('Última avaliação'), reviews[0]?.date || '—'],
+      [t('Peneiras'), plural(enrolledIn.length, 'inscrição', 'inscrições') + ' · ' + plural(presences, 'presença', 'presenças')],
+    ].map(([k, v]) => '<div><dt>' + k + '</dt><dd>' + escapeHtml(v) + '</dd></div>').join('') + '</dl>' +
+    (enrolledIn.length ? '<h3 class="section-title mt-8">' + t('Peneiras do atleta') + '</h3><ul class="athlete-tryouts">' + enrolledIn.map((tryout) => '<li><span class="min-w-0"><strong class="block truncate">' + escapeHtml(tryout.title) + '</strong><small class="text-ink-soft">' + escapeHtml(formatDate(tryout.date)) + ' · ' + escapeHtml(tryout.location || '') + '</small></span>' + (checkinsOf(tryout)[athlete.email] ? '<span class="tag green">' + icon('check', 'size-3.5') + ' ' + t('Presente') + '</span>' : tryout.status === 'cancelled' ? '<span class="tag ghost">' + t('Cancelada') + '</span>' : '<span class="tag ghost">' + t('Inscrito') + '</span>') + '</li>').join('') + '</ul>' : '') +
     guardianStaffBox(athlete) +
     '<div class="mt-6 flex flex-wrap gap-2"><button type="button" class="btn-primary" data-message-athlete="' + athlete.id + '">' + icon('message', 'size-4') + ' ' + t('Abrir conversa') + '</button><button type="button" class="btn-secondary save-toggle" data-save="' + athlete.id + '" aria-pressed="' + isSaved(athlete.id) + '">' + icon('bookmark', 'size-4') + '<span>' + (isSaved(athlete.id) ? t('Na sua lista') : t('Salvar na lista')) + '</span></button>' +
     (state.user?.role === 'staff' ? '<button type="button" class="btn-secondary" data-review-athlete="' + athlete.id + '">' + icon('edit', 'size-4') + ' ' + t('Registrar avaliação') + '</button>' : '') + '</div>' +
     '<section class="mt-8 grid gap-6 md:grid-cols-[1fr_1.1fr]"><div><h3 class="section-title !mt-0">' + t('Atributos') + '</h3>' +
-    (Object.keys(attrs.values).length ? '<div class="mt-3">' + radarChart(attrs.criteria, attrs.values) + '</div>' : '<div class="empty-state mt-3"><strong>' + t('Sem avaliação ainda') + '</strong><span class="text-sm">' + t('O radar aparece depois da primeira avaliação registrada.') + '</span></div>') + '</div>' +
+    (Object.keys(attrs.values).length ? '<div class="mt-3">' + radarChart(attrs.criteria, attrs.values) + '</div>' : '<div class="empty-state mt-3"><strong>' + t('Sem avaliação ainda') + '</strong><span class="text-sm">' + t('O radar aparece depois da primeira avaliação registrada.') + '</span></div>') + cardBasis(athlete) + '</div>' +
     '<div><h3 class="section-title !mt-0">' + t('Avaliações') + ' <span class="text-ink-soft">(' + reviews.length + ')</span></h3><div class="mt-3 grid gap-3">' + (reviews.length ? reviews.map((review) => reviewCard(review, athlete.id)).join('') : '<p class="text-sm text-ink-soft">' + t('Nenhuma avaliação registrada ainda.') + '</p>') + '</div></div></section>' +
     '</div></div>'
 
@@ -4198,6 +4352,7 @@ function bind() {
   const recoveryForm = document.querySelector('#password-recovery-form')
   if (recoveryForm) recoveryForm.addEventListener('submit', (event) => { event.preventDefault(); safely(saveRecoveredPassword()) })
   document.querySelectorAll('[data-action="demo"]').forEach((button) => button.addEventListener('click', () => safely(loginDemo())))
+  document.querySelectorAll('[data-action="edit-pro"]').forEach((button) => button.addEventListener('click', openProEditor))
 
   const conversationSearch = document.querySelector('#conversation-search')
   if (conversationSearch) conversationSearch.addEventListener('input', () => {

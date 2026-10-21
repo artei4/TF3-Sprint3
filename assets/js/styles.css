@@ -1169,3 +1169,78 @@ h2, h3 { font-stretch:108%; }
   .legal-toc ol { flex-direction:column; overflow:visible; }
   .legal-toc button { width:100%; border-color:transparent; }
 }
+
+/* ===== Perfil profissional (LinkedIn/Transfermarkt): faixa de ouro com nome e vínculo, números reais e seções ===== */
+.pro-card { overflow:hidden; background:var(--color-panel); }
+.pro-head { position:relative; display:flex; flex-wrap:wrap; align-items:center; gap:1.25rem; padding:1.5rem; background:var(--color-album); color:var(--color-album-ink); }
+.pro-avatar { flex:none; }
+/* Texto com largura mínima: em tela estreita ele desce para baixo da foto em vez de espremer uma palavra por linha. */
+.pro-head > .min-w-0 { flex: 1 1 15rem; }
+.pro-name { font-family:var(--font-display); font-stretch:115%; font-weight:900; font-size: clamp(1.6rem, 1.1rem + 1.8vw, 2.3rem); line-height:1; }
+.pro-headline { margin-top:.4rem; font-weight:700; }
+.pro-meta { margin-top:.2rem; font-size:.875rem; color: var(--color-album-soft); }
+.pro-link { margin-left:auto; }
+.pro-stats { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-bottom:1px solid var(--color-line); }
+.pro-stats > div { padding:1rem 1.5rem; }
+.pro-stats > div + div { border-left:1px solid var(--color-line); }
+.pro-stats dt { font-size:.75rem; color:var(--color-ink-soft); }
+.pro-stats dd { margin-top:.2rem; font-size:1.6rem; font-weight:800; }
+.pro-body { display:grid; gap:1.5rem; padding:1.5rem; }
+.pro-body h3 { font-size:.75rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--color-ink-soft); margin-bottom:.6rem; }
+.pro-bio { max-width:65ch; line-height:1.65; }
+.pro-timeline { display:grid; gap:.9rem; border-left:2px solid var(--color-line); padding-left:1rem; }
+.pro-timeline li { position:relative; display:grid; gap:.1rem; }
+.pro-timeline li::before { content:""; position:absolute; left:calc(-1rem - 6px); top:.35rem; width:10px; height:10px; border-radius:50%; background:var(--color-brand); box-shadow: 0 0 0 3px var(--color-panel); }
+.pro-timeline span { font-size:.9rem; }
+.pro-timeline small { font-size:.75rem; color:var(--color-ink-soft); }
+.pro-list { display:grid; gap:.35rem; padding-left:1.1rem; list-style:disc; }
+.pro-foot { padding:0 1.5rem 1.5rem; }
+@media (min-width: 48rem) { .pro-body { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pro-body > section:first-child { grid-column: 1 / -1; } }
+@media (max-width: 30rem) { .pro-stats > div { padding:.85rem 1rem; } .pro-stats dd { font-size:1.3rem; } .pro-link { margin-left:0; } }
+.pro-modal { position:relative; }
+.pro-close { position:absolute; top:.75rem; right:.75rem; z-index:2; background:#FFFFFF; color:var(--color-album-ink); }
+.pro-modal .pro-head { padding-right:4rem; }
+.pro-exp-row { display:grid; gap:.75rem; grid-template-columns: minmax(0, 1fr); padding:.75rem; border:1px solid var(--color-line); border-radius:var(--radius-control); }
+@media (min-width: 40rem) { .pro-exp-row { grid-template-columns: 1.3fr 1.3fr .8fr .8fr; } }
+.link-button { font-weight:700; color:var(--color-chalk); text-decoration:underline; text-underline-offset:3px; text-decoration-color: color-mix(in oklab, var(--color-brand) 70%, transparent); }
+@media (hover:hover) and (pointer:fine) { .link-button:hover { color:var(--color-brand); } }
+
+/* ===== De onde vêm os números da carta ===== */
+.card-basis { margin-top:1rem; border:1px solid var(--color-line); border-radius:var(--radius-control); background:var(--color-panel); font-size:.875rem; text-align:left; }
+.card-basis summary { display:flex; align-items:center; gap:.5rem; min-height:2.75rem; padding:.6rem .85rem; cursor:pointer; font-weight:700; list-style:none; }
+.card-basis summary::-webkit-details-marker { display:none; }
+.card-basis summary svg { color:var(--color-brand); flex:none; }
+.card-basis[open] summary { border-bottom:1px solid var(--color-line); }
+.card-basis-body { display:grid; gap:.75rem; padding:.85rem; line-height:1.55; color:var(--color-ink-soft); }
+.basis-list { display:grid; gap:.3rem; }
+.basis-list > div { display:flex; justify-content:space-between; gap:.75rem; padding-bottom:.3rem; border-bottom:1px dashed var(--color-line); }
+.basis-list dt { color:var(--color-chalk); }
+.basis-list abbr { text-decoration:none; font-weight:800; letter-spacing:.04em; margin-right:.25rem; }
+.basis-scale { font-size:.75rem; }
+.profile-hero-card { display:grid; justify-items:center; width:100%; max-width:20rem; justify-self:center; }
+.profile-hero-card .card-basis { width:100%; color:var(--color-chalk); }
+
+/* ===== Banco de atletas: a carta em destaque, centralizada ===== */
+.athlete-grid { display:grid; gap:1rem; grid-template-columns: repeat(auto-fill, minmax(16.5rem, 1fr)); }
+.athlete-tile { position:relative; display:flex; flex-direction:column; align-items:center; gap:.5rem; min-width:0; padding:1.5rem 1rem 1rem; background:var(--color-panel); text-align:center; }
+.athlete-tile-save { position:absolute; top:.75rem; right:.75rem; z-index:2; }
+.athlete-tile-card { cursor:pointer; padding-block:.25rem .5rem; }
+.athlete-tile-card .fc-card { transition: translate .35s var(--ease-out); }
+@media (hover:hover) and (pointer:fine) { .athlete-tile:hover .athlete-tile-card .fc-card { translate: 0 -4px; } }
+.athlete-tile-meta { font-size:.875rem; color:var(--color-ink-soft); }
+.athlete-tile-tags { justify-content:center; margin-top:0; }
+.athlete-tile-count { font-size:.75rem; color:var(--color-ink-soft); }
+.athlete-tile-actions { margin-top:auto; padding-top:.5rem; display:flex; flex-wrap:wrap; justify-content:center; gap:.5rem; width:100%; }
+.athlete-tile-actions > * { flex:1 1 8rem; }
+
+/* ===== Perfil aberto: carta grande no centro do topo; ficha completa embaixo ===== */
+.athlete-modal-hero { display:grid; justify-items:center; text-align:center; }
+.athlete-modal-card { display:grid; justify-items:center; }
+.athlete-modal-name { margin-top:1rem; font-family:var(--font-display); font-stretch:115%; font-weight:900; font-size: clamp(1.6rem, 1.2rem + 1.6vw, 2.3rem); line-height:1.05; }
+.athlete-facts { margin-top:.75rem; display:grid; gap:1px; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow:hidden; border:1px solid var(--color-line); border-radius:var(--radius-control); background:var(--color-line); }
+.athlete-facts > div { padding:.75rem .9rem; background:var(--color-panel); }
+.athlete-facts dt { font-size:.75rem; color:var(--color-ink-soft); }
+.athlete-facts dd { margin-top:.15rem; font-weight:700; }
+@media (min-width: 40rem) { .athlete-facts { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.athlete-tryouts { margin-top:.75rem; display:grid; gap:.5rem; }
+.athlete-tryouts li { display:flex; align-items:center; justify-content:space-between; gap:.75rem; padding:.7rem .9rem; border:1px solid var(--color-line); border-radius:var(--radius-control); }
