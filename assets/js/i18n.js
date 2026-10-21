@@ -977,4 +977,13 @@ const ES = {
   "FIN": "DEF",
   "DEF": "ATJ",
   "SAÍ": "SAL",
+  // Conversas
+  "Novas mensagens": "Mensajes nuevos",
+  "Convidar": "Invitar",
+  "Enter envia; Shift+Enter quebra a linha.": "Enter envía; Shift+Enter hace un salto de línea.",
+  "Ir para a mais recente": "Ir al más reciente",
+  "Olá": "Hola",
+  "Tem uma peneira compatível com você:": "Hay una prueba compatible contigo:",
+  "A inscrição é pela tela Peneiras.": "La inscripción es en la pantalla Pruebas.",
+  "Mensagens com": "Mensajes con",
 }

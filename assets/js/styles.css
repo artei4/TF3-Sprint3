@@ -467,7 +467,8 @@ button.pitch-dot { cursor:pointer; min-width:2.75rem; min-height:2.75rem; backgr
 .composer-input { flex:1; min-width:0; min-height:2.5rem; background:transparent; border:0; outline:none; color:var(--color-chalk); font-size:1rem; }
 .composer-input::placeholder { color: color-mix(in oklab, var(--color-ink-soft) 85%, transparent); }
 .composer .chat-send { width:2.6rem; height:2.6rem; min-height:0; padding:0; border-radius:50%; box-shadow:none; }
-.conversation-item.selected { background: color-mix(in oklab, var(--color-brand) 12%, transparent); box-shadow: inset 2px 0 0 var(--color-brand); }
+.conversation-item.selected { background: color-mix(in oklab, var(--color-brand) 12%, transparent); }
+.conversation-item.selected strong { color: var(--color-brand); }
 
 /* ===== Perfil ===== */
 .profile-avatar { box-shadow: 0 0 0 3px var(--color-panel), 0 0 0 5px var(--pos, var(--color-brand)); background: color-mix(in oklab, var(--pos, var(--color-brand)) 80%, #fff); }
@@ -933,3 +934,25 @@ button.pitch-dot { cursor:pointer; min-width:2.75rem; min-height:2.75rem; backgr
 @keyframes card-reveal { 0% { transform: perspective(900px) rotateY(160deg) scale(.86); filter: brightness(1.8); } 70% { transform: perspective(900px) rotateY(-6deg) scale(1.02); filter: brightness(1.1); } 100% { transform:none; filter:none; } }
 @keyframes card-shine { to { transform: translateX(120%); } }
 .athlete-modal-hero .fc-card { width:12rem; }
+
+/* ===== Conversas: compositor que cresce, contexto do atleta, novas mensagens e atalho para o fim ===== */
+.composer { align-items:flex-end; border-radius:1.4rem; }
+.composer-input { resize:none; max-height:8.5rem; line-height:1.45; padding:.55rem 0; font-family:inherit; }
+.composer-count { align-self:center; font-size:.75rem; font-variant-numeric:tabular-nums; color:var(--color-ink-soft); }
+.chat-header { position:relative; }
+.chat-context { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:.35rem; }
+.chat-unread { display:flex; align-items:center; gap:.75rem; margin:1rem 0 .25rem; font-size:.75rem; font-weight:700; color:var(--color-brand); }
+.chat-unread::before, .chat-unread::after { content:""; flex:1; height:1px; background: color-mix(in oklab, var(--color-brand) 45%, transparent); }
+.chat-jump { position:absolute; right:1rem; bottom:5.25rem; z-index:2; display:inline-flex; align-items:center; gap:.4rem; min-height:2.5rem; padding:.4rem .85rem; border-radius:999px; font-size:.8rem; font-weight:700; color:var(--color-brand-ink); background:var(--color-cta); box-shadow: 0 10px 20px -12px rgb(0 0 0 / .6); animation: jump-in .25s var(--ease-out); }
+.chat-jump svg { rotate: 90deg; }
+.chat-jump[hidden] { display:none; }
+@keyframes jump-in { from { opacity:0; translate: 0 6px; } }
+/* Histórico rola dentro do painel; o compositor fica sempre à vista (no celular a conversa já é tela cheia). */
+@media (min-width: 48rem) {
+  .chat-layout { height: min(78dvh, 46rem); min-height: 32rem; }
+  .chat-pane, .chat-list { min-height: 0; }
+  .chat-pane { position:relative; }
+  .chat-list { display:flex; flex-direction:column; }
+  .chat-list #conversation-list { flex:1; max-height:none; min-height:0; }
+  .chat-messages { flex:1 1 0; min-height:0; overflow-y:auto; }
+}
