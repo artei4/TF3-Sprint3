@@ -713,6 +713,7 @@ function mapRemoteEvaluation(row) {
     stats: row.stats || {},
     strengths: Array.isArray(row.strengths) ? row.strengths : [],
     comment: row.comment,
+    tryoutId: row.tryout_id == null ? null : Number(row.tryout_id),
     date: row.created_at ? new Date(row.created_at).toLocaleDateString('pt-BR') : 'Agora',
   }
 }
@@ -1052,7 +1053,9 @@ function staffDashboard() {
     : t('Nenhuma peneira marcada. Crie uma para os atletas compatíveis se inscreverem.')
   return shell(
     '<section class="hero rounded-card surface p-6 sm:p-8"><h1 class="page-title">' + t('Olá,') + ' ' + firstName + '.</h1><p class="mt-3 max-w-3xl text-lg leading-7">' + status + '</p>' +
-    '<div class="mt-6 flex flex-wrap gap-2">' + (next
+    '<div class="mt-6 flex flex-wrap gap-2">' + (next && checkinOpen(next)
+      ? '<button type="button" class="btn-primary" data-route="ao-vivo/' + next.id + '">' + icon('check', 'size-4') + ' ' + t('Abrir peneira ao vivo') + '</button>'
+      : next
       ? '<button type="button" class="btn-primary" data-route="tryouts">' + icon('calendar', 'size-4') + ' ' + t('Ver peneiras') + '</button>'
       : '<button type="button" class="btn-primary" data-action="openTryout">' + icon('plus', 'size-4') + ' ' + t('Criar peneira') + '</button>') +
     '<button type="button" class="btn-secondary" data-route="athletes">' + icon('search', 'size-4') + ' ' + t('Pesquisar atletas') + '</button></div>' +
@@ -1607,8 +1610,10 @@ function tryoutView(tryout) {
   let actions
   if (staff) {
     const present = Object.keys(checkinsOf(tryout)).length
-    actions = (checkinOpen(tryout)
-      ? '<button type="button" class="' + (past ? 'btn-secondary' : 'btn-primary') + ' w-full" data-action="view-enrolled" data-id="' + tryout.id + '">' + icon('check', 'size-4') + ' ' + t('Chamada') + ' · ' + present + ' ' + t('de') + ' ' + taken + ' ' + t('presentes') + '</button>'
+    actions = (checkinOpen(tryout) && !past
+      ? '<button type="button" class="btn-primary w-full" data-action="live" data-id="' + tryout.id + '">' + icon('check', 'size-4') + ' ' + t('Peneira ao vivo') + ' · ' + present + ' ' + t('de') + ' ' + taken + ' ' + t('presentes') + '</button>'
+      : checkinOpen(tryout)
+      ? '<button type="button" class="btn-secondary w-full" data-action="view-enrolled" data-id="' + tryout.id + '">' + icon('check', 'size-4') + ' ' + t('Chamada') + ' · ' + present + ' ' + t('de') + ' ' + taken + ' ' + t('presentes') + '</button>'
       : '<button type="button" class="btn-secondary w-full" data-action="view-enrolled" data-id="' + tryout.id + '">' + t('Ver inscritos') + ' (' + taken + '/' + seats + ') ' + icon('arrow', 'size-4') + '</button>') +
       (past ? '' : '<button type="button" class="btn-danger w-full" data-action="cancel-tryout" data-id="' + tryout.id + '">' + icon('close', 'size-4') + ' ' + t('Cancelar peneira') + '</button>')
   } else if (myCheckin) {
@@ -1718,6 +1723,7 @@ function openTryoutDetails(id) {
       enroll: () => enrollInTryout(id, document.querySelector('[data-tryout-card="' + id + '"] [data-action="enroll"]')),
       withdraw: () => confirmWithdraw(id),
       'view-enrolled': () => openEnrolledModal(id),
+      live: () => go('ao-vivo/' + id),
       'cancel-tryout': () => openCancelTryoutModal(id),
       'open-guardian': () => openGuardianModal(),
     }[button.dataset.action]
@@ -3102,54 +3108,52 @@ function openReviewModal(athleteId) {
     const comment = wrapper.querySelector('#review-comment').value.trim()
     if (comment.length < 10) return fail('Escreva um comentário com pelo menos 10 caracteres.')
 
-    const result = computeFinalScore(pos, ratings, stats)
-    const score = result.final
     const strengths = [...wrapper.querySelectorAll('input[name="strength"]:checked')].map((box) => box.value)
-    const review = {
-      id: Date.now(),
-      author: state.user?.name || 'Olheiro',
-      authorEmail: state.user?.email,
-      position: pos,
-      ratings,
-      rating: score.toFixed(1),
-      baseRating: result.base,
-      adjustment: result.adjustment,
-      stats,
-      strengths,
-      comment,
-      date: new Date().toLocaleDateString('pt-BR'),
+    const submit = form.querySelector('button[type="submit"]')
+    submit?.setAttribute('disabled', '')
+    const saved = await saveEvaluation(athlete, { pos, ratings, stats, strengths, comment })
+    if (saved.error) {
+      submit?.removeAttribute('disabled')
+      return fail(saved.error)
     }
-    if (remote.enabled) {
-      if (!athlete.profileId) return fail('Este atleta ainda não possui uma conta ativa para receber avaliações.')
-      const submit = form.querySelector('button[type="submit"]')
-      submit?.setAttribute('disabled', '')
-      const saved = await createEvaluation({
-        athleteId: athlete.profileId,
-        position: pos,
-        ratings,
-        rating: score,
-        baseRating: result.base,
-        adjustment: result.adjustment,
-        stats,
-        strengths,
-        comment,
-      })
-      if (saved.error || !saved.row) {
-        submit?.removeAttribute('disabled')
-        return fail(describeError(saved.error))
-      }
-      review.id = 'r' + saved.row.id
-    }
-    const list = state.reviews[athleteId] || []
-    list.unshift(review)
-    state.reviews[athleteId] = list
-    if (athlete.email) notify(athlete.email, t('Nova avaliação'), t('Um olheiro avaliou seu desempenho como') + ' ' + t(pos) + ' (' + t('nota') + ' ' + score.toFixed(1).replace('.', ',') + ').')
-    persist()
+    const score = saved.score
     wrapper.remove()
     toast(t('Avaliação salva. Nota final:') + ' ' + score.toFixed(1).replace('.', ',') + '.')
     refreshAthleteViews()
     openAthleteModal(athleteId)
   })
+}
+
+// Grava a avaliação (no servidor ou neste navegador), avisa o atleta e devolve { review, score } ou { error }.
+// tryoutId liga a avaliação à peneira em que foi feita (coluna evaluations.tryout_id no servidor).
+async function saveEvaluation(athlete, { pos, ratings, stats = {}, strengths = [], comment, tryoutId = null }) {
+  const result = computeFinalScore(pos, ratings, stats)
+  const score = result.final
+  const review = {
+    id: Date.now(),
+    author: state.user?.name || 'Olheiro',
+    authorEmail: state.user?.email,
+    position: pos,
+    ratings,
+    rating: score.toFixed(1),
+    baseRating: result.base,
+    adjustment: result.adjustment,
+    stats,
+    strengths,
+    comment,
+    tryoutId,
+    date: new Date().toLocaleDateString('pt-BR'),
+  }
+  if (remote.enabled) {
+    if (!athlete.profileId) return { error: t('Este atleta ainda não possui uma conta ativa para receber avaliações.') }
+    const saved = await createEvaluation({ athleteId: athlete.profileId, position: pos, ratings, rating: score, baseRating: result.base, adjustment: result.adjustment, stats, strengths, comment, tryoutId })
+    if (saved.error || !saved.row) return { error: describeError(saved.error) }
+    review.id = 'r' + saved.row.id
+  }
+  state.reviews[athlete.id] = [review].concat(state.reviews[athlete.id] || [])
+  if (athlete.email) notify(athlete.email, t('Nova avaliação'), t('Um olheiro avaliou seu desempenho como') + ' ' + t(pos) + ' (' + t('nota') + ' ' + score.toFixed(1).replace('.', ',') + ').')
+  persist()
+  return { review, score }
 }
 
 function openTryoutModal() {
@@ -3428,6 +3432,120 @@ function openEnrolledModal(tryoutId) {
     if (athlete) startConversationForAthlete(athlete.id)
     else go('messages')
   }))
+}
+
+// =====================================================================================
+// Peneira ao vivo: a tela do funcionário no campo, pelo celular. Os inscritos em figurinhas; um toque
+// marca presença e outro abre a nota rápida (0 a 10 por característica da posição, com uma anotação).
+// A avaliação completa, com estatísticas, continua no perfil do atleta.
+// Referências: TeamGenius e SkillShark (avaliação de peneira no celular, notas por critério, fila de atletas).
+// =====================================================================================
+let liveFilter = 'present'
+const athleteByEmail = (email) => {
+  const account = state.accounts.find((entry) => entry.email === email)
+  return state.athletes.find((a) => a.id === account?.athleteId) || null
+}
+// Avaliações antigas, de antes da coluna tryout_id, contam pela data da peneira.
+const liveReview = (tryout, athlete) => (state.reviews[athlete.id] || []).find((review) => review.tryoutId === tryout.id || (!review.tryoutId && review.date === formatDate(tryout.date)))
+function liveTryoutPage(id) {
+  const tryout = state.tryouts.find((item) => item.id === Number(id))
+  if (!tryout || tryout.status === 'cancelled') {
+    return shell('<div class="empty-state mt-6"><strong>' + t('Peneira não encontrada') + '</strong><span class="text-sm">' + t('Ela pode ter sido cancelada.') + '</span><button type="button" class="btn-secondary mt-2" data-route="tryouts">' + t('Voltar às peneiras') + '</button></div>', { active: 'tryouts', role: 'staff' })
+  }
+  const open = checkinOpen(tryout)
+  const people = (tryout.enrolled || []).map(athleteByEmail).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name, 'pt'))
+  const present = people.filter((a) => checkinsOf(tryout)[a.email])
+  const pending = present.filter((a) => !liveReview(tryout, a))
+  const lists = { present, todo: pending, all: people }
+  if (!lists[liveFilter]) liveFilter = 'present'
+  const list = lists[liveFilter]
+  const done = present.length - pending.length
+  const tile = (a) => {
+    const here = !!checkinsOf(tryout)[a.email]
+    const review = liveReview(tryout, a)
+    return '<article class="live-tile pos-' + positionGroup(a.pos) + (here ? ' is-present' : '') + (review ? ' is-done' : '') + '">' +
+      '<div class="flex items-center gap-3">' + personAvatar(a, 'avatar card-avatar') + '<div class="min-w-0 flex-1"><p class="truncate font-bold">' + escapeHtml(a.name) + '</p><p class="text-xs text-ink-soft">' + escapeHtml(t(a.pos)) + ' · ' + escapeHtml(getCategoryFromAge(a.age)) + '</p></div>' +
+      (review ? '<span class="live-score num" aria-label="' + t('Nota rápida') + ' ' + review.rating + '">' + escapeHtml(String(review.rating).replace('.', ',')) + '</span>' : '') + '</div>' +
+      (open ? '<div class="live-actions"><label class="checkin-toggle"><input type="checkbox" data-checkin="' + escapeHtml(a.email) + '"' + (here ? ' checked' : '') + ' /><span>' + icon('check', 'size-4') + t('Presente') + '</span><span class="sr-only"> ' + escapeHtml(a.name) + '</span></label>' +
+        (here ? '<button type="button" class="' + (review ? 'btn-secondary' : 'btn-primary') + '" data-live-rate="' + a.id + '">' + (review ? t('Refazer nota') : t('Nota rápida')) + '<span class="sr-only"> ' + escapeHtml(a.name) + '</span></button>' : '') + '</div>' : '') +
+      '</article>'
+  }
+  const chip = (key, label, items) => '<button type="button" class="tab-chip" data-live-filter="' + key + '" aria-pressed="' + (key === liveFilter) + '">' + label + '<span class="tab-count">' + items.length + '</span></button>'
+  const empty = { present: t('Ninguém com presença marcada ainda. Marque quem chegou na aba "Todos os inscritos".'), todo: t('Todos os presentes já têm nota. Bom trabalho.'), all: t('Ainda não há inscritos nesta peneira.') }[liveFilter]
+  return shell(
+    '<div class="page-head"><div><button type="button" class="btn-ghost -ml-2 text-sm" data-route="tryouts">' + icon('back', 'size-4') + ' ' + t('Peneiras') + '</button>' +
+    '<h1 class="page-title">' + escapeHtml(tryout.title) + '</h1><p class="page-subtitle">' + escapeHtml(longTryoutDate(tryout)) + (validTime(tryout.time) ? ' · ' + escapeHtml(tryout.time) : '') + ' · ' + tryoutPlaceLine(tryout) + '</p></div></div>' +
+    '<section class="live-board" aria-live="polite"><div><span class="num live-big">' + present.length + '</span><span>' + t('de') + ' ' + people.length + ' ' + t('presentes') + '</span></div>' +
+    '<div><span class="num live-big">' + done + '</span><span>' + t('de') + ' ' + present.length + ' ' + t('com nota') + '</span></div>' +
+    '<div class="live-progress" aria-hidden="true"><span style="--p:' + (present.length ? done / present.length : 0) + '"></span></div></section>' +
+    (open ? '' : '<p class="fit-line mt-4">' + icon('info', 'size-4 shrink-0') + t('A peneira ao vivo abre no dia da peneira. Até lá, a lista é só de consulta.') + '</p>') +
+    '<div class="tab-bar mt-6" role="group" aria-label="' + t('Filtrar atletas da peneira') + '">' + chip('present', t('Presentes'), present) + chip('todo', t('Faltam nota'), pending) + chip('all', t('Todos os inscritos'), people) + '</div>' +
+    (list.length ? '<div class="live-grid mt-4">' + list.map(tile).join('') + '</div>' : '<div class="empty-state mt-4"><span class="text-sm">' + empty + '</span></div>'),
+    { active: 'tryouts', role: 'staff' },
+  )
+}
+
+function bindLiveTryout(id) {
+  const tryout = state.tryouts.find((item) => item.id === Number(id))
+  if (!tryout) return
+  document.querySelectorAll('[data-live-filter]').forEach((button) => button.addEventListener('click', () => { liveFilter = button.dataset.liveFilter; render() }))
+  document.querySelectorAll('.live-tile [data-checkin]').forEach((box) => box.addEventListener('change', async () => {
+    box.disabled = true
+    const at = await markAttendance(tryout, box.dataset.checkin, box.checked)
+    if (at === false) { box.checked = !box.checked; box.disabled = false; return }
+    render()
+  }))
+  document.querySelectorAll('[data-live-rate]').forEach((button) => button.addEventListener('click', () => openQuickRate(tryout, Number(button.dataset.liveRate))))
+}
+
+// Nota rápida: todos os valores de 0 a 10 ficam à vista e o escolhido salta à frente.
+function openQuickRate(tryout, athleteId) {
+  const athlete = state.athletes.find((a) => a.id === athleteId)
+  if (!athlete) return
+  const criteria = criteriaForPosition(athlete.pos)
+  const previous = liveReview(tryout, athlete)?.ratings || {}
+  const wrapper = document.createElement('div')
+  wrapper.className = 'fixed inset-0 z-[95] grid items-end bg-black/70 sm:place-items-center sm:p-4'
+  wrapper.innerHTML =
+    '<div class="qr-sheet surface surface--raised" role="dialog" aria-modal="true" aria-labelledby="qr-title" data-lenis-prevent>' +
+    '<div class="flex items-center gap-3">' + personAvatar(athlete, 'avatar card-avatar') + '<div class="min-w-0 flex-1"><h2 id="qr-title" class="truncate text-xl font-bold">' + escapeHtml(athlete.name) + '</h2><p class="text-sm text-ink-soft">' + t('Nota rápida') + ' · ' + escapeHtml(t(athlete.pos)) + '</p></div><button type="button" class="icon-button" aria-label="' + t('Fechar') + '" data-close>' + icon('close') + '</button></div>' +
+    '<form id="qr-form" class="mt-4 grid gap-4" novalidate>' +
+    criteria.map((c) => '<fieldset class="qr-row"><legend>' + escapeHtml(t(c.label)) + '</legend><div class="qr-scale">' +
+      Array.from({ length: 11 }, (_, n) => '<label class="qr-chip"><input type="radio" name="' + c.key + '" value="' + n + '"' + (Number(previous[c.key]) === n ? ' checked' : '') + ' /><span>' + n + '</span></label>').join('') + '</div></fieldset>').join('') +
+    '<label class="field-label">' + t('Anotação (opcional)') + '<textarea id="qr-note" class="field min-h-20 resize-y" maxlength="280" placeholder="' + t('Ex.: boa leitura de jogo, precisa melhorar o passe longo.') + '"></textarea></label>' +
+    '<p class="qr-total" aria-live="polite"></p><p id="qr-error" class="hidden rounded-xl border border-danger/40 bg-danger/10 px-3 py-2 text-xs font-semibold text-danger" role="alert"></p>' +
+    '<div class="flex flex-wrap justify-end gap-2"><button type="button" class="btn-secondary" data-close>' + t('Cancelar') + '</button><button type="submit" class="btn-secondary" data-qr-stay>' + t('Salvar') + '</button><button type="submit" class="btn-primary">' + t('Salvar e próximo') + ' ' + icon('arrow', 'size-4') + '</button></div></form></div>'
+  document.body.appendChild(wrapper)
+  const form = wrapper.querySelector('#qr-form')
+  const read = () => Object.fromEntries(criteria.map((c) => [c.key, form.querySelector('input[name="' + c.key + '"]:checked')?.value]).filter(([, v]) => v !== undefined).map(([k, v]) => [k, Number(v)]))
+  const total = () => {
+    const ratings = read()
+    wrapper.querySelector('.qr-total').innerHTML = Object.keys(ratings).length === criteria.length
+      ? t('Nota ponderada') + ': <strong class="num">' + computeFinalScore(athlete.pos, ratings, {}).final.toFixed(1).replace('.', ',') + '</strong>'
+      : Object.keys(ratings).length + ' ' + t('de') + ' ' + criteria.length + ' ' + t('características com nota')
+  }
+  total()
+  form.addEventListener('change', total)
+  wrapper.querySelector('input')?.focus()
+  wrapper.addEventListener('click', (event) => { if (event.target === wrapper || event.target.closest('[data-close]')) wrapper.remove() })
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault()
+    const ratings = read()
+    const error = wrapper.querySelector('#qr-error')
+    if (Object.keys(ratings).length < criteria.length) { error.textContent = t('Dê uma nota para cada característica.'); error.classList.remove('hidden'); return }
+    const note = wrapper.querySelector('#qr-note').value.trim()
+    const buttons = form.querySelectorAll('button[type="submit"]')
+    buttons.forEach((button) => button.setAttribute('disabled', ''))
+    const saved = await saveEvaluation(athlete, { pos: athlete.pos, ratings, comment: note.length >= 10 ? note : t('Nota rápida na peneira') + ' "' + tryout.title + '".', tryoutId: tryout.id })
+    if (saved.error) { buttons.forEach((button) => button.removeAttribute('disabled')); error.textContent = saved.error; error.classList.remove('hidden'); return }
+    wrapper.remove()
+    toast(t('Nota de') + ' ' + athlete.name + ': ' + saved.score.toFixed(1).replace('.', ',') + '.')
+    render()
+    if (event.submitter?.hasAttribute('data-qr-stay')) return
+    const next = (tryout.enrolled || []).map(athleteByEmail).filter((a) => a && checkinsOf(tryout)[a.email] && !liveReview(tryout, a)).sort((a, b) => a.name.localeCompare(b.name, 'pt'))[0]
+    if (next) openQuickRate(tryout, next.id)
+    else toast(t('Todos os presentes já têm nota.'))
+  })
 }
 
 // Devolve a hora da chegada, null ao desfazer, ou false se não deu certo.
@@ -3954,6 +4072,7 @@ function bind() {
   document.querySelectorAll('[data-action="withdraw"]').forEach((button) => button.addEventListener('click', () => confirmWithdraw(Number(button.dataset.id))))
   document.querySelectorAll('[data-action="cancel-tryout"]').forEach((button) => button.addEventListener('click', () => openCancelTryoutModal(Number(button.dataset.id))))
   document.querySelectorAll('[data-action="view-enrolled"]').forEach((button) => button.addEventListener('click', () => openEnrolledModal(Number(button.dataset.id))))
+  document.querySelectorAll('.tryout-card [data-action="live"]').forEach((button) => button.addEventListener('click', () => go('ao-vivo/' + button.dataset.id)))
 
   const filtersPanel = document.querySelector('#filters-panel')
   const setFilters = (open) => {
@@ -4100,7 +4219,7 @@ function render() {
     go('dashboard')
     return
   }
-  if (state.user?.role === 'player' && route === 'athletes') {
+  if (state.user?.role === 'player' && (route === 'athletes' || routeBase === 'ao-vivo')) {
     go('dashboard')
     return
   }
@@ -4116,6 +4235,7 @@ function render() {
   else if (route === 'messages') view = messagesPage()
   else if (route === 'team') view = teamPage()
   else if (routeBase === 'convite') view = invitePage()
+  else if (routeBase === 'ao-vivo') view = liveTryoutPage(routeArg)
   else if (route === 'privacidade') view = privacyPage()
   else view = dashboard(state.user.role)
 
@@ -4125,6 +4245,7 @@ function render() {
     app.innerHTML = view
     bind()
     if (routeBase === 'convite') loadInvitePage(routeArg)
+    if (routeBase === 'ao-vivo') bindLiveTryout(routeArg)
     if (pushChatEntry) history.pushState({ apChat: true }, '')
     document.body.classList.toggle('chat-open', route === 'messages' && mobileChatOpen)
     updateMessageBadge()
