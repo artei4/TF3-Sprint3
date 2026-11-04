@@ -529,6 +529,9 @@ button.pitch-dot { cursor:pointer; min-width:2.75rem; min-height:2.75rem; backgr
 @media (min-width:48rem) {
   .topbar { padding:.5rem 1.5rem; }
   .topbar-nav { display:flex; }
+  /* Tablet: logo, 4 itens e 4 botões não cabem em 768px (ainda menos em espanhol); fica só o símbolo (o botão tem aria-label). */
+  .topbar-brand .brand-text { display:none; }
+  .topbar-nav .nav-link { padding-inline:.6rem; }
   .topbar-nav .nav-badge { display:none; }
   .content-sheet { padding:1.75rem 1.5rem 2.5rem; }
 }

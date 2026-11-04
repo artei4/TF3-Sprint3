@@ -1,9 +1,9 @@
 # Pelé Academia — TIER-ZERO (Sprint 4)
 
-Plataforma que conecta atletas de base (Sub-7 a Sub-20) às peneiras da Pelé Academia. Funcionários (treinadores e olheiros) buscam atletas, avaliam, conversam e abrem peneiras; atletas montam o perfil e se inscrevem nas peneiras compatíveis com a posição e a categoria.
+Plataforma que conecta atletas de base (Sub-7 a Sub-20) às peneiras da Pelé Academia. Funcionários (treinadores e olheiros) buscam atletas, avaliam, conversam e abrem peneiras; atletas montam o perfil e se inscrevem nas peneiras compatíveis com a posição e a categoria. Olheiros de clubes parceiros (só por convite) veem a vitrine dos atletas que a ativaram e pedem contato pela equipe da academia.
 
-- **Deploy:** [tf-3-sprint3.vercel.app](https://tf-3-sprint3.vercel.app) <!-- confirmar o link ativo antes da banca -->
-- **Design system ao vivo:** [`/#/design-system`](https://tf-3-sprint3.vercel.app/#/design-system)
+- **Deploy:** [tf-3-sprint3.vercel.app](https://tf-3-sprint3.vercel.app) (Vercel, a cada push na `main`)
+- **Design system ao vivo:** [tf-3-sprint3.vercel.app/design-system](https://tf-3-sprint3.vercel.app/design-system) (redireciona para `/#/design-system`)
 - **Figma:** `[inserir link do Figma]`
 - **Repositório:** [github.com/artei4/TF3-Sprint3](https://github.com/artei4/TF3-Sprint3)
 
@@ -45,18 +45,9 @@ npm test           # regras do banco (Postgres em WASM) e validações de CPF/da
 
 ### Banco de dados (uma vez por projeto Supabase)
 
-No painel do Supabase → **SQL Editor**, rode em ordem os arquivos de `supabase/migrations/`:
-1. `20260921120000_contas_e_conversas.sql`
-2. `20260930120000_disable_message_realtime.sql`
-3. `20261016120000_peneiras.sql`
-4. `20261019120000_seguranca.sql`
-5. `20261020120000_locais.sql`
-6. `20261021120000_equipe.sql`
-7. `20261022120000_descricao_peneira.sql`
-8. `20261023120000_responsavel.sql`
-9. `20261024120000_presenca.sql`
+No painel do Supabase → **SQL Editor**, rode **em ordem de nome** todos os arquivos de `supabase/migrations/` (13 arquivos, de `20260921120000_contas_e_conversas.sql` a `20261028120000_avisos.sql`). O que cada um faz está em `SUPABASE_SETUP.md`.
 
-URL e chave publicável ficam em `assets/js/config.js`. Detalhes em `SUPABASE_SETUP.md`.
+URL e chave publicável vêm de `VITE_SUPABASE_URL` e `VITE_SUPABASE_KEY` (ver `.env.example`; na Vercel, em Settings → Environment Variables). Sem elas o app abre em modo local.
 
 ### Contas de teste
 
@@ -66,31 +57,36 @@ URL e chave publicável ficam em `assets/js/config.js`. Detalhes em `SUPABASE_SE
 | Funcionário | `treinador@academiapele.com` | `Academia123!` |
 | Jogador | `gabriel@academiapele.com` | `Demo123!` |
 
+Na tela de login, o botão **Entrar com o Google** é uma demonstração identificada na própria tela: entra na conta de exemplo da aba escolhida (Jogador, Olheiro ou Funcionário) e não fala com o Google.
+
 ## Telas e rotas
 
 | Rota | Quem acessa | O que faz |
 |---|---|---|
 | `#/login`, `#/register`, `#/reset-password` | público | entrar, criar conta de jogador, recuperar senha |
-| `#/dashboard` | todos | visão geral (atleta: próxima peneira e atividade; funcionário: indicadores e radar) |
-| `#/athletes` | funcionário | banco de atletas com filtros em tempo real, perfil, avaliação, exportação CSV |
-| `#/profile` | atleta | perfil, endereço e posições |
+| `#/dashboard` | todos | visão geral (atleta: próxima peneira e atividade; funcionário: indicadores e radar; olheiro: vitrine e pedidos) |
+| `#/athletes` | funcionário, olheiro | banco de atletas com filtros em tempo real, perfil, avaliação, exportação CSV (olheiro: só a vitrine) |
+| `#/profile` | atleta, olheiro | perfil, endereço, posições, foto e responsável legal |
 | `#/tryouts` | todos | peneiras: criar (com descrição), ver detalhes ao clicar no card, inscrever-se, ver inscritos, cancelar |
-| `#/messages` | todos | conversas entre atleta e funcionário |
+| `#/ao-vivo/<id>` | funcionário | peneira ao vivo: chamada, presença e nota rápida |
+| `#/messages` | atleta, funcionário | conversas entre atleta e funcionário |
 | `#/team` | administrador | convidar funcionários, cancelar convites, desativar e dar acesso de administrador |
-| `#/privacidade` | público | quais dados a plataforma usa, para quê, quem vê, regras para menores e como pedir correção, cópia ou exclusão |
+| `#/privacidade`, `#/termos` | público | quais dados a plataforma usa, para quê, quem vê, regras para menores e como pedir correção, cópia ou exclusão |
+| `#/sobre`, `#/contato` | público | a plataforma e a parceria; Fale conosco (mensagem gravada no servidor, lida pela equipe) |
 | `#/convite/<código>` | público | criar a conta de funcionário pelo link do convite |
 | `#/design-system` | público | tokens e componentes em todos os estados |
 
 ## Design system
 
-Direção **"Gramado à noite"** (ver `DESIGN.md`). Os tokens da Sprint 1 (`brand`, `brand-strong`, `night`, `panel`, `ink-soft`, `success`, `danger`, `radius-card`, `radius-control`, `spacing-page`, breakpoints `tablet`/`wide`) foram preservados e evoluídos em `assets/js/styles.css`. Os novos tokens são `chalk`, `raised`, `line`, `line-strong`, `brand-ink`, `focus`, `warning`, escalas de texto, sombras e movimento. Todos os pares de texto passam o contraste AA.
+Direção **"Álbum de figurinhas"** (ver `DESIGN.md`; substituiu a primeira direção da Sprint 4, "Gramado à noite"). Os tokens da Sprint 1 (`brand`, `brand-strong`, `night`, `panel`, `ink-soft`, `success`, `danger`, `radius-card`, `radius-control`, `spacing-page`, breakpoints `tablet`/`wide`) foram preservados e evoluídos em `assets/js/styles.css`. Os novos tokens são `chalk`, `raised`, `line`, `line-strong`, `brand-ink`, `focus`, `warning`, escalas de texto, sombras e movimento. Todos os pares de texto passam o contraste AA.
 
 ## Acessibilidade e performance
 
 - Landmarks (`header`, `nav`, `main`, `footer`), skip link, `aria-current` na navegação e foco visível em todos os interativos.
 - Modais com título acessível, foco inicial, Tab preso, Esc e foco devolvido.
 - Labels em todos os campos, toasts anunciados (`aria-live`), `prefers-reduced-motion` respeitado e alvos de toque ≥ 44px.
-- Uma família de fonte variável com `display=swap`. CSS compilado de cerca de 10 KB gzip, sem Tailwind CDN.
+- Uma família de fonte variável com `display=swap`. Tailwind compilado pelo Vite (sem Tailwind CDN).
+- Varredura axe-core (WCAG 2.0/2.1 A e AA) em todas as rotas e nos três papéis, a 1366 px: 0 violações. Sem scroll lateral a 390, 768 e 1366 px (português e espanhol).
 - Checklist: `docs/sprint4/checklist-wcag.md`. As pontuações Lighthouse de produção entram no PDF.
 
 ## Equipe e contribuições (Sprint 4)
@@ -109,6 +105,7 @@ Direção **"Gramado à noite"** (ver `DESIGN.md`). Os tokens da Sprint 1 (`bran
 
 - Validação com usuários: `docs/sprint4/roteiro-teste.md`, `metricas.md`, `sus.md`, `ajustes.md`
 - Retrospectiva: `docs/sprint4/retrospectiva.md`
+- Documentos das sprints anteriores: `docs/sprint3/`
 - Roteiro do vídeo: `docs/sprint4/roteiro-video.md`
 - Esqueleto do PDF: `docs/sprint4/pdf-esqueleto.md`
-- Integrantes: `integrantes.txt` · Uso de IA: `PROMPTS.md`
+- Integrantes: `integrantes.txt` · Uso de IA: `PROMPTS.md` (prompts completos em `docs/prompts/`)

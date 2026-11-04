@@ -2,14 +2,16 @@ import { defineConfig } from 'vite'
 import tailwindcss from '@tailwindcss/vite'
 import { cpSync, existsSync } from 'node:fs'
 
-// A logo é referenciada dentro de strings do JavaScript (./assets/brand/simbolo.jpg),
-// então o Vite não a enxerga sozinho. Este plugin copia a pasta para dist/ no build.
+// Logo e fotos são referenciadas dentro de strings do JavaScript (./assets/brand/..., ./assets/photos/...),
+// então o Vite não as enxerga sozinho. Este plugin copia as pastas para dist/ no build.
 function copyBrandAssets() {
   return {
     name: 'copy-brand-assets',
     apply: 'build',
     closeBundle() {
-      if (existsSync('assets/brand')) cpSync('assets/brand', 'dist/assets/brand', { recursive: true })
+      for (const dir of ['assets/brand', 'assets/photos']) {
+        if (existsSync(dir)) cpSync(dir, 'dist/' + dir, { recursive: true })
+      }
     },
   }
 }
