@@ -135,10 +135,12 @@ const defaultAthletes = [
 
 // Peneiras de exemplo organizadas pelas contas de exemplo da equipe (o atleta vê quem organiza e abre o perfil).
 const DEMO_TRYOUT_OWNER = { 1: 'funcionario@academiapele.com', 2: 'funcionario@academiapele.com', 3: 'treinador@academiapele.com' }
+// Datas relativas a hoje: com datas fixas, as peneiras de exemplo venceriam e pareceriam telas falsas.
+const daysFromToday = (n) => new Date(Date.parse(todayIso() + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10)
 const defaultTryouts = [
-  { id: 1, title: 'Peneira Sub-20 — Atacantes', date: '2026-11-07', time: '14:00', city: 'São Paulo', state: 'SP', location: 'Centro de Treinamento Pelé', venueId: 1, category: 'Sub-20', positions: ['Atacante', 'Ponta'], seats: 12, enrolled: ['gabriel@academiapele.com'], description: 'Aquecimento, finalização em dupla e um jogo coletivo de 2 tempos de 25 minutos.\n\nO que levar: chuteira de campo, caneleira, água e documento com foto.\nChegada: 30 minutos antes, na recepção.' },
-  { id: 2, title: 'Avaliação Sub-20 — Meio-campo', date: '2026-11-14', time: '09:00', city: 'Osasco', state: 'SP', location: 'Arena Oeste', venueId: 2, category: 'Sub-20', positions: ['Meia', 'Volante'], seats: 18, enrolled: [], description: 'Treino de passe e posicionamento seguido de jogo reduzido. A comissão observa tomada de decisão e leitura de jogo.' },
-  { id: 3, title: 'Goleiros em Destaque', date: '2026-11-21', time: '10:30', city: 'Barueri', state: 'SP', location: 'Centro de Treinamento Oeste', venueId: 4, category: 'Sub-20', positions: ['Goleiro'], seats: 8, enrolled: [] },
+  { id: 1, title: 'Peneira Sub-20 — Atacantes', date: daysFromToday(4), time: '14:00', city: 'São Paulo', state: 'SP', location: 'Centro de Treinamento Pelé', venueId: 1, category: 'Sub-20', positions: ['Atacante', 'Ponta'], seats: 12, enrolled: ['gabriel@academiapele.com'], description: 'Aquecimento, finalização em dupla e um jogo coletivo de 2 tempos de 25 minutos.\n\nO que levar: chuteira de campo, caneleira, água e documento com foto.\nChegada: 30 minutos antes, na recepção.' },
+  { id: 2, title: 'Avaliação Sub-20 — Meio-campo', date: daysFromToday(11), time: '09:00', city: 'Osasco', state: 'SP', location: 'Arena Oeste', venueId: 2, category: 'Sub-20', positions: ['Meia', 'Volante'], seats: 18, enrolled: [], description: 'Treino de passe e posicionamento seguido de jogo reduzido. A comissão observa tomada de decisão e leitura de jogo.' },
+  { id: 3, title: 'Goleiros em Destaque', date: daysFromToday(18), time: '10:30', city: 'Barueri', state: 'SP', location: 'Centro de Treinamento Oeste', venueId: 4, category: 'Sub-20', positions: ['Goleiro'], seats: 8, enrolled: [] },
 ]
 
 // Locais de exemplo: os mesmos que o seletor antigo trazia fixos no código. O endereço fica em branco
