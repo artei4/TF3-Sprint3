@@ -1002,6 +1002,7 @@ const ES = {
   "Demonstração: entra na conta de exemplo de jogador (Gabriel Martins), sem usar sua conta Google.": "Demostración: entra en la cuenta de ejemplo de jugador (Gabriel Martins), sin usar tu cuenta de Google.",
   "Entrar com o Google": "Iniciar sesión con Google",
   "Termos de uso": "Términos de uso",
+  "Recuperar senha": "Recuperar contraseña",
   "Política de privacidade": "Política de privacidad",
   "Funcionário não encontrado ou senha incorreta. Para testar, use Entrar com o Google.": "Empleado no encontrado o contraseña incorrecta. Para probar, usa Iniciar sesión con Google.",
   "Conta não encontrada ou senha incorreta. Crie sua conta ou, para testar, use Entrar com o Google.": "Cuenta no encontrada o contraseña incorrecta. Crea tu cuenta o, para probar, usa Iniciar sesión con Google.",

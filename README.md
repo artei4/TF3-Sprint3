@@ -87,7 +87,9 @@ Direção **"Álbum de figurinhas"** (ver `DESIGN.md`; substituiu a primeira dir
 - Labels em todos os campos, toasts anunciados (`aria-live`), `prefers-reduced-motion` respeitado e alvos de toque ≥ 44px.
 - Uma família de fonte variável com `display=swap`. Tailwind compilado pelo Vite (sem Tailwind CDN).
 - Varredura axe-core (WCAG 2.0/2.1 A e AA) em todas as rotas e nos três papéis, a 1366 px: 0 violações. Sem scroll lateral a 390, 768 e 1366 px (português e espanhol).
-- Checklist: `docs/sprint4/checklist-wcag.md`. As pontuações Lighthouse de produção entram no PDF.
+- Título da aba por página, `autocomplete` nos campos de dados pessoais e reflow sem scroll lateral a 320 px.
+- Checklist preenchido: `docs/sprint4/checklist-wcag.md`.
+- **Lighthouse em produção (03/11/2026):** celular: Performance 85, Acessibilidade 100, Boas práticas 100, SEO 100 · desktop: 96, 100, 100, 100. Relatórios HTML em `docs/sprint4/lighthouse/`.
 
 ## Equipe e contribuições (Sprint 4)
 
@@ -97,13 +99,15 @@ Direção **"Álbum de figurinhas"** (ver `DESIGN.md`; substituiu a primeira dir
 | Arthur Bergami Lucas | RM570679 | `[branch]` | `#[PR]` | `[preencher]` |
 | Davi Martins Herculano | RM572699 | `[branch]` | `#[PR]` | `[preencher]` |
 | Victor Lopes Tavares da Fonseca | RM571315 | `[branch]` | `#[PR]` | `[preencher]` |
-| Marcos Vinícios Corrêa dos Santos | RM571080 | `feat/sprint4-tokens-base`, `feat/sprint4-design-system`, `feat/sprint4-redesign-home`, `feat/sprint4-fluxo-mvp`, `feat/sprint4-a11y-perf`, `docs/sprint4-readme-entrega` | `#[PR]` | tokens, design system, redesign, peneiras/conversas no Supabase, acessibilidade, documentação |
+| Marcos Vinícios Corrêa dos Santos | RM571080 | `feat/sprint4-tokens-base`, `feat/sprint4-design-system`, `feat/sprint4-redesign-home`, `feat/sprint4-fluxo-mvp`, `feat/sprint4-a11y-perf`, `docs/sprint4-readme-entrega`, `feat/conversas`, `feat/peneira-ao-vivo`, `feat/avisos-servidor`, `chore/conformidade-sprint4`, `fix/wcag-reflow-autocomplete-titulo` | [#5](https://github.com/artei4/TF3-Sprint3/pull/5) | tokens, design system, redesign, peneiras/conversas no Supabase, acessibilidade, documentação |
 
 > Cada integrante precisa de pelo menos uma branch própria mergeada via PR na Sprint 4.
 
 ## Entregáveis da Sprint 4
 
 - Validação com usuários: `docs/sprint4/roteiro-teste.md`, `metricas.md`, `sus.md`, `ajustes.md`
+- Prints das telas em 390, 768 e 1366 px (com estados de erro, vazio e sucesso), tirados em produção: `docs/sprint4/prints/`
+- Relatórios Lighthouse de produção: `docs/sprint4/lighthouse/`
 - Retrospectiva: `docs/sprint4/retrospectiva.md`
 - Documentos das sprints anteriores: `docs/sprint3/`
 - Roteiro do vídeo: `docs/sprint4/roteiro-video.md`
