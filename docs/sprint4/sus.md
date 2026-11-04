@@ -1,5 +1,7 @@
 # Questionário SUS (System Usability Scale) — português
 
+> **Não aplicado na Sprint 4.** O questionário daquela rodada mediu NPS, CSAT e CES (`metricas.md`). Usar este junto com `roteiro-teste.md` na próxima rodada.
+
 Responda de **1 (discordo totalmente)** a **5 (concordo totalmente)**.
 
 | # | Afirmação | 1 | 2 | 3 | 4 | 5 |

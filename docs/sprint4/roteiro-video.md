@@ -12,4 +12,4 @@ Gravar em produção, 1080p, com o cursor visível. Ao usar o teclado, mostrar a
 | 2:30–2:50 | `/#/design-system`: tokens e estados dos botões e campos | "O design system ao vivo usa os mesmos componentes do app." |
 | 2:50–3:00 | Encerramento com a equipe/RMs | "Equipe TIER-ZERO, FIAP 2026." |
 
-Link do vídeo: `[inserir]`
+Link do vídeo: [youtu.be/R5p4qm1ZnNw](https://youtu.be/R5p4qm1ZnNw) ("sprint 4 demonstração mvp")

@@ -154,7 +154,7 @@ pre {{ font: 7.4pt/1.3 Consolas, monospace; white-space:pre-wrap; background:#F6
   <div><p class="kicker">FIAP · Front-End Design · Sprint 4 · 2026</p>
   <h1>Pelé Academia<br>TIER ZERO</h1>
   <p style="font-size:13pt;max-width:120mm">Plataforma que conecta atletas de base (Sub-7 a Sub-20) às peneiras da Pelé Academia. MVP funcional.</p></div>
-  <div><p class="kicker">Equipe TIER-ZERO</p>
+  <div><p class="kicker">Equipe TIER-ZERO · Turma 1ESSRA</p>
   <table><thead><tr><th>Integrante</th><th>RM</th></tr></thead><tbody>
   {''.join(f'<tr><td>{html.escape(n)}</td><td>{html.escape(rm)}</td></tr>' for n, rm in members)}
   </tbody></table></div>
@@ -167,7 +167,7 @@ pre {{ font: 7.4pt/1.3 Consolas, monospace; white-space:pre-wrap; background:#F6
 <li><strong>Styleguide vivo:</strong> <a href="{DEPLOY}/design-system">{DEPLOY}/design-system</a></li>
 <li><strong>Repositório público:</strong> <a href="{REPO}">{REPO}</a> · Pull requests: <a href="{REPO}/pulls?q=is%3Apr">{REPO}/pulls</a></li>
 <li><strong>Figma:</strong> <mark>[inserir link do Figma]</mark></li>
-<li><strong>Vídeo demonstrativo:</strong> <mark>[não entregue]</mark></li>
+<li><strong>Vídeo demonstrativo:</strong> <a href="https://youtu.be/R5p4qm1ZnNw">https://youtu.be/R5p4qm1ZnNw</a></li>
 </ul>
 
 <h2 style="margin-top:8mm">2. Escopo e modelo de MVP: funcional</h2>
@@ -196,18 +196,11 @@ pre {{ font: 7.4pt/1.3 Consolas, monospace; white-space:pre-wrap; background:#F6
 
 <section class="page">
 <h2>5. Relatório de testes com usuários</h2>
-<div class="pending"><strong>A preencher com os dados reais das sessões.</strong> Mínimo de 5 participantes externos, observados sem intervenção. Fonte: <code>docs/sprint4/metricas.md</code> e <code>sus.md</code>.</div>
-{section_md('roteiro-teste.md')}
-</section>
-<section class="page">
 {section_md('metricas.md')}
-<h3>SUS</h3>
-<div class="pending">SUS por participante e média. Planilha e cálculo em <code>docs/sprint4/sus.md</code>.</div>
 </section>
 
 <section class="page">
-<h2>6. Ajustes a partir dos testes (antes e depois)</h2>
-<div class="pending"><strong>A preencher:</strong> 3 ajustes, cada um ligado a um achado do teste, com print de antes e de depois e a justificativa.</div>
+<h2>6. Melhorias a partir da validação</h2>
 {section_md('ajustes.md')}
 </section>
 
@@ -239,7 +232,7 @@ pre {{ font: 7.4pt/1.3 Consolas, monospace; white-space:pre-wrap; background:#F6
 
 <section class="page">
 <h2>10. Vídeo demonstrativo</h2>
-<p><mark>[não entregue]</mark> O roteiro previsto está em <code>docs/sprint4/roteiro-video.md</code>.</p>
+<p><a href="https://youtu.be/R5p4qm1ZnNw">https://youtu.be/R5p4qm1ZnNw</a> ("sprint 4 demonstração mvp")</p>
 </section>
 </body></html>
 '''

@@ -5,6 +5,7 @@ Plataforma que conecta atletas de base (Sub-7 a Sub-20) às peneiras da Pelé Ac
 - **Deploy:** [tf-3-sprint3.vercel.app](https://tf-3-sprint3.vercel.app) (Vercel, a cada push na `main`)
 - **Design system ao vivo:** [tf-3-sprint3.vercel.app/design-system](https://tf-3-sprint3.vercel.app/design-system) (redireciona para `/#/design-system`)
 - **Figma:** `[inserir link do Figma]`
+- **Vídeo demonstrativo:** [youtu.be/R5p4qm1ZnNw](https://youtu.be/R5p4qm1ZnNw)
 - **Repositório:** [github.com/artei4/TF3-Sprint3](https://github.com/artei4/TF3-Sprint3)
 
 ## Modelo de MVP: FUNCIONAL
@@ -93,6 +94,8 @@ Direção **"Álbum de figurinhas"** (ver `DESIGN.md`; substituiu a primeira dir
 
 ## Equipe e contribuições (Sprint 4)
 
+Turma 1ESSRA.
+
 | Integrante | RM | Branch(es) Sprint 4 | PR(s) | Telas/Componentes |
 |---|---|---|---|---|
 | Felipe Braga Terzella | RM573529 | `[branch]` | `#[PR]` | `[preencher]` |
@@ -105,7 +108,7 @@ Direção **"Álbum de figurinhas"** (ver `DESIGN.md`; substituiu a primeira dir
 
 ## Entregáveis da Sprint 4
 
-- Validação com usuários: `docs/sprint4/roteiro-teste.md`, `metricas.md`, `sus.md`, `ajustes.md`
+- Validação com usuários: 5 participantes, NPS 80, CSAT 100%, CES 4,8/5 (`docs/sprint4/metricas.md`); melhorias propostas em `ajustes.md`; roteiro e SUS para a próxima rodada em `roteiro-teste.md` e `sus.md`
 - Prints das telas em 390, 768 e 1366 px (com estados de erro, vazio e sucesso), tirados em produção: `docs/sprint4/prints/`
 - Relatórios Lighthouse de produção: `docs/sprint4/lighthouse/`
 - Retrospectiva: `docs/sprint4/retrospectiva.md`

@@ -1,4 +1,6 @@
-# Roteiro de teste com usuários — Sprint 4
+# Roteiro de teste com usuários — próxima rodada
+
+> **Ainda não aplicado.** Na Sprint 4 a validação foi feita com apresentação do site e questionário (NPS, CSAT e CES; resultados em `metricas.md`). Este roteiro, com tarefas observadas sem intervenção, mede o que aquela rodada não mediu: conclusão, tempo, erros e SUS.
 
 > Modelo. Aplicar com **≥ 5 participantes externos** à equipe, alinhados às personas. Observar **sem intervir**: não explique a interface, não aponte botões, não corrija o caminho. Se o participante travar por mais de 2 min, anote "travamento" e só então ofereça a próxima tarefa.
 

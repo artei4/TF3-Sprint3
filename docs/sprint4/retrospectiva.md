@@ -16,7 +16,7 @@ Pelé Academia · TIER-ZERO · FIAP 2026. Baseada no histórico do repositório;
 - **Tokens com o mesmo nome desde a Sprint 1.** Os valores mudaram duas vezes (Gramado → Álbum), os nomes não. Nenhuma tela quebrou na troca, e o tema claro só redefine os mesmos tokens.
 - **Regra "toda ação leva a um resultado real".** Ela cortou os votos e curtidas, as telas que só simulavam e os dados sem identificação. Os perfis de exemplo passaram a ser marcados como exemplo.
 - **Medir em vez de estimar.** Contraste calculado por script, axe-core e Lighthouse rodados em produção (celular 85/100/100/100, desktop 96/100/100/100). Os testes acharam problemas que o olho não pegou: fotos dando 404 em produção, scroll lateral a 768 e a 320 px, título de aba fixo e campos sem `autocomplete`.
-- `[completar com a percepção da equipe]`
+- **Colaboração e ferramentas de avaliação.** A Sprint 4 reforçou a organização do desenvolvimento entre os integrantes e o uso de ferramentas para verificar a qualidade do produto.
 
 ## O que não funcionou
 - **Conveniência que custou o design.** Trocar o build do Tailwind pelo CDN para abrir no Live Server apagou os tokens e derrubou a performance. Decisão de ambiente de desenvolvimento precisa passar por revisão de design.
@@ -24,14 +24,15 @@ Pelé Academia · TIER-ZERO · FIAP 2026. Baseada no histórico do repositório;
 - **Dados de exemplo com data fixa** venciam e faziam a tela parecer falsa. As peneiras de exemplo passaram a ter datas relativas ao dia de hoje.
 - **Processo de entrega.** Boa parte da Sprint 4 foi integrada por merge local na `main`, sem PR, e as branches remotas foram apagadas. Isso apaga a autoria individual que a disciplina pede; a partir do PR #5 a integração voltou a ser por PR.
 - **Deploy sem checagem depois do build.** As fotos não eram copiadas para o `dist/` e ninguém percebeu porque, localmente, o servidor de desenvolvimento servia os arquivos.
-- `[completar]`
 
 ## O que aprendemos
 - O design system só se sustenta se for o mesmo código das telas; uma página de styleguide separada envelhece.
 - Acessibilidade não é uma passada final: reflow, título e `autocomplete` falharam em telas que já "passavam" no axe, porque o axe não testa esses critérios.
-- `[completar com o que os testes com usuários mostraram: tarefa mais difícil, SUS médio, os 3 ajustes]`
+- **O que a validação mostrou.** Com 5 participantes do público-alvo, NPS 80, CSAT 100% e CES 4,8/5: boa aceitação inicial. As oportunidades levantadas foram preparação para eventos, um tutorial para quem chega pela primeira vez e filtros nas notificações (`ajustes.md`).
+- **A validação precisa medir o uso, não só a opinião.** A rodada foi apresentação e questionário, então não mediu tempo, erros nem conclusão das tarefas, e o SUS não foi aplicado. Com só 5 pessoas e resultados todos positivos, os números indicam aceitação, não ausência de problemas.
+- Desenvolver pensando nas necessidades, expectativas e dificuldades de quem usa, e não só nos aspectos técnicos.
 
 ## Próximos passos
-- Rodar a validação com 5 usuários externos e aplicar os ajustes de severidade 3 e 4.
+- Nova rodada com tarefas observadas sem intervenção (`roteiro-teste.md`) e SUS, para medir conclusão, tempo e erros.
+- Implementar as 3 melhorias de `ajustes.md`, começando pelo tutorial introdutório, e registrar o antes e depois.
 - Verificar com leitor de tela (NVDA/VoiceOver) os itens do checklist WCAG que ainda estão em aberto.
-- `[completar]`
