@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<title>Entrega Sprint 4 · Pelé Academia · TIER-ZERO</title>
+<style>
+@page { size: A4; margin: 14mm 14mm 16mm; }
+:root { --ink:#10142A; --gold:#F2C23A; --soft:#4A5068; --line:#D9DCE6; }
+* { box-sizing: border-box; }
+body { margin:0; font: 10.5pt/1.45 Archivo, "Segoe UI", Arial, sans-serif; color:var(--ink); background:#fff; }
+h1 { font-size:30pt; line-height:1.05; margin:0 0 6mm; }
+h2 { font-size:17pt; margin:0 0 4mm; padding-bottom:2mm; border-bottom:3px solid var(--gold); break-after:avoid; }
+h3 { font-size:12.5pt; margin:5mm 0 2mm; break-after:avoid; }
+h4 { font-size:11pt; margin:4mm 0 1.5mm; break-after:avoid; }
+a { color:#1C3FAA; }
+code { font: 9pt Consolas, monospace; background:#F1F2F6; padding:0 2px; border-radius:2px; overflow-wrap:anywhere; }
+mark { background:#FFF1B8; padding:0 2px; }
+table { width:100%; border-collapse:collapse; margin:2mm 0 4mm; font-size:9pt; break-inside:auto; }
+th, td { border:1px solid var(--line); padding:1.3mm 1.8mm; text-align:left; vertical-align:top; overflow-wrap:break-word; }
+td:first-child { min-width:26mm; }
+th { background:#F6F3E6; }
+tr { break-inside:avoid; }
+.page { break-before:page; }
+.cover { height:265mm; display:flex; flex-direction:column; justify-content:space-between; padding:16mm 10mm; background:var(--gold); }
+.cover .kicker { font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+.cover table { font-size:11pt; background:#fff; }
+.pending { border:2px dashed #C99A2E; background:#FFFBEA; padding:3mm 4mm; margin:3mm 0; }
+.note { color:var(--soft); font-size:9.5pt; }
+.links li { margin-bottom:1.5mm; }
+.flow { display:grid; grid-template-columns:repeat(3, 1fr); gap:4mm; break-inside:avoid; }
+.lane { border:1px solid var(--line); border-top:4px solid var(--gold); padding:2mm 3mm; }
+.lane ol { padding-left:5mm; margin:0; } .lane li { margin-bottom:1.5mm; }
+.shot figure { margin:0; } .shot img { display:block; border:1px solid var(--line); }
+.shot .wide img { width:100%; }
+.shot .pair { display:flex; gap:5mm; margin-top:4mm; align-items:flex-start; }
+.shot .pair img { height:118mm; width:auto; }
+figcaption { font-size:8.5pt; color:var(--soft); margin-top:1mm; }
+.lh { display:grid; gap:3mm; } .lh img { width:100%; border:1px solid var(--line); }
+pre { font: 7.4pt/1.3 Consolas, monospace; white-space:pre-wrap; background:#F6F7FA; padding:3mm; border:1px solid var(--line); }
+.gh img { width:100%; border:1px solid var(--line); }
+@media screen { body { max-width:210mm; margin:0 auto; padding:10mm; background:#EEE; } .page, .cover { background-clip:padding-box; } }
+</style></head><body>
+
+<section class="cover">
+  <div><p class="kicker">FIAP · Front-End Design · Sprint 4 · 2026</p>
+  <h1>Pelé Academia<br>TIER ZERO</h1>
+  <p style="font-size:13pt;max-width:120mm">Plataforma que conecta atletas de base (Sub-7 a Sub-20) às peneiras da Pelé Academia. MVP funcional.</p></div>
+  <div><p class="kicker">Equipe TIER-ZERO</p>
+  <table><thead><tr><th>Integrante</th><th>RM</th></tr></thead><tbody>
+  <tr><td>Felipe Braga Terzella</td><td>RM573529</td></tr><tr><td>Arthur Bergami Lucas</td><td>RM570679</td></tr><tr><td>Davi Martins Herculano</td><td>RM572699</td></tr><tr><td>Victor Lopes Tavares da Fonseca</td><td>RM571315</td></tr><tr><td>Marcos Vinícios Corrêa dos Santos</td><td>RM571080</td></tr>
+  </tbody></table></div>
+</section>
+
+<section class="page">
+<h2>1. Links</h2>
+<ul class="links">
+<li><strong>Deploy (produção):</strong> <a href="https://tf-3-sprint3.vercel.app">https://tf-3-sprint3.vercel.app</a></li>
+<li><strong>Styleguide vivo:</strong> <a href="https://tf-3-sprint3.vercel.app/design-system">https://tf-3-sprint3.vercel.app/design-system</a></li>
+<li><strong>Repositório público:</strong> <a href="https://github.com/artei4/TF3-Sprint3">https://github.com/artei4/TF3-Sprint3</a> · Pull requests: <a href="https://github.com/artei4/TF3-Sprint3/pulls?q=is%3Apr">https://github.com/artei4/TF3-Sprint3/pulls</a></li>
+<li><strong>Figma:</strong> <mark>[inserir link do Figma]</mark></li>
+<li><strong>Vídeo demonstrativo:</strong> <mark>[não entregue]</mark></li>
+</ul>
+
+<h2 style="margin-top:8mm">2. Escopo e modelo de MVP: funcional</h2>
+<p>O fluxo principal roda de ponta a ponta com back-end real no Supabase (Postgres, Auth e regras RLS). Não há etapa manual da equipe por trás da tela: o que a interface promete, o servidor executa.</p>
+<ul>
+<li><strong>Peneiras e inscrições no servidor.</strong> O banco recusa a inscrição sem vaga, em peneira cancelada e de menor sem autorização do responsável.</li>
+<li><strong>Acesso por papel, verificado no banco.</strong> Funcionário entra só por convite (link de uso único, 7 dias, preso ao e-mail); administrador é checado por <code>is_admin()</code>. Olheiro de clube também entra por convite e vê só a vitrine.</li>
+<li><strong>Conversas e avisos</strong> no servidor (sem Realtime, para não gerar custo: a tela consulta a cada 8 s enquanto está visível). Avisos são criados por gatilhos do banco e chegam em qualquer aparelho.</li>
+<li><strong>Honestidade dos dados.</strong> Sem votos nem curtidas: a nota vem só das avaliações da equipe. Perfis de exemplo aparecem marcados como exemplo. O botão de demonstração do login entra em modo local, identificado na tela, sem gravar nada no servidor.</li>
+<li><strong>Estados reais</strong> em cada tela do fluxo: carregando (skeleton), vazio (com a próxima ação), erro (mensagem e "Tentar de novo") e sucesso (toast e estado confirmado no card).</li>
+</ul>
+<p><strong>Stack:</strong> Vite 8 · Tailwind CSS 4 com os tokens da Sprint 1 em <code>@theme</code> · JavaScript puro (ES Modules) · Supabase. Deploy na Vercel a cada merge na <code>main</code>.</p>
+
+</section>
+<section class="page">
+<h2>3. Mapa dos fluxos</h2>
+
+<div class="flow">
+  <div class="lane"><h4>Funcionário (Pelé Academia)</h4><ol>
+    <li>Entra (conta criada por convite do administrador)</li><li>Cadastra o local e cria a peneira: data, horário, categoria, posições, vagas</li>
+    <li>Vê os inscritos e abre o perfil do atleta</li><li>No dia: peneira ao vivo, chamada e nota rápida</li>
+    <li>Registra a avaliação e conversa com o atleta</li><li>Se precisar, cancela a peneira com motivo</li></ol></div>
+  <div class="lane"><h4>Atleta (Sub-7 a Sub-20)</h4><ol>
+    <li>Cria a conta (menor de 18: autorização do responsável)</li><li>Monta o perfil: posição, perna, cidade, foto</li>
+    <li>Vê as peneiras e se é compatível (posição e categoria)</li><li>Inscreve-se; o servidor confere vagas e status</li>
+    <li>Recebe avisos, conversa com a equipe, vê o motivo se a peneira for cancelada</li><li>Pode ativar a vitrine para olheiros de clubes</li></ol></div>
+  <div class="lane"><h4>Olheiro de clube (por convite)</h4><ol>
+    <li>Entra pelo convite</li><li>Vê só atletas com a vitrine ativa (menores: com consentimento do responsável)</li>
+    <li>Pede contato; a equipe da academia intermedeia (sem chat direto)</li></ol></div>
+</div>
+<h3>Caminho principal (MVP)</h3>
+<p>Funcionário cria a peneira → atleta compatível se inscreve (servidor confere vagas) → funcionário vê os inscritos → peneira ao vivo com chamada → avaliação registrada → conversa com o atleta. Se a peneira for cancelada, o inscrito vê o motivo na própria tela.</p>
+
+<h2 style="margin-top:10mm">4. Telas nos 3 breakpoints</h2>
+<p>Prints tirados em produção em 03/11/2026, a 1366, 768 e 390 px, nas páginas seguintes. As 54 telas (18 por largura, incluindo cadastro, perfil, conversas, peneiras do funcionário e equipe) estão em <code>docs/sprint4/prints/</code>. O estado de carregamento (skeleton) aparece no styleguide: <a href="https://tf-3-sprint3.vercel.app/design-system">/design-system</a>.</p>
+</section>
+
+
+<section class="page shot">
+  <h3>Login (público)</h3>
+  <figure class="wide"><img src="prints/1366/01-login.png" alt="Login (público), 1366 px"><figcaption>1366 px</figcaption></figure>
+  <div class="pair">
+    <figure><img src="prints/768/01-login.png" alt="Login (público), 768 px"><figcaption>768 px</figcaption></figure>
+    <figure><img src="prints/390/01-login.png" alt="Login (público), 390 px"><figcaption>390 px</figcaption></figure>
+  </div>
+</section>
+<section class="page shot">
+  <h3>Estado de erro: login com conta inexistente</h3>
+  <figure class="wide"><img src="prints/1366/02-login-erro.png" alt="Estado de erro: login com conta inexistente, 1366 px"><figcaption>1366 px</figcaption></figure>
+  <div class="pair">
+    <figure><img src="prints/768/02-login-erro.png" alt="Estado de erro: login com conta inexistente, 768 px"><figcaption>768 px</figcaption></figure>
+    <figure><img src="prints/390/02-login-erro.png" alt="Estado de erro: login com conta inexistente, 390 px"><figcaption>390 px</figcaption></figure>
+  </div>
+</section>
+<section class="page shot">
+  <h3>Estado de erro: validação do cadastro</h3>
+  <figure class="wide"><img src="prints/1366/04-cadastro-erro-validacao.png" alt="Estado de erro: validação do cadastro, 1366 px"><figcaption>1366 px</figcaption></figure>
+  <div class="pair">
+    <figure><img src="prints/768/04-cadastro-erro-validacao.png" alt="Estado de erro: validação do cadastro, 768 px"><figcaption>768 px</figcaption></figure>
+    <figure><img src="prints/390/04-cadastro-erro-validacao.png" alt="Estado de erro: validação do cadastro, 390 px"><figcaption>390 px</figcaption></figure>
+  </div>
+</section>
+<section class="page shot">
+  <h3>Atleta: painel</h3>
+  <figure class="wide"><img src="prints/1366/06-atleta-painel.png" alt="Atleta: painel, 1366 px"><figcaption>1366 px</figcaption></figure>
+  <div class="pair">
+    <figure><img src="prints/768/06-atleta-painel.png" alt="Atleta: painel, 768 px"><figcaption>768 px</figcaption></figure>
+    <figure><img src="prints/390/06-atleta-painel.png" alt="Atleta: painel, 390 px"><figcaption>390 px</figcaption></figure>
+  </div>
+</section>
+<section class="page shot">
+  <h3>Atleta: peneiras compatíveis</h3>
+  <figure class="wide"><img src="prints/1366/07-atleta-peneiras.png" alt="Atleta: peneiras compatíveis, 1366 px"><figcaption>1366 px</figcaption></figure>
+  <div class="pair">
+    <figure><img src="prints/768/07-atleta-peneiras.png" alt="Atleta: peneiras compatíveis, 768 px"><figcaption>768 px</figcaption></figure>
+    <figure><img src="prints/390/07-atleta-peneiras.png" alt="Atleta: peneiras compatíveis, 390 px"><figcaption>390 px</figcaption></figure>
+  </div>
+</section>
+<section class="page shot">
+  <h3>Estado de sucesso: inscrição confirmada</h3>
+  <figure class="wide"><img src="prints/1366/08-atleta-inscricao-sucesso.png" alt="Estado de sucesso: inscrição confirmada, 1366 px"><figcaption>1366 px</figcaption></figure>
+  <div class="pair">
+    <figure><img src="prints/768/08-atleta-inscricao-sucesso.png" alt="Estado de sucesso: inscrição confirmada, 768 px"><figcaption>768 px</figcaption></figure>
+    <figure><img src="prints/390/08-atleta-inscricao-sucesso.png" alt="Estado de sucesso: inscrição confirmada, 390 px"><figcaption>390 px</figcaption></figure>
+  </div>
+</section>
+<section class="page shot">
+  <h3>Funcionário: painel</h3>
+  <figure class="wide"><img src="prints/1366/11-funcionario-painel.png" alt="Funcionário: painel, 1366 px"><figcaption>1366 px</figcaption></figure>
+  <div class="pair">
+    <figure><img src="prints/768/11-funcionario-painel.png" alt="Funcionário: painel, 768 px"><figcaption>768 px</figcaption></figure>
+    <figure><img src="prints/390/11-funcionario-painel.png" alt="Funcionário: painel, 390 px"><figcaption>390 px</figcaption></figure>
+  </div>
+</section>
+<section class="page shot">
+  <h3>Estado vazio: busca de atletas sem resultado</h3>
+  <figure class="wide"><img src="prints/1366/13-funcionario-atletas-vazio.png" alt="Estado vazio: busca de atletas sem resultado, 1366 px"><figcaption>1366 px</figcaption></figure>
+  <div class="pair">
+    <figure><img src="prints/768/13-funcionario-atletas-vazio.png" alt="Estado vazio: busca de atletas sem resultado, 768 px"><figcaption>768 px</figcaption></figure>
+    <figure><img src="prints/390/13-funcionario-atletas-vazio.png" alt="Estado vazio: busca de atletas sem resultado, 390 px"><figcaption>390 px</figcaption></figure>
+  </div>
+</section>
+<section class="page shot">
+  <h3>Estado vazio: busca de conversas</h3>
+  <figure class="wide"><img src="prints/1366/15-funcionario-conversas-busca-vazia.png" alt="Estado vazio: busca de conversas, 1366 px"><figcaption>1366 px</figcaption></figure>
+  <div class="pair">
+    <figure><img src="prints/768/15-funcionario-conversas-busca-vazia.png" alt="Estado vazio: busca de conversas, 768 px"><figcaption>768 px</figcaption></figure>
+    <figure><img src="prints/390/15-funcionario-conversas-busca-vazia.png" alt="Estado vazio: busca de conversas, 390 px"><figcaption>390 px</figcaption></figure>
+  </div>
+</section>
+<section class="page shot">
+  <h3>Olheiro de clube: vitrine</h3>
+  <figure class="wide"><img src="prints/1366/18-olheiro-vitrine.png" alt="Olheiro de clube: vitrine, 1366 px"><figcaption>1366 px</figcaption></figure>
+  <div class="pair">
+    <figure><img src="prints/768/18-olheiro-vitrine.png" alt="Olheiro de clube: vitrine, 768 px"><figcaption>768 px</figcaption></figure>
+    <figure><img src="prints/390/18-olheiro-vitrine.png" alt="Olheiro de clube: vitrine, 390 px"><figcaption>390 px</figcaption></figure>
+  </div>
+</section>
+
+<section class="page">
+<h2>5. Relatório de testes com usuários</h2>
+<div class="pending"><strong>A preencher com os dados reais das sessões.</strong> Mínimo de 5 participantes externos, observados sem intervenção. Fonte: <code>docs/sprint4/metricas.md</code> e <code>sus.md</code>.</div>
+<p class="note">Modelo. Aplicar com <strong>≥ 5 participantes externos</strong> à equipe, alinhados às personas. Observar <strong>sem intervir</strong>: não explique a interface, não aponte botões, não corrija o caminho. Se o participante travar por mais de 2 min, anote "travamento" e só então ofereça a próxima tarefa.</p>
+<h4>Preparação</h4>
+<ul><li>Ambiente: link de produção, <code>[navegador/dispositivo]</code>, tela gravada com consentimento.</li><li>Perfis de participante:</li><li><strong>Atleta/responsável:</strong> 12–20 anos, ou responsável por um atleta de base.</li><li><strong>Funcionário:</strong> treinador, olheiro ou pessoa da área esportiva.</li><li>Contas: o atleta cria a própria conta (tarefa A1). O funcionário usa <code>treinador@academiapele.com</code>.</li><li>Antes de cada sessão: criar 1 peneira compatível com o perfil que o atleta vai cadastrar.</li></ul>
+<h4>Fala de abertura (ler igual para todos)</h4>
+<p>"Estamos testando o site, não você. Não existe resposta errada. Pense em voz alta enquanto usa. Eu não vou poder ajudar durante as tarefas; ao final, conversamos."</p>
+<h4>Cenário</h4>
+<p>"Você quer participar de uma peneira da Pelé Academia na sua posição."</p>
+<h4>Tarefas — atleta</h4>
+<table><thead><tr><th>#</th><th>Tarefa (ler ao participante)</th><th>Sucesso quando</th></tr></thead><tbody><tr><td>A1</td><td>Crie sua conta de jogador.</td><td>Chega ao painel logado</td></tr><tr><td>A2</td><td>Encontre uma peneira para a sua posição e se inscreva.</td><td>Card mostra "Inscrição confirmada"</td></tr><tr><td>A3</td><td>Desista dessa inscrição.</td><td>Vaga liberada e toast de confirmação</td></tr><tr><td>A4</td><td>Mande uma mensagem para um treinador.</td><td>Mensagem aparece na conversa</td></tr></tbody></table>
+<h4>Tarefas — funcionário</h4>
+<table><thead><tr><th>#</th><th>Tarefa</th><th>Sucesso quando</th></tr></thead><tbody><tr><td>F1</td><td>Crie uma peneira Sub-17 para meio-campistas no dia <code>[data]</code>.</td><td>Peneira aparece na lista</td></tr><tr><td>F2</td><td>Encontre os atacantes canhotos de São Paulo.</td><td>Filtros aplicados corretamente</td></tr><tr><td>F3</td><td>Avalie um atleta inscrito na sua peneira.</td><td>Avaliação salva no perfil</td></tr><tr><td>F4</td><td>Cancele a peneira avisando o motivo.</td><td>Peneira some da lista; o inscrito vê o motivo</td></tr></tbody></table>
+<h4>Perguntas pós-teste</h4>
+<ol><li>O que você achou que esse site faz, em uma frase?</li><li>Qual tarefa foi mais difícil? Por quê?</li><li>Teve algum momento em que você não sabia se a ação tinha funcionado?</li><li>Algo te pareceu falso, confuso ou desnecessário?</li><li>Você usaria isso para <code>[se inscrever em peneiras / encontrar atletas]</code>? O que faltaria?</li><li>Aplicar o questionário SUS (<code>sus.md</code>).</li></ol>
+</section>
+<section class="page">
+<p class="note">Preencher <strong>apenas com dados reais</strong> coletados nas sessões. Tempo em segundos, do fim da leitura da tarefa até o critério de sucesso.</p>
+<h4>Participantes</h4>
+<table><thead><tr><th>ID</th><th>Perfil (persona)</th><th>Idade</th><th>Dispositivo</th><th>Familiaridade com apps esportivos (1–5)</th><th>Data</th></tr></thead><tbody><tr><td>P1</td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>P2</td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>P3</td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>P4</td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>P5</td><td></td><td></td><td></td><td></td><td></td></tr></tbody></table>
+<h4>Resultado por tarefa</h4>
+<p>Conclusão: ✅ sem ajuda · ⚠️ com dificuldade · ❌ não concluiu</p>
+<table><thead><tr><th>ID</th><th>Tarefa</th><th>Conclusão</th><th>Tempo (s)</th><th>Erros (nº)</th><th>Travamentos (nº)</th><th>Observação</th></tr></thead><tbody><tr><td>P1</td><td>A1</td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>P1</td><td>A2</td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>…</td><td></td><td></td><td></td><td></td><td></td><td></td></tr></tbody></table>
+<h4>Consolidado</h4>
+<table><thead><tr><th>Tarefa</th><th>Taxa de conclusão (%)</th><th>Tempo médio (s)</th><th>Erros médios</th><th>SUS médio</th></tr></thead><tbody><tr><td>A1</td><td></td><td></td><td></td><td>—</td></tr><tr><td>A2</td><td></td><td></td><td></td><td>—</td></tr><tr><td>Geral</td><td></td><td></td><td></td><td></td></tr></tbody></table>
+<h4>Achados e severidade</h4>
+<p>Escala de Nielsen: <strong>0</strong> não é problema · <strong>1</strong> cosmético · <strong>2</strong> menor · <strong>3</strong> maior (corrigir antes da entrega) · <strong>4</strong> catástrofe (impede a tarefa).</p>
+<table><thead><tr><th>#</th><th>Achado</th><th>Tarefa</th><th>Participantes afetados</th><th>Severidade (0–4)</th><th>Evidência (minuto do vídeo / fala)</th><th>Ação</th></tr></thead><tbody><tr><td>1</td><td></td><td></td><td></td><td></td><td></td><td></td></tr></tbody></table>
+<h3>SUS</h3>
+<div class="pending">SUS por participante e média. Planilha e cálculo em <code>docs/sprint4/sus.md</code>.</div>
+</section>
+
+<section class="page">
+<h2>6. Ajustes a partir dos testes (antes e depois)</h2>
+<div class="pending"><strong>A preencher:</strong> 3 ajustes, cada um ligado a um achado do teste, com print de antes e de depois e a justificativa.</div>
+<p class="note">Cada ajuste deve vir de um achado registrado em <code>metricas.md</code> (com a severidade) e ter print de antes e depois.</p>
+<table><thead><tr><th>#</th><th>Achado de origem (nº / severidade)</th><th>Antes</th><th>Depois</th><th>Justificativa</th><th>Print (antes → depois)</th><th>PR</th></tr></thead><tbody><tr><td>1</td><td></td><td></td><td></td><td></td><td><code>prints/ajuste-1-antes.png</code> → <code>prints/ajuste-1-depois.png</code></td><td>#[ ]</td></tr><tr><td>2</td><td></td><td></td><td></td><td></td><td></td><td>#[ ]</td></tr><tr><td>3</td><td></td><td></td><td></td><td></td><td></td><td>#[ ]</td></tr></tbody></table>
+<h4>Métrica após o ajuste (se houver nova rodada)</h4>
+<table><thead><tr><th>Ajuste</th><th>Métrica</th><th>Antes</th><th>Depois</th></tr></thead><tbody><tr><td>1</td><td>tempo da tarefa / erros / conclusão</td><td></td><td></td></tr></tbody></table>
+</section>
+
+<section class="page">
+<h2>7. Acessibilidade e performance</h2>
+<h3>Lighthouse em produção (03/11/2026)</h3>
+<div class="lh">
+<figure style="margin:0"><img src="lighthouse/producao-mobile.png" alt="Lighthouse celular: Performance 85, Acessibilidade 100, Boas práticas 100, SEO 100"><figcaption>Celular: Performance 85 · Acessibilidade 100 · Boas práticas 100 · SEO 100</figcaption></figure>
+<figure style="margin:0"><img src="lighthouse/producao-desktop.png" alt="Lighthouse desktop: Performance 96, Acessibilidade 100, Boas práticas 100, SEO 100"><figcaption>Desktop: Performance 96 · Acessibilidade 100 · Boas práticas 100 · SEO 100</figcaption></figure>
+</div>
+<p class="note">Relatórios completos: <code>docs/sprint4/lighthouse/producao-mobile.report.html</code> e <code>producao-desktop.report.html</code>. Console de produção sem erros nem recursos 404 nas telas dos três papéis.</p>
+<h3>Checklist WCAG 2.1 AA</h3>
+<p>Marque ✅ / ❌ / N/A após verificar <strong>em produção</strong>. A coluna "Implementado" diz o que o código já faz; a coluna "Verificado" é da equipe.</p>
+<p>Ferramentas: Lighthouse (DevTools), axe DevTools, navegação só por teclado (Tab, Shift+Tab, Enter, Espaço, Esc) e leitor de tela (NVDA ou VoiceOver).</p>
+<table><thead><tr><th>Critério</th><th>O que conferir</th><th>Implementado</th><th>Verificado</th></tr></thead><tbody><tr><td>1.1.1 Conteúdo não textual</td><td>Logo com alt; logo decorativa com <code>alt=""</code>; ícones com <code>aria-hidden</code> e botões só de ícone com <code>aria-label</code></td><td>sim</td><td>✅ axe: 0 violações (image-alt, button-name)</td></tr><tr><td>1.3.1 Informação e relações</td><td>Landmarks header/nav/main/footer; headings em ordem; labels nos campos; fieldset nas posições</td><td>sim</td><td>✅ axe: 0 violações (landmarks, headings, label)</td></tr><tr><td>1.3.5 Propósito do campo</td><td><code>autocomplete</code> em nome, e-mail, telefone, CEP</td><td>sim</td><td>✅ campos da própria pessoa com <code>autocomplete</code> (os do responsável e do local da peneira não são dados de quem preenche)</td></tr><tr><td>1.4.1 Uso de cor</td><td>Estados (erro, lotada, inscrito) também têm texto</td><td>sim</td><td>✅ prints 07/08: "Inscrito" e "vagas livres" em texto</td></tr><tr><td>1.4.3 Contraste (texto)</td><td>≥ 4.5:1; menor par medido 6.2:1 (<code>danger</code> sobre <code>raised</code>)</td><td>sim</td><td>✅ axe color-contrast: 0 violações; Lighthouse Acessibilidade 100</td></tr><tr><td>1.4.4 Redimensionar texto</td><td>200% de zoom sem perder conteúdo</td><td></td><td>✅ 683 px (200% de 1366 px): sem scroll lateral em 7 telas</td></tr><tr><td>1.4.10 Reflow</td><td>320 px sem scroll horizontal</td><td>sim</td><td>✅ 320 px: sem scroll lateral em 7 telas</td></tr><tr><td>1.4.11 Contraste não textual</td><td>Borda de campo <code>line-strong</code> 4.0:1; anel de foco 11.6:1</td><td>sim</td><td></td></tr><tr><td>1.4.12 Espaçamento de texto</td><td>Sem cortes ao aumentar entrelinha e espaçamento</td><td></td><td>✅ sem scroll lateral com o espaçamento do critério (390 px); conferir cortes no olho</td></tr><tr><td>2.1.1 Teclado</td><td>Todo o fluxo (login → inscrição → conversa) só com teclado</td><td></td><td>✅ parcial: login → painel → Peneiras → modal só com teclado; falta inscrição e conversa</td></tr><tr><td>2.1.2 Sem armadilha</td><td>Modais prendem o Tab, mas Esc fecha</td><td>sim</td><td>✅ 30 Tabs dentro do modal sem sair; Esc fecha</td></tr><tr><td>2.4.1 Pular blocos</td><td>Skip link "Pular para o conteúdo"</td><td>sim</td><td>✅ 1º Tab foca o skip link; Enter leva o foco ao <code>main</code></td></tr><tr><td>2.4.2 Título da página</td><td><code>&lt;title&gt;</code> descritivo</td><td>sim (muda por rota)</td><td>✅ título por rota (ex.: "Peneiras · TIER ZERO</td><td>Pelé Academia")</td></tr><tr><td>2.4.3 Ordem de foco</td><td>Ordem lógica; foco vai para o modal e volta a quem o abriu</td><td>sim</td><td>✅ Esc devolve o foco ao botão que abriu o modal</td></tr><tr><td>2.4.6 Cabeçalhos e rótulos</td><td>Títulos descrevem a seção; botões nomeiam a ação</td><td>sim</td><td></td></tr><tr><td>2.4.7 Foco visível</td><td>Contorno de 2px <code>focus</code> em todos os interativos</td><td>sim</td><td>✅ 25 Tabs no login: todos com contorno ou sombra de foco</td></tr><tr><td>2.5.3 Rótulo no nome</td><td>Nome acessível contém o texto visível</td><td></td><td></td></tr><tr><td>3.1.1 Idioma da página</td><td><code>lang="pt-BR"</code> (vira <code>es</code> no toggle)</td><td>sim</td><td>✅ axe html-has-lang / valid-lang</td></tr><tr><td>3.2.2 Na entrada</td><td>Filtros mudam a lista sem trocar de página ou de foco</td><td>sim</td><td></td></tr><tr><td>3.3.1 Identificação de erro</td><td>Mensagens de erro em texto, com <code>role="alert"</code></td><td>sim</td><td>✅ prints 02 (login) e 04 (cadastro)</td></tr><tr><td>3.3.2 Rótulos ou instruções</td><td>Todos os campos com label visível</td><td>sim</td><td>✅ axe label: 0 violações</td></tr><tr><td>3.3.3 Sugestão de erro</td><td>Erro diz como corrigir (ex.: CPF, data)</td><td></td><td></td></tr><tr><td>4.1.2 Nome, função, valor</td><td><code>aria-pressed</code>, <code>aria-current</code>, <code>aria-busy</code>, <code>aria-modal</code></td><td>sim</td><td>✅ axe aria-*: 0 violações</td></tr><tr><td>4.1.3 Mensagens de status</td><td>Toasts em <code>role="status" aria-live="polite"</code></td><td>sim</td><td></td></tr><tr><td>Movimento</td><td><code>prefers-reduced-motion</code> desliga animações</td><td>sim</td><td></td></tr></tbody></table>
+<p>Resultado automatizado (axe-core 4, regras WCAG 2.0/2.1 A e AA), <strong>em produção</strong> (tf-3-sprint3.vercel.app, 03/11/2026): 0 violações em login, cadastro, design system, privacidade, termos, sobre, contato e em todas as telas de atleta, funcionário e olheiro (1366 px).</p>
+<p>Os itens marcados ✅ foram verificados por script (Playwright + axe-core) em 03/11/2026; a coluna vazia ainda precisa de verificação manual da equipe (leitor de tela NVDA/VoiceOver, contraste de bordas e leitura dos textos). Os itens 1.3.5, 1.4.10 e 2.4.2 foram corrigidos no PR #6 e verificados de novo em produção depois do merge.</p>
+<p>Lighthouse em produção (03/11/2026, relatórios em <code>docs/sprint4/lighthouse/</code>): celular: Performance 85, Acessibilidade 100, Boas práticas 100, SEO 100; desktop: 96, 100, 100, 100.</p>
+</section>
+
+<section class="page">
+<h2>8. Colaboração</h2>
+<table><thead><tr><th>Integrante</th><th>RM</th><th>Branch(es) Sprint 4</th><th>PR(s)</th><th>Telas/Componentes</th></tr></thead><tbody><tr><td>Felipe Braga Terzella</td><td>RM573529</td><td><code>[branch]</code></td><td><code>#[PR]</code></td><td><code><mark>[preencher]</mark></code></td></tr><tr><td>Arthur Bergami Lucas</td><td>RM570679</td><td><code>[branch]</code></td><td><code>#[PR]</code></td><td><code><mark>[preencher]</mark></code></td></tr><tr><td>Davi Martins Herculano</td><td>RM572699</td><td><code>[branch]</code></td><td><code>#[PR]</code></td><td><code><mark>[preencher]</mark></code></td></tr><tr><td>Victor Lopes Tavares da Fonseca</td><td>RM571315</td><td><code>[branch]</code></td><td><code>#[PR]</code></td><td><code><mark>[preencher]</mark></code></td></tr><tr><td>Marcos Vinícios Corrêa dos Santos</td><td>RM571080</td><td><code>feat/sprint4-tokens-base</code>, <code>feat/sprint4-design-system</code>, <code>feat/sprint4-redesign-home</code>, <code>feat/sprint4-fluxo-mvp</code>, <code>feat/sprint4-a11y-perf</code>, <code>docs/sprint4-readme-entrega</code>, <code>feat/conversas</code>, <code>feat/peneira-ao-vivo</code>, <code>feat/avisos-servidor</code>, <code>chore/conformidade-sprint4</code>, <code>fix/wcag-reflow-autocomplete-titulo</code></td><td><a href="https://github.com/artei4/TF3-Sprint3/pull/5">#5</a>, <a href="https://github.com/artei4/TF3-Sprint3/pull/6">#6</a></td><td>tokens, design system, redesign, peneiras/conversas no Supabase, acessibilidade, documentação</td></tr></tbody></table>
+<p class="note">Cada integrante precisa de pelo menos uma branch própria mergeada via PR na Sprint 4.</p>
+<h3>Pull requests</h3>
+<figure class="gh" style="margin:0"><img src="prints/github-prs.png" alt="Lista de pull requests do repositório"><figcaption>Lista de PRs em https://github.com/artei4/TF3-Sprint3/pulls</figcaption></figure>
+<h3>Grafo de commits da Sprint 4 (main)</h3>
+<pre>*   064f6a7 2026-11-03 mrcscorrea — Merge pull request #6 from artei4/fix/wcag-reflow-autocomplete-titulo
+|\  
+| * f05f0fd 2026-11-03 mrcscorrea — fix(a11y): reflow em 320px, autocomplete, título por página e evidências da entreg
+|/  
+*   8cbbdf2 2026-11-03 mrcscorrea — Merge pull request #5 from artei4/chore/conformidade-sprint4
+|\  
+| * 965e1ae 2026-11-03 mrcscorrea — chore(sprint4): fotos no build, /design-system na Vercel, tablet sem scroll latera
+|/  
+*   87c9cf3 2026-10-21 mrcscorrea — Merge feat/avisos-servidor: avisos no servidor e pedidos para perfis de exemplo
+|\  
+| * ef0c61a 2026-10-21 mrcscorrea — feat(avisos): avisos no servidor e pedidos de olheiro para perfis de exemplo
+|/  
+* eb03b40 2026-10-21 mrcscorrea — Merge release/sprint4: Sprint 4 completa (álbum, login, legais, perfil profissional,
+* 2ca9c83 2026-10-21 mrcscorrea — fix(visual): segunda passada de AI slop e ajustes da integração
+*   521bc61 2026-10-21 mrcscorrea — Merge remote-tracking branch &#x27;origin/feat/peneira-ao-vivo&#x27; into release/sprint4
+|\  
+| * f31f1c3 2026-10-21 mrcscorrea — fix(peneiras): inclui o CSS da peneira ao vivo que tinha ficado fora do commit
+* |   8630632 2026-10-21 mrcscorrea — Merge remote-tracking branch &#x27;origin/feat/conversas&#x27; into release/sprint4
+|\ \  
+| * | a1ccf64 2026-10-21 mrcscorrea — feat(conversas): compositor que cresce, contexto do atleta e novas mensagens
+* | |   9a594fb 2026-10-21 mrcscorrea — Merge remote-tracking branch &#x27;origin/feat/peneira-ao-vivo&#x27; into release/sprint
+|\ \ \  
+| | |/  
+| |/|   
+| * | dced207 2026-10-21 mrcscorrea — feat(peneiras): peneira ao vivo com nota rápida e avaliação ligada à peneira
+| |/  
+* | 1cfa8ec 2026-10-21 mrcscorrea — feat(acesso): olheiros de clubes separados da equipe da Pelé Academia e fotos reai
+* | b70cf9e 2026-10-21 mrcscorrea — feat(site): rodapé completo, página Sobre com a parceria e Fale conosco
+* | 8351000 2026-10-21 mrcscorrea — feat(equipe): perfil profissional do funcionário e carta em destaque no banco de a
+* | e37992b 2026-10-21 mrcscorrea — feat(login): botão Entrar com o Google (demonstração) e páginas de Termos e Privac
+* | b9e7912 2026-10-21 mrcscorrea — feat(visual): capa viva do álbum, revisão final e limpeza de CSS
+* | 4f04ec9 2026-10-21 mrcscorrea — feat(visual): direção Álbum de figurinhas no site todo
+|/  
+* b1d26fb 2026-10-20 mrcscorrea — feat(atletas): carta do atleta inspirada no EA FC
+* 8aee968 2026-10-20 mrcscorrea — fix(visual): corta padrões de AI slop medidos nas telas
+* 32547bf 2026-10-20 mrcscorrea — feat(cadastro): endereço completo passa a ser opcional
+* 3fd629e 2026-10-19 mrcscorrea — fix(i18n): completa a tradução para o espanhol em todas as telas
+* 4ad5633 2026-10-19 mrcscorrea — feat(peneiras): chamada no dia da peneira com presença marcada pela equipe
+* 2241990 2026-10-19 mrcscorrea — feat(menores): responsável legal e autorização para atletas com menos de 18 anos
+* 338e84e 2026-10-19 mrcscorrea — feat(peneiras): descrição escrita por quem cria e detalhes ao clicar no card
+* 9c61fc0 2026-10-19 mrcscorrea — feat(equipe): funcionário entra por convite; administrador controla os acessos
+* 8e69578 2026-10-19 mrcscorrea — feat(peneiras): locais cadastrados pelo painel e contagem regressiva com horário
+* 142684d 2026-10-19 mrcscorrea — feat(atletas): remove votos; marcador vira lista de observação
+* b577b66 2026-10-19 mrcscorrea — fix(seguranca): regras do banco para peneiras e conversas, testes e .env
+* e39b838 2026-10-16 mrcscorrea — feat(peneiras,painel): abas, compatibilidade explicada e painel com próxima ação
+* 856cee7 2026-10-16 mrcscorrea — feat(perfil): recorte da foto com zoom e arrastar; fotos/ilustrações dos funcionário
+* 8854fb3 2026-10-16 mrcscorrea — feat(perfil): fotos de perfil, avatares ilustrados, cadastro em etapas e novo modal 
+* 5121fd0 2026-10-16 mrcscorrea — feat(marca): logo &#x27;O da prancheta&#x27;
+* 29b476d 2026-10-16 mrcscorrea — feat(ui): telas na folha de conteúdo, botões com gradiente e nota do card
+* 66c662c 2026-10-16 mrcscorrea — feat(marca): logo TIER ZERO, barra lateral e seletor segmentado
+* c733eb5 2026-10-16 mrcscorrea — feat(login): login em tela cheia com prancheta tática e abertura com duração mínima
+* 2448784 2026-10-16 mrcscorrea — feat(conversas): aviso de mensagens não lidas ao entrar e durante a navegação
+* 5d4312a 2026-10-16 mrcscorrea — feat(ui): tema claro/escuro, conversas, perfil, bordas e cards humanizados
+* 75a28ab 2026-10-16 mrcscorrea — feat(visual): identidade de futebol — cores de posição, placar, campo tático e loade
+* df43674 2026-10-16 mrcscorrea — fix(atletas): checkup da aba de atletas + carta de jogador
+* 729abd1 2026-10-16 mrcscorrea — feat(motion): nova tipografia, movimento e detalhes de interface
+* 0946b01 2026-10-16 mrcscorrea — docs(sprint4): README de entrega, kit de validação e modelos
+* ffeebef 2026-10-16 mrcscorrea — feat(a11y): gerenciador único de modais e ajustes de performance
+* 0c711cc 2026-10-16 mrcscorrea — feat(mvp): reativa conversas no Supabase com polling
+* 8fe09b8 2026-10-16 mrcscorrea — feat(mvp): peneiras e inscrições no Supabase com estados reais
+* 16ca235 2026-10-16 mrcscorrea — feat(redesign): aplica direção Gramado à noite nas telas
+* b584f58 2026-10-16 mrcscorrea — feat(design-system): rota pública #/design-system com tokens e componentes vivos
+* 1f3ee70 2026-10-16 mrcscorrea — feat(tokens): restaura tokens da Sprint 1 no @theme e remove Tailwind CDN</pre>
+</section>
+
+<section class="page">
+<h2>9. Retrospectiva</h2>
+<p>Pelé Academia · TIER-ZERO · FIAP 2026. Baseada no histórico do repositório; os trechos entre <code>[ ]</code> dependem da equipe.</p>
+<h4>Linha do tempo</h4>
+<table><thead><tr><th>Sprint</th><th>O que aconteceu no design</th><th>Evidência</th></tr></thead><tbody><tr><td>1</td><td>Identidade dourado e preto da Pelé Academia e os primeiros tokens: <code>brand</code>, <code>night</code>, <code>panel</code>, <code>ink-soft</code>, raios, espaçamento e breakpoints <code>tablet</code>/<code>wide</code>.</td><td>tokens em <code>d656cca^:assets/js/styles.css</code></td></tr><tr><td>2</td><td><code><mark>[completar: protótipo no Figma e o que mudou em relação à Sprint 1]</mark></code></td><td><code><mark>[link do Figma]</mark></code></td></tr><tr><td>3</td><td>Aplicação em Vite + Tailwind 4 + JavaScript puro com os fluxos de atleta e funcionário (17 a 24/09). Avaliação dos atletas, chat no celular, espanhol e recuperação de senha. Em 18/09 o build do Tailwind foi trocado pelo CDN para abrir no Live Server, e os tokens <code>@theme</code> saíram do código.</td><td>commits <code>b867920</code>, <code>d656cca</code>; PRs #1 a #4</td></tr><tr><td>4</td><td>Tokens da Sprint 1 restaurados (16/10). Primeira direção, "Gramado à noite" (verde-escuro e degradês), trocada em 19 a 21/10 pela direção "Álbum de figurinhas": cada atleta é uma figurinha, ouro <code>#F2C23A</code> com tinta <code>#10142A</code>, uma família tipográfica (Archivo). MVP funcional no Supabase, rota <code>/design-system</code>, acessibilidade WCAG 2.1 AA.</td><td><code>DESIGN.md</code>, PRs #5 e seguintes</td></tr></tbody></table>
+<h4>O que funcionou</h4>
+<ul><li><strong>Componentes como funções</strong> (<code>athleteCard</code>, <code>tryoutCard</code>, <code>input</code>, <code>selectField</code>) deixaram trocar a direção visual inteira em poucos commits, e a rota <code>/design-system</code> usa as mesmas funções do app: o que aparece lá é o que está nas telas.</li><li><strong>Tokens com o mesmo nome desde a Sprint 1.</strong> Os valores mudaram duas vezes (Gramado → Álbum), os nomes não. Nenhuma tela quebrou na troca, e o tema claro só redefine os mesmos tokens.</li><li><strong>Regra "toda ação leva a um resultado real".</strong> Ela cortou os votos e curtidas, as telas que só simulavam e os dados sem identificação. Os perfis de exemplo passaram a ser marcados como exemplo.</li><li><strong>Medir em vez de estimar.</strong> Contraste calculado por script, axe-core e Lighthouse rodados em produção (celular 85/100/100/100, desktop 96/100/100/100). Os testes acharam problemas que o olho não pegou: fotos dando 404 em produção, scroll lateral a 768 e a 320 px, título de aba fixo e campos sem <code>autocomplete</code>.</li><li><code><mark>[completar com a percepção da equipe]</mark></code></li></ul>
+<h4>O que não funcionou</h4>
+<ul><li><strong>Conveniência que custou o design.</strong> Trocar o build do Tailwind pelo CDN para abrir no Live Server apagou os tokens e derrubou a performance. Decisão de ambiente de desenvolvimento precisa passar por revisão de design.</li><li><strong>A primeira direção da Sprint 4 não durou.</strong> "Gramado à noite" parecia um painel genérico de esportes; foi refeita em dois dias. Pesquisar referências antes de desenhar teria evitado o retrabalho.</li><li><strong>Dados de exemplo com data fixa</strong> venciam e faziam a tela parecer falsa. As peneiras de exemplo passaram a ter datas relativas ao dia de hoje.</li><li><strong>Processo de entrega.</strong> Boa parte da Sprint 4 foi integrada por merge local na <code>main</code>, sem PR, e as branches remotas foram apagadas. Isso apaga a autoria individual que a disciplina pede; a partir do PR #5 a integração voltou a ser por PR.</li><li><strong>Deploy sem checagem depois do build.</strong> As fotos não eram copiadas para o <code>dist/</code> e ninguém percebeu porque, localmente, o servidor de desenvolvimento servia os arquivos.</li><li><code><mark>[completar]</mark></code></li></ul>
+<h4>O que aprendemos</h4>
+<ul><li>O design system só se sustenta se for o mesmo código das telas; uma página de styleguide separada envelhece.</li><li>Acessibilidade não é uma passada final: reflow, título e <code>autocomplete</code> falharam em telas que já "passavam" no axe, porque o axe não testa esses critérios.</li><li><code><mark>[completar com o que os testes com usuários mostraram: tarefa mais difícil, SUS médio, os 3 ajustes]</mark></code></li></ul>
+<h4>Próximos passos</h4>
+<ul><li>Rodar a validação com 5 usuários externos e aplicar os ajustes de severidade 3 e 4.</li><li>Verificar com leitor de tela (NVDA/VoiceOver) os itens do checklist WCAG que ainda estão em aberto.</li><li><code><mark>[completar]</mark></code></li></ul>
+</section>
+
+<section class="page">
+<h2>10. Vídeo demonstrativo</h2>
+<p><mark>[não entregue]</mark> O roteiro previsto está em <code>docs/sprint4/roteiro-video.md</code>.</p>
+</section>
+</body></html>

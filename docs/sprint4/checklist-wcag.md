@@ -12,7 +12,7 @@ Ferramentas: Lighthouse (DevTools), axe DevTools, navegação só por teclado (T
 | 1.4.1 Uso de cor | Estados (erro, lotada, inscrito) também têm texto | sim | ✅ prints 07/08: "Inscrito" e "vagas livres" em texto |
 | 1.4.3 Contraste (texto) | ≥ 4.5:1; menor par medido 6.2:1 (`danger` sobre `raised`) | sim | ✅ axe color-contrast: 0 violações; Lighthouse Acessibilidade 100 |
 | 1.4.4 Redimensionar texto | 200% de zoom sem perder conteúdo | | ✅ 683 px (200% de 1366 px): sem scroll lateral em 7 telas |
-| 1.4.10 Reflow | 320 px sem scroll horizontal | sim (390 px testado) | ✅ 320 px: sem scroll lateral em 7 telas |
+| 1.4.10 Reflow | 320 px sem scroll horizontal | sim | ✅ 320 px: sem scroll lateral em 7 telas |
 | 1.4.11 Contraste não textual | Borda de campo `line-strong` 4.0:1; anel de foco 11.6:1 | sim |  |
 | 1.4.12 Espaçamento de texto | Sem cortes ao aumentar entrelinha e espaçamento | | ✅ sem scroll lateral com o espaçamento do critério (390 px); conferir cortes no olho |
 | 2.1.1 Teclado | Todo o fluxo (login → inscrição → conversa) só com teclado | | ✅ parcial: login → painel → Peneiras → modal só com teclado; falta inscrição e conversa |
@@ -34,6 +34,6 @@ Ferramentas: Lighthouse (DevTools), axe DevTools, navegação só por teclado (T
 
 Resultado automatizado (axe-core 4, regras WCAG 2.0/2.1 A e AA), **em produção** (tf-3-sprint3.vercel.app, 03/11/2026): 0 violações em login, cadastro, design system, privacidade, termos, sobre, contato e em todas as telas de atleta, funcionário e olheiro (1366 px).
 
-Os itens marcados ✅ foram verificados por script (Playwright + axe-core) em 03/11/2026; a coluna vazia ainda precisa de verificação manual da equipe (leitor de tela NVDA/VoiceOver, contraste de bordas e leitura dos textos). Os itens 1.3.5, 1.4.10 e 2.4.2 foram corrigidos na branch `fix/wcag-reflow-autocomplete-titulo` e verificados no build; repetir em produção depois do merge.
+Os itens marcados ✅ foram verificados por script (Playwright + axe-core) em 03/11/2026; a coluna vazia ainda precisa de verificação manual da equipe (leitor de tela NVDA/VoiceOver, contraste de bordas e leitura dos textos). Os itens 1.3.5, 1.4.10 e 2.4.2 foram corrigidos no PR #6 e verificados de novo em produção depois do merge.
 
 Lighthouse em produção (03/11/2026, relatórios em `docs/sprint4/lighthouse/`): celular: Performance 85, Acessibilidade 100, Boas práticas 100, SEO 100; desktop: 96, 100, 100, 100.

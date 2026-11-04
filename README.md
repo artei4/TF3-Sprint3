@@ -99,7 +99,7 @@ Direção **"Álbum de figurinhas"** (ver `DESIGN.md`; substituiu a primeira dir
 | Arthur Bergami Lucas | RM570679 | `[branch]` | `#[PR]` | `[preencher]` |
 | Davi Martins Herculano | RM572699 | `[branch]` | `#[PR]` | `[preencher]` |
 | Victor Lopes Tavares da Fonseca | RM571315 | `[branch]` | `#[PR]` | `[preencher]` |
-| Marcos Vinícios Corrêa dos Santos | RM571080 | `feat/sprint4-tokens-base`, `feat/sprint4-design-system`, `feat/sprint4-redesign-home`, `feat/sprint4-fluxo-mvp`, `feat/sprint4-a11y-perf`, `docs/sprint4-readme-entrega`, `feat/conversas`, `feat/peneira-ao-vivo`, `feat/avisos-servidor`, `chore/conformidade-sprint4`, `fix/wcag-reflow-autocomplete-titulo` | [#5](https://github.com/artei4/TF3-Sprint3/pull/5) | tokens, design system, redesign, peneiras/conversas no Supabase, acessibilidade, documentação |
+| Marcos Vinícios Corrêa dos Santos | RM571080 | `feat/sprint4-tokens-base`, `feat/sprint4-design-system`, `feat/sprint4-redesign-home`, `feat/sprint4-fluxo-mvp`, `feat/sprint4-a11y-perf`, `docs/sprint4-readme-entrega`, `feat/conversas`, `feat/peneira-ao-vivo`, `feat/avisos-servidor`, `chore/conformidade-sprint4`, `fix/wcag-reflow-autocomplete-titulo` | [#5](https://github.com/artei4/TF3-Sprint3/pull/5), [#6](https://github.com/artei4/TF3-Sprint3/pull/6) | tokens, design system, redesign, peneiras/conversas no Supabase, acessibilidade, documentação |
 
 > Cada integrante precisa de pelo menos uma branch própria mergeada via PR na Sprint 4.
 
@@ -111,5 +111,5 @@ Direção **"Álbum de figurinhas"** (ver `DESIGN.md`; substituiu a primeira dir
 - Retrospectiva: `docs/sprint4/retrospectiva.md`
 - Documentos das sprints anteriores: `docs/sprint3/`
 - Roteiro do vídeo: `docs/sprint4/roteiro-video.md`
-- Esqueleto do PDF: `docs/sprint4/pdf-esqueleto.md`
+- PDF de entrega: `docs/sprint4/entrega-sprint4.pdf` (gerado de `entrega.html`; para atualizar depois de preencher os testes: `python docs/sprint4/gerar-entrega.py`, abrir `entrega.html` no Chrome e salvar como PDF)
 - Integrantes: `integrantes.txt` · Uso de IA: `PROMPTS.md` (prompts completos em `docs/prompts/`)
