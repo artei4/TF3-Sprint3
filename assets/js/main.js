@@ -460,6 +460,7 @@ function unreadSummary() {
 }
 
 const BASE_TITLE = 'TIER ZERO | Pelé Academia'
+let pageName = '' // definido por setPageTitle (WCAG 2.4.2)
 function updateMessageBadge() {
   const { total } = unreadSummary()
   const text = total > 9 ? '9+' : String(total)
@@ -470,7 +471,7 @@ function updateMessageBadge() {
   })
   document.querySelectorAll('[data-route="messages"][data-badge-host]').forEach((button) => button.setAttribute('aria-label', label))
   // Contagem no título da aba, como nos webmails: aparece mesmo com a aba em segundo plano.
-  document.title = (total ? '(' + text + ') ' : '') + BASE_TITLE
+  document.title = (total ? '(' + text + ') ' : '') + (pageName ? pageName + ' · ' : '') + BASE_TITLE
 }
 
 function openUnreadConversation() {
@@ -3619,8 +3620,20 @@ function addressFields(prefix, p = {}) {
     input(t('Rua'), prefix + '-address', p.address || '', 'text') + input(t('Número'), prefix + '-number', p.number || '', 'text') + '</div></details>'
 }
 
+// WCAG 1.3.5: só campos com dados da própria pessoa (não os do local da peneira, do convidado ou do responsável).
+const AUTOCOMPLETE = {
+  'login-email': 'username', 'login-password': 'current-password',
+  'reg-password': 'new-password', 'reg-confirm': 'new-password', 'inv-password': 'new-password', 'inv-confirm': 'new-password',
+  'recovery-password': 'new-password', 'recovery-confirm': 'new-password',
+  'inv-name': 'name', 'inv-email': 'email', 'contact-name': 'name', 'contact-email': 'email',
+}
+for (const prefix of ['reg', 'profile']) {
+  Object.assign(AUTOCOMPLETE, { [prefix + '-name']: 'name', [prefix + '-email']: 'email', [prefix + '-phone']: 'tel', [prefix + '-birth']: 'bday',
+    [prefix + '-city']: 'address-level2', [prefix + '-state']: 'address-level1', [prefix + '-zip']: 'postal-code', [prefix + '-district']: 'address-level3', [prefix + '-address']: 'address-line1' })
+}
+
 function input(label, id, value = '', type = 'text', required = false, disabled = false, readonly = false) {
-  return '<label class="field-label">' + escapeHtml(t(label)) + '<input id="' + id + '" class="field" type="' + type + '" value="' + escapeHtml(value) + '"' + (required ? ' required' : '') + (disabled ? ' disabled' : '') + (readonly ? ' readonly' : '') + ' /></label>'
+  return '<label class="field-label">' + escapeHtml(t(label)) + '<input id="' + id + '" class="field" type="' + type + '" value="' + escapeHtml(value) + '"' + (AUTOCOMPLETE[id] ? ' autocomplete="' + AUTOCOMPLETE[id] + '"' : '') + (required ? ' required' : '') + (disabled ? ' disabled' : '') + (readonly ? ' readonly' : '') + ' /></label>'
 }
 
 function selectField(label, id, options, selected = '') {
@@ -5003,6 +5016,14 @@ function bind() {
   })
 }
 
+// WCAG 2.4.2: cada rota tem o próprio título na aba do navegador.
+const PAGE_TITLES = { login: 'Entrar', register: 'Criar conta', 'reset-password': 'Recuperar senha', dashboard: 'Início', athletes: 'Atletas', profile: 'Meu perfil', tryouts: 'Peneiras', messages: 'Conversas', team: 'Equipe', convite: 'Convite', 'ao-vivo': 'Peneira ao vivo', privacidade: 'Privacidade', termos: 'Termos de uso', sobre: 'Sobre', contato: 'Fale conosco', 'design-system': 'Design system' }
+function setPageTitle(routeBase) {
+  const name = routeBase === 'athletes' && state.user?.role === 'scout' ? 'Vitrine' : PAGE_TITLES[routeBase]
+  pageName = name ? t(name) : ''
+  updateMessageBadge()
+}
+
 // Tela mostrada uma única vez (antes do login) para escolher o idioma. Pode ser
 // reaberta pelo botão de idioma no cabeçalho ou no rodapé da tela de login.
 function render() {
@@ -5020,6 +5041,7 @@ function render() {
     const isNew = route !== lastRoute
     lastRoute = route
     paintScreen(() => {
+      setPageTitle('design-system')
       app.innerHTML = designSystemPage({ icon, input, selectField, tag, athleteCard, positions: POSITIONS, posTag, ballLoader, scoreboard, pitchFormation, rateClass })
       bindDesignSystem(app, { toast, confirmDialog, scrollToElement, initSegmented: initLoginRoleButtons })
       if (isNew) scrollToTop()
@@ -5077,6 +5099,7 @@ function render() {
   lastRoute = route
   paintScreen(() => {
     app.innerHTML = view
+    setPageTitle(PAGE_TITLES[routeBase] ? routeBase : state.user ? 'dashboard' : '')
     bind()
     if (routeBase === 'convite') loadInvitePage(routeArg)
     if (route === 'sobre/parceria') requestAnimationFrame(() => document.getElementById('parceria')?.scrollIntoView({ block: 'start' }))

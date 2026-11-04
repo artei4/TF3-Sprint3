@@ -110,7 +110,7 @@
 .num { font-family:var(--font-display); font-weight:600; font-variant-numeric:tabular-nums; letter-spacing:-.02em; line-height:1; }
 
 /* ===== Superfícies ===== */
-.panel { border:1px solid var(--color-line); background:var(--color-panel); border-radius:var(--radius-card); padding:1.25rem; }
+.panel { min-width:0; /* item de grid: não força a largura do conteúdo (reflow 320px) */ border:1px solid var(--color-line); background:var(--color-panel); border-radius:var(--radius-card); padding:1.25rem; }
 @media (min-width:40rem){ .panel{ padding:1.5rem; } }
 .surface-raised { background:var(--color-raised); border:1px solid var(--color-line); border-radius:var(--radius-card); box-shadow:var(--shadow-modal); }
 
@@ -526,6 +526,8 @@ button.pitch-dot { cursor:pointer; min-width:2.75rem; min-height:2.75rem; backgr
 .app-footer { padding:1.25rem 1rem 2rem; font-size:.85rem; color:var(--color-ink-soft); }
 .count-badge--alert { background:#FF7B6E; color:#1A0604; }
 .nav-badge { position:static; margin-left:auto; box-shadow:none; }
+/* WCAG 1.4.10 (320px): logo com texto + 3 botões passavam da tela. */
+@media (max-width:22.49rem) { .topbar-brand .brand-text { display:none; } }
 @media (min-width:48rem) {
   .topbar { padding:.5rem 1.5rem; }
   .topbar-nav { display:flex; }
@@ -1104,6 +1106,8 @@ h2, h3 { font-stretch:108%; }
   .cover-fan .fc-card .fc-name { font-size:.72rem; }
   .cover-fan .fc-card .fc-inner { padding:.7rem .6rem .6rem; }
 }
+/* 320px (WCAG 1.4.10): as três figurinhas passavam da tela; o leque inteiro encolhe sem deformar as cartas. */
+@media (max-width: 22.49rem) { .cover-fan { scale: .85; } }
 /* Espaço da figurinha do visitante: contorno tracejado "cole aqui", como a página do álbum antes da figurinha. */
 .fc-slot { display:grid; place-content:center; justify-items:center; gap:.35rem; min-height: calc(var(--fc-w) * 1.05); text-align:center; color:#10142A; background: repeating-linear-gradient(135deg, #FFFFFF 0 10px, #F1F3F8 10px 20px); outline: 2px dashed rgb(16 20 42 / .45); outline-offset: -10px; }
 .fc-slot-plus { display:grid; place-items:center; width:2.6rem; height:2.6rem; border-radius:999px; background:#10142A; color:#F2C23A; }
